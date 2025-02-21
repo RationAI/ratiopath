@@ -1,1 +1,1 @@
-# histopath
+# HistoPath

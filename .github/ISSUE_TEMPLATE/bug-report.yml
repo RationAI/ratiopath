@@ -1,0 +1,58 @@
+name: Bug Report
+description: Create a report to help us reproduce and fix the bug
+labels: ["bug"]
+
+body:
+  - type: markdown
+    attributes:
+      value: >
+        #### Thank you for contributing! Before reporting a bug, make sure the issue has no duplicate and hasn't been already addressed by searching through [the existing and past issues](https://github.com/RationAI/histopath/issues?page=1&q=is%3Aissue+sort%3Acreated-desc).
+
+  - type: textarea
+    attributes:
+      label: System Information
+      description: |
+        Please provide the following system information to help us diagnose the bug. For example:
+
+        HistoPath version: 0.1.0
+        Operating System / Platform: Ubuntu 20.04
+        Python version: 3.12.9
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Detailed description
+      description: |
+        Please provide a clear and concise description of what the bug is and paste the error log below. It helps improving readability if the error log is wrapped in ```` ```triple quotes blocks``` ````.
+      placeholder: |
+        A clear and concise description of what the bug is.
+
+        ```
+        # error log
+        ```
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Steps to reproduce
+      description: |
+        Please provide a minimal example to help us reproduce the bug. Code should be wrapped with ```` ```triple quotes blocks``` ```` to improve readability. If the code is too long, please attach as a file or create and link a public gist: https://gist.github.com.
+
+        Related data files (images, models, etc) should be attached below as well. If the data files are too big, feel free to upload them to a online drive, share them and put the link below.
+      placeholder: |
+        ```python
+        # sample code to reproduce the bug
+        ```
+
+        Test data: [image](https://link/to/the/image)
+    validations:
+      required: true
+  - type: checkboxes
+    attributes:
+      label: Issue submission checklist
+      options:
+        - label: I report the issue, it's not a question
+          required: true
+        - label: I checked the problem with documentation, FAQ, open issues, Stack Overflow, etc and have not found any solution
+        - label: I updated to the latest HistoPath version and the issue is still there
+        - label: There is reproducer code and related data files (images, models, etc)
