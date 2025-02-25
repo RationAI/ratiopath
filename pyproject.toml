@@ -13,4 +13,4 @@ dependencies = ["numpy>=2.2.2"]
 
 
 [tool.uv]
-dev-dependencies = ["mypy", "ruff"]
+dev-dependencies = ["mypy", "pytest", "ruff"]
