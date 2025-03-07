@@ -14,3 +14,7 @@ wheels/
 
 # Pytest
 .pytest_cache/
+
+
+# VS Code
+.vscode/
