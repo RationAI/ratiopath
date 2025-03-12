@@ -13,10 +13,11 @@ class OpenSlideMetaDatasource(FileBasedDatasource):
         *,
         mpp: float | None = None,
         level: int | None = None,
-        tile_extend: int | tuple[int, int],
+        tile_extent: int | tuple[int, int],
         stride: int | tuple[int, int],
+        **file_based_datasource_kwargs,
     ) -> None:
-        super().__init__(paths)
+        super().__init__(paths, **file_based_datasource_kwargs)
 
         assert (mpp is not None) != (level is not None), (
             "Exactly one of 'mpp' or 'level' must be provided, not both or neither."
@@ -24,7 +25,7 @@ class OpenSlideMetaDatasource(FileBasedDatasource):
 
         self.desired_mpp = mpp
         self.desired_level = level
-        self.tile_extent = np.broadcast_to(tile_extend, 2)
+        self.tile_extent = np.broadcast_to(tile_extent, 2)
         self.stride = np.broadcast_to(stride, 2)
 
     def _read_stream(self, f: pyarrow.NativeFile, path: str) -> Iterator[Block]:
@@ -57,3 +58,6 @@ class OpenSlideMetaDatasource(FileBasedDatasource):
         }
         builder.add(item)
         yield builder.build()
+
+    def _rows_per_file(self) -> int:  # type: ignore[override]
+        return 1
