@@ -1,6 +1,7 @@
-from typing import Any, Iterator
+from typing import Iterator
 
 import numpy as np
+import pyarrow
 from ray.data.block import Block
 from ray.data.datasource import FileBasedDatasource
 
@@ -10,10 +11,10 @@ class OpenSlideMetaDatasource(FileBasedDatasource):
         self,
         paths: str | list[str],
         *,
-        mpp: float | None,
-        level: int | None,
-        tile_extend: Any,
-        stride: Any,
+        mpp: float | None = None,
+        level: int | None = None,
+        tile_extend: int | tuple[int, int],
+        stride: int | tuple[int, int],
     ) -> None:
         super().__init__(paths)
 
@@ -23,10 +24,10 @@ class OpenSlideMetaDatasource(FileBasedDatasource):
 
         self.desired_mpp = mpp
         self.desired_level = level
-        self.tile_extent = tile_extend
-        self.stride = stride
+        self.tile_extent = np.broadcast_to(tile_extend, 2)
+        self.stride = np.broadcast_to(stride, 2)
 
-    def _read_stream(self, f, path) -> Iterator[Block]:
+    def _read_stream(self, f: pyarrow.NativeFile, path: str) -> Iterator[Block]:
         from ray.data._internal.delegating_block_builder import DelegatingBlockBuilder
 
         from histopath.openslide import OpenSlide
@@ -40,18 +41,16 @@ class OpenSlideMetaDatasource(FileBasedDatasource):
             mpp_x, mpp_y = slide.slide_resolution(level)
 
             extent = slide.level_dimensions[level]
-            tile_extent = np.broadcast_to(self.tile_extent, 2)
-            stride = np.broadcast_to(self.stride, 2)
 
         builder = DelegatingBlockBuilder()
         item = {
             "path": path,
             "extent_x": extent[0],
             "extent_y": extent[1],
-            "tile_extent_x": tile_extent[0],
-            "tile_extent_y": tile_extent[1],
-            "stride_x": stride[0],
-            "stride_y": stride[1],
+            "tile_extent_x": self.tile_extent[0],
+            "tile_extent_y": self.tile_extent[1],
+            "stride_x": self.stride[0],
+            "stride_y": self.stride[1],
             "mpp_x": mpp_x,
             "mpp_y": mpp_y,
             "level": level,
