@@ -8,9 +8,10 @@ authors = [
     { name = "Adam Kukučka", email = "adamkukucka@mail.muni.cz" },
 ]
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<=3.12"
 dependencies = [
     "numpy>=2.2.2",
+    "openslide-python>=1.4.1",
     "pyvips>=2.2.3",
     "ray[data]>=2.42.1",
 ]
