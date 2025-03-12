@@ -16,14 +16,10 @@ class OpenSlide(openslide.OpenSlide):
         Returns:
             The index of the level with the closest µm/px resolution to the desired value.
         """
-        slide_mpp = np.array(
-            [
-                float(self.properties[PROPERTY_NAME_MPP_X]),
-                float(self.properties[PROPERTY_NAME_MPP_Y]),
-            ]
-        )
+        slide_mpp_x = float(self.properties[PROPERTY_NAME_MPP_X])
+        slide_mpp_y = float(self.properties[PROPERTY_NAME_MPP_Y])
 
-        scale_factor = np.mean(mpp / slide_mpp)
+        scale_factor = np.mean(mpp / np.array([slide_mpp_x, slide_mpp_y]))
 
         return np.abs(np.asarray(self.level_downsamples) - scale_factor).argmin().item()
 
@@ -36,12 +32,9 @@ class OpenSlide(openslide.OpenSlide):
         Returns:
             The [x, y] resolution of the slide in µm/px.
         """
+        slide_mpp_x = float(self.properties[PROPERTY_NAME_MPP_X])
+        slide_mpp_y = float(self.properties[PROPERTY_NAME_MPP_Y])
+
         return tuple(
-            self.level_downsamples[level]
-            * np.asarray(
-                (
-                    float(self.properties[PROPERTY_NAME_MPP_X]),
-                    float(self.properties[PROPERTY_NAME_MPP_Y]),
-                )
-            )
+            self.level_downsamples[level] * np.asarray((slide_mpp_x, slide_mpp_y))
         )
