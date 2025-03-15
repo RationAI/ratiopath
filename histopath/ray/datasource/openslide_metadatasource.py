@@ -1,3 +1,4 @@
+from sys import getsizeof
 from typing import Iterator
 
 import numpy as np
@@ -61,3 +62,22 @@ class OpenSlideMetaDatasource(FileBasedDatasource):
 
     def _rows_per_file(self) -> int:  # type: ignore[override]
         return 1
+
+    def estimate_inmemory_data_size(self) -> int | None:
+        size = 0
+
+        isize = getsizeof(int())
+        fsize = getsizeof(float())
+        size += isize * 2  # extent
+        size += isize * 2  # tile_extent
+        size += isize * 2  # stride
+        size += fsize * 2  # mpp
+        size += isize * 1  # level
+
+        total_rows = self._rows_per_file() * len(self._paths())
+        size *= total_rows
+
+        for path in self._paths():
+            size += len(path)
+
+        return size
