@@ -1,0 +1,32 @@
+---
+title: Tiling
+# description: Components
+---
+
+## Code Block
+
+```python
+from typing import Any
+
+from ray import data
+
+from histopath.ray.datasource import OpenSlideMetaDatasource
+from histopath.tiling.tilers import grid_tiles
+from histopath.tiling.utils import row_hash
+
+
+def tiling(row: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        {"tile_x": tile[0], "tile_y": tile[1], "slide_id": row["id"]}
+        for tile in grid_tiles(row["slide_extent"], row["tile_extent"], row["stride"])
+    ]
+
+
+slides = data.read_datasource(
+    OpenSlideMetaDatasource("data/slides", tile_extent=512, stride=256, mpp=0.48)
+).map(row_hash)
+
+slides.write_parquet("data/slides")
+
+slides.flat_map(tiling).write_parquet("data/tiles")
+```
