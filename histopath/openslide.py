@@ -38,3 +38,19 @@ class OpenSlide(openslide.OpenSlide):
         return tuple(
             self.level_downsamples[level] * np.asarray((slide_mpp_x, slide_mpp_y))
         )
+
+    def adjust_read_coords(
+        self, coords: tuple[int, int], level: int
+    ) -> tuple[int, int]:
+        """Adjusts the coordinates to read the region at the specified level.
+
+        Args:
+            coords: The coordinates to adjust.
+            level: The level of the slide to adjust the coordinates for.
+
+        Returns:
+            The adjusted coordinates.
+        """
+        return tuple(
+            np.round(np.asarray(coords) * self.level_downsamples[level]).astype(int)
+        )
