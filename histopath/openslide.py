@@ -1,6 +1,7 @@
 import numpy as np
 import openslide
 from openslide import PROPERTY_NAME_MPP_X, PROPERTY_NAME_MPP_Y
+from PIL.Image import Image
 
 
 class OpenSlide(openslide.OpenSlide):
@@ -39,18 +40,21 @@ class OpenSlide(openslide.OpenSlide):
             self.level_downsamples[level] * np.asarray((slide_mpp_x, slide_mpp_y))
         )
 
-    def adjust_read_coords(
-        self, coords: tuple[int, int], level: int
-    ) -> tuple[int, int]:
-        """Adjusts the coordinates to read the region at the specified level.
+    def read_region_relative(
+        self, location: tuple[int, int], level: int, size: tuple[int, int]
+    ) -> Image:
+        """Reads a region from the slide with coordinates relative to the specified level.
+
+        This method adjusts the coordinates based on the level's downsampling factor
+        before reading the region from the slide.
 
         Args:
-            coords: The coordinates to adjust.
-            level: The level of the slide to adjust the coordinates for.
+            location: The (x, y) coordinates at the specified level.
+            level: The level of the slide to read from.
+            size: The (width, height) of the region to read.
 
         Returns:
-            The adjusted coordinates.
+            The image of the requested region.
         """
-        return tuple(
-            np.round(np.asarray(coords) * self.level_downsamples[level])
-        )
+        location = tuple(np.asarray(location) * self.level_downsamples[level])
+        return super().read_region(location, level, size)

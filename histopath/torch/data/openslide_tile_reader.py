@@ -36,18 +36,19 @@ class OpenSlideTileReader:
             with OpenSlide(self.path) as slide:
                 self.level = slide.closest_level(resolution)
         else:
-            self.level: str | int = level # type: ignore - level is not None (assert)
+            self.level: str | int = level  # type: ignore - level is not None (assert)
 
     def get_openslide_tile(
-        self, tile_coords: tuple[int, int], tile_extent: tuple[int, int], tile: pd.Series
+        self,
+        tile_coords: tuple[int, int],
+        tile_extent: tuple[int, int],
+        tile: pd.Series,
     ) -> Image.Image:
         """Returns tile from the slide image at the specified coordinates in RGB format."""
         level = self._get_from_tile(tile, self.level)
 
         with OpenSlide(self.path) as slide:
-            rgba_region = slide.read_region(
-                slide.adjust_read_coords(tile_coords, level), level, tile_extent
-            )
+            rgba_region = slide.read_region_relative(tile_coords, level, tile_extent)
 
             if self.background is not None:
                 # Create a new image with the background color
@@ -58,4 +59,4 @@ class OpenSlideTileReader:
         return rgba_region.convert("RGB")
 
     def _get_from_tile(self, tile: pd.Series, key: T | str) -> T:
-        return tile[key] if isinstance(key, str) else key # type: ignore
+        return tile[key] if isinstance(key, str) else key  # type: ignore

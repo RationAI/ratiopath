@@ -17,7 +17,7 @@ class Overlay(OpenSlideTileReader):
         slide_resolution: float | tuple[float, float],
         overlay_resolution: float | tuple[float, float] | None = None,
         level: int | str | None = None,
-        overlay_mode: Literal[*Image.MODES] = "1", # type: ignore
+        overlay_mode: Literal[*Image.MODES] = "1",
         resample_kwargs: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(

@@ -24,11 +24,9 @@ def read_tile(
         if level is None:
             level = slide.closest_level(resolution)
 
-        slide_region = slide.read_region(
-            slide.adjust_read_coords(tile_coords, level), level, tile_extent
-        )
+        slide_region = slide.read_region_relative(tile_coords, level, tile_extent)
 
-        return slide_region.convert("RGB").to_numpy()
+        return np.asarray(slide_region.convert("RGB"))
 
 
 def tile_overlay(
@@ -56,7 +54,7 @@ def tile_overlay(
             roi_extent,
         )
 
-        return overlay_region.convert("RGB").to_numpy()
+        return np.asarray(overlay_region.convert("RGB"))
 
 
 def relative_tile_overlay(

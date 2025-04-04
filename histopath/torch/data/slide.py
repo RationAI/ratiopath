@@ -1,11 +1,12 @@
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from PIL import Image
 from torch.utils.data import Dataset
-import numpy as np
 
 from histopath.torch.data.openslide_tile_reader import OpenSlideTileReader
+
 
 class SlideDataset(Dataset[pd.Series], OpenSlideTileReader):
     """Dataset for reading tiles from a single slide image.
