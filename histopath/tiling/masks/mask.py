@@ -18,7 +18,7 @@ def read_tile(
     tile_coords: Dims,
     tile_extent: Dims,
     level: int | None = None,
-    resolution: Dims | None = None,
+    resolution: float | tuple[float, float] | None = None,
 ) -> NDArray:
     assert level is not None or resolution is not None, (
         "Either level or resolution must be provided"
@@ -32,7 +32,7 @@ def read_tile(
             level = slide.closest_level(resolution)
 
         slide_region = slide.read_region(
-            slide.get_tile_dimensions(tile_coords, level), level, tile_extent
+            slide.adjust_read_coords(tile_coords, level), level, tile_extent
         )
 
         return slide_region.convert("RGB").to_numpy()

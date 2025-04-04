@@ -12,8 +12,12 @@ requires-python = ">=3.11,<=3.12"
 dependencies = [
     "numpy>=2.2.2",
     "openslide-python>=1.4.1",
+    "pandas>=2.2.3",
+    "pandas-stubs>=2.2.3.250308",
+    "pillow>=11.1.0",
     "pyvips>=2.2.3",
     "ray[data]>=2.42.1",
+    "torch>=2.6.0",
 ]
 
 

@@ -1,23 +1,21 @@
 import os
 from pathlib import Path
-from typing import TypeAlias, TypeVar
+from typing import TypeVar
 
 import pandas as pd
 from PIL import Image
 
 from histopath.openslide import OpenSlide
 
-TodoMultI: TypeAlias = tuple[int, ...]
-TodoMultF: TypeAlias = tuple[float, ...]
 T = TypeVar("T")
 
 
-class BaseReader:
+class OpenSlideTileReader:
     def __init__(
         self,
         path: str | Path,
         level: int | str | None = None,
-        resolution: TodoMultF | None = None,
+        resolution: float | tuple[float, float] | None = None,
         background: None | tuple[int, int, int] = (255, 255, 255),
     ) -> None:
         # Check if one of level or slide_resolution is provided
@@ -38,11 +36,11 @@ class BaseReader:
             with OpenSlide(self.path) as slide:
                 self.level = slide.closest_level(resolution)
         else:
-            self.level: str | int = level  # type: ignore
+            self.level: str | int = level # type: ignore - level is not None (assert)
 
     def get_openslide_tile(
-        self, tile_coords: TodoMultI, tile_extent: TodoMultI, tile: pd.Series
-    ) -> Image:
+        self, tile_coords: tuple[int, int], tile_extent: tuple[int, int], tile: pd.Series
+    ) -> Image.Image:
         """Returns tile from the slide image at the specified coordinates in RGB format."""
         level = self._get_from_tile(tile, self.level)
 
@@ -60,4 +58,4 @@ class BaseReader:
         return rgba_region.convert("RGB")
 
     def _get_from_tile(self, tile: pd.Series, key: T | str) -> T:
-        return tile[key] if isinstance(key, str) else key  # type: ignore
+        return tile[key] if isinstance(key, str) else key # type: ignore

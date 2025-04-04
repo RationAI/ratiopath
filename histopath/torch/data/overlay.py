@@ -1,26 +1,23 @@
 from pathlib import Path
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
-from PIL import MODES, Image
+from PIL import Image
 
 from histopath.openslide import OpenSlide
-from histopath.torch.data.base import BaseReader
-
-TodoMultI: TypeAlias = tuple[int, ...]
-TodoMultF: TypeAlias = tuple[float, ...]
+from histopath.torch.data.openslide_tile_reader import OpenSlideTileReader
 
 
-class Overlay(BaseReader):
+class Overlay(OpenSlideTileReader):
     def __init__(
         self,
         overlay_path: str | Path,
-        tile_extent: str | TodoMultI,
-        slide_resolution: TodoMultF,
-        overlay_resolution: TodoMultF | None = None,
+        tile_extent: str | int | tuple[int, int],
+        slide_resolution: float | tuple[float, float],
+        overlay_resolution: float | tuple[float, float] | None = None,
         level: int | str | None = None,
-        overlay_mode: Literal[*MODES] = "1",
+        overlay_mode: Literal[*Image.MODES] = "1", # type: ignore
         resample_kwargs: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(
@@ -35,7 +32,7 @@ class Overlay(BaseReader):
         self.resample_kwargs = resample_kwargs
         self.overlay_mode = overlay_mode
 
-    def __getitem__(self, coords: tuple[int, int], tile: pd.Series) -> Image:
+    def __getitem__(self, coords: tuple[int, int], tile: pd.Series) -> Image.Image:
         level = self._get_from_tile(tile, self.level)
         tile_extent = self._get_from_tile(tile, self.tile_extent)
 
@@ -45,14 +42,12 @@ class Overlay(BaseReader):
         resolution_factor = np.asarray(resolution) / np.asarray(self.slide_resolution)
 
         overlay_tile = self.get_openslide_tile(
-            tile_coords=np.round(np.asarray(coords) * resolution_factor).astype(int),
-            tile_extent=np.round(np.asarray(tile_extent) * resolution_factor).astype(
-                int
-            ),
+            tile_coords=tuple(np.round(np.asarray(coords) * resolution_factor)),
+            tile_extent=tuple(np.round(np.asarray(tile_extent) * resolution_factor)),
             tile=tile,
         )
 
         return overlay_tile.convert(self.overlay_mode).resize(
-            tile_extent,
+            np.broadcast_to(tile_extent, 2),
             **(self.resample_kwargs if self.resample_kwargs else {}),
         )

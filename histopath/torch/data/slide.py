@@ -1,18 +1,13 @@
 from pathlib import Path
-from typing import TypeAlias, TypeVar
 
 import pandas as pd
 from PIL import Image
 from torch.utils.data import Dataset
+import numpy as np
 
-from histopath.torch.data.base import BaseReader
+from histopath.torch.data.openslide_tile_reader import OpenSlideTileReader
 
-TodoMultI: TypeAlias = tuple[int, ...]
-TodoMultF: TypeAlias = tuple[float, ...]
-T = TypeVar("T")
-
-
-class SlideDataset(Dataset[pd.Series], BaseReader):
+class SlideDataset(Dataset[pd.Series], OpenSlideTileReader):
     """Dataset for reading tiles from a single slide image.
 
     This dataset reads tiles from an OpenSlide image. The tiles are specified by a
@@ -35,9 +30,9 @@ class SlideDataset(Dataset[pd.Series], BaseReader):
         self,
         slide_tiles: pd.DataFrame,
         slide_path: str | Path,
-        tile_extent: TodoMultI | str,
+        tile_extent: int | tuple[int, int] | str,
         level: int | str | None,
-        slide_resolution: TodoMultF | None,
+        slide_resolution: float | tuple[float, float] | None,
         background: None | tuple[int, int, int] = (255, 255, 255),
     ) -> None:
         """Initialize OpenSlideTilesDataset dataset.
@@ -68,12 +63,12 @@ class SlideDataset(Dataset[pd.Series], BaseReader):
     def __getitem__(self, idx: int) -> pd.Series:
         return self.slide_tiles.iloc[idx]
 
-    def get_tile(self, tile_coords: TodoMultI, tile: pd.Series) -> Image:
+    def get_tile(self, tile_coords: tuple[int, int], tile: pd.Series) -> Image.Image:
         """Returns tile from the slide image at the specified coordinates in RGB format."""
         tile_extent = self._get_from_tile(tile, self.tile_extent)
 
         return super().get_openslide_tile(
             tile_coords=tile_coords,
-            tile_extent=tile_extent,
+            tile_extent=tuple(np.broadcast_to(tile_extent, 2)),
             tile=tile,
         )
