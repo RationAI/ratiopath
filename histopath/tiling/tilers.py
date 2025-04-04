@@ -27,7 +27,7 @@ def grid_tiles(
             - "keep": Keep the last tile even if it does not fit the slide.
 
     Returns:
-        A generator of an array containing the tile coordinates.
+        An iterator of numpy arrays containing the tile coordinates.
     """
     slide_extent_array = np.asarray(slide_extent)
     tile_extent_array = np.asarray(tile_extent)
