@@ -6,8 +6,50 @@ import pyarrow
 from ray.data.block import Block
 from ray.data.datasource import FileBasedDatasource
 
+FILE_EXTENSIONS = [
+    "svs",
+    "tif",
+    "dcm",
+    "ndpi",
+    "vms",
+    "vmu",
+    "scn",
+    "mrxs",
+    "tiff",
+    "svslide",
+    "bif",
+    "czi",
+]
+
 
 class OpenSlideMetaDatasource(FileBasedDatasource):
+    """Datasource for reading OpenSlide metadata.
+
+    This datasource reads metadata from OpenSlide files and returns a block containing
+    the metadata for each file. The metadata includes the slide dimensions, tile extent,
+    stride, and resolution (microns per pixel) for the specified level or resolution.
+
+    Args:
+        paths: Path(s) to the OpenSlide files.
+        mpp: Desired resolution in microns per pixel. If provided, `level` must be None.
+        level: Desired level of the slide. If provided, `mpp` must be None.
+        tile_extent: Size of the tiles to be generated from the slide.
+        stride: Stride for tiling the slide.
+        **file_based_datasource_kwargs: Additional arguments for the FileBasedDatasource.
+
+    Raises:
+        AssertionError: If both `mpp` and `level` are provided or if neither is provided.
+
+    Example:
+        >>> from histopath.ray.datasource.openslide_metadatasource import OpenSlideMetaDatasource
+        >>> datasource = OpenSlideMetaDatasource(
+        ...     paths=["slide1.svs", "slide2.tiff"],
+        ...     mpp=0.25,
+        ...     tile_extent=(512, 512),
+        ...     stride=(256, 256),
+        ... )
+    """
+
     def __init__(
         self,
         paths: str | list[str],
@@ -18,7 +60,9 @@ class OpenSlideMetaDatasource(FileBasedDatasource):
         stride: int | tuple[int, int],
         **file_based_datasource_kwargs,
     ) -> None:
-        super().__init__(paths, **file_based_datasource_kwargs)
+        super().__init__(
+            paths, file_extensions=FILE_EXTENSIONS, **file_based_datasource_kwargs
+        )
 
         assert (mpp is not None) != (level is not None), (
             "Exactly one of 'mpp' or 'level' must be provided, not both or neither."
