@@ -3,7 +3,7 @@ from collections.abc import Iterable
 
 import pyvips
 
-from rationai.masks.vips_filters.typed import Res
+from histopath.masks.vips_filters.typed import Res
 
 
 class VipsFilter(ABC):

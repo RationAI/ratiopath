@@ -1,6 +1,6 @@
 import pyvips
 
-from rationai.masks.vips_filters import (
+from histopath.masks.vips_filters import (
     VipsClosing,
     VipsCompose,
     VipsFilter,
@@ -8,8 +8,7 @@ from rationai.masks.vips_filters import (
     VipsOpening,
     VipsOtsu,
 )
-from rationai.masks.vips_filters.typed import Res
-
+from histopath.masks.vips_filters.typed import Res
 
 default_filter = VipsCompose(
     [

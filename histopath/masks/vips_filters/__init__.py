@@ -1,10 +1,10 @@
-from rationai.masks.vips_filters.color_filters import (
+from histopath.masks.vips_filters.color_filters import (
     VipsGrayScaleFilter,
     VipsSaturationFilter,
 )
-from rationai.masks.vips_filters.vips_filter import VipsCompose, VipsFilter
-from rationai.masks.vips_filters.vips_morphology import VipsClosing, VipsOpening
-from rationai.masks.vips_filters.vips_multi_otsu import VipsMultiOtsu, VipsOtsu
+from histopath.masks.vips_filters.vips_filter import VipsCompose, VipsFilter
+from histopath.masks.vips_filters.vips_morphology import VipsClosing, VipsOpening
+from histopath.masks.vips_filters.vips_multi_otsu import VipsMultiOtsu, VipsOtsu
 
 
 __all__ = [

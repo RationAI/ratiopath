@@ -4,8 +4,8 @@ import pyvips
 from numpy.typing import NDArray
 from skimage.filters import threshold_multiotsu
 
-from rationai.masks.vips_filters.typed import Res
-from rationai.masks.vips_filters.vips_filter import VipsFilter
+from histopath.masks.vips_filters.typed import Res
+from histopath.masks.vips_filters.vips_filter import VipsFilter
 
 
 class VipsMultiOtsu(VipsFilter):

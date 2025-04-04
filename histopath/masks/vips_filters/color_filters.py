@@ -1,7 +1,7 @@
 import pyvips
 
-from rationai.masks.vips_filters.typed import Res
-from rationai.masks.vips_filters.vips_filter import VipsFilter
+from histopath.masks.vips_filters.typed import Res
+from histopath.masks.vips_filters.vips_filter import VipsFilter
 
 
 class VipsGrayScaleFilter(VipsFilter):
