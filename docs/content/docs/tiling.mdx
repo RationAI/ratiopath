@@ -18,7 +18,7 @@ from histopath.tiling.utils import row_hash
 def tiling(row: dict[str, Any]) -> list[dict[str, Any]]:
     return [
         {"tile_x": tile[0], "tile_y": tile[1], "slide_id": row["id"]}
-        for tile in grid_tiles(row["slide_extent"], row["tile_extent"], row["stride"])
+        for tile in grid_tiles((row["extent_x"], row["extent_y"]), (row["tile_extent_x"], row["tile_extent_y"]), (row["stride_x"], row["stride_y"]))
     ]
 
 
