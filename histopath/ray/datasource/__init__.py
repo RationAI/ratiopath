@@ -1,3 +1,3 @@
-from histopath.ray.datasource.vips_tiff_datasink import VipsTiffDatasink
+from histopath.ray.datasource.openslide_metadatasource import OpenSlideMetaDatasource
 
-__all__ = ["VipsTiffDatasink"]
+__all__ = ["OpenSlideMetaDatasource"]
