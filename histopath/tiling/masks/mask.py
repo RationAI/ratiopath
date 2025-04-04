@@ -1,22 +1,15 @@
 from pathlib import Path
-from typing import Any, TypeAlias, TypeVar
 
 import numpy as np
 from numpy.typing import NDArray
 
 from histopath.openslide import OpenSlide
 
-RowData: TypeAlias = dict[str, Any]
-TranslateDict: TypeAlias = dict[str, str] | None
-
-T = TypeVar("T")
-Dims: TypeAlias = tuple[int, int]
-
 
 def read_tile(
     slide_path: str | Path,
-    tile_coords: Dims,
-    tile_extent: Dims,
+    tile_coords: tuple[int, int],
+    tile_extent: tuple[int, int],
     level: int | None = None,
     resolution: float | tuple[float, float] | None = None,
 ) -> NDArray:
@@ -40,9 +33,9 @@ def read_tile(
 
 def tile_overlay(
     overlay_path: str | Path,
-    resolution: Dims,
-    roi_coords: Dims,
-    roi_extent: Dims,
+    resolution: tuple[int, int],
+    roi_coords: tuple[int, int],
+    roi_extent: tuple[int, int],
 ) -> NDArray:
     with OpenSlide(overlay_path) as overlay:
         level = overlay.closest_level(resolution)
@@ -68,10 +61,10 @@ def tile_overlay(
 
 def relative_tile_overlay(
     overlay_path: str | Path,
-    resolution: Dims,
-    tile_coords: Dims,
-    relative_roi_coords: Dims,
-    roi_extent: Dims,
+    resolution: tuple[int, int],
+    tile_coords: tuple[int, int],
+    relative_roi_coords: tuple[int, int],
+    roi_extent: tuple[int, int],
 ) -> NDArray:
     return tile_overlay(
         overlay_path=overlay_path,
