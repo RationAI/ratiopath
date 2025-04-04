@@ -4,7 +4,7 @@ from openslide import PROPERTY_NAME_MPP_X, PROPERTY_NAME_MPP_Y
 
 
 class OpenSlide(openslide.OpenSlide):
-    def closest_level(self, mpp: float) -> int:
+    def closest_level(self, mpp: float | tuple[float, float]) -> int:
         """Finds the closest slide level to match the desired MPP.
 
         This method compares the desired MPP (µm/px) with the MPP of the
@@ -19,7 +19,7 @@ class OpenSlide(openslide.OpenSlide):
         slide_mpp_x = float(self.properties[PROPERTY_NAME_MPP_X])
         slide_mpp_y = float(self.properties[PROPERTY_NAME_MPP_Y])
 
-        scale_factor = np.mean(mpp / np.array([slide_mpp_x, slide_mpp_y]))
+        scale_factor = np.mean(np.asarray(mpp) / np.asarray([slide_mpp_x, slide_mpp_y]))
 
         return np.abs(np.asarray(self.level_downsamples) - scale_factor).argmin().item()
 
@@ -37,4 +37,20 @@ class OpenSlide(openslide.OpenSlide):
 
         return tuple(
             self.level_downsamples[level] * np.asarray((slide_mpp_x, slide_mpp_y))
+        )
+
+    def adjust_read_coords(
+        self, coords: tuple[int, int], level: int
+    ) -> tuple[int, int]:
+        """Adjusts the coordinates to read the region at the specified level.
+
+        Args:
+            coords: The coordinates to adjust.
+            level: The level of the slide to adjust the coordinates for.
+
+        Returns:
+            The adjusted coordinates.
+        """
+        return tuple(
+            np.round(np.asarray(coords) * self.level_downsamples[level])
         )
