@@ -1,7 +1,7 @@
 from typing import Any
 
 import numpy as np
-from openslide import OpenSlide
+from histopath.openslide import OpenSlide
 from PIL import Image
 
 
