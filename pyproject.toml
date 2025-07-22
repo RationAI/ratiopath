@@ -1,7 +1,7 @@
 [project]
 name = "histopath"
 version = "0.1.0"
-description = ""
+description = "A Python package for histopathology image processing with tiling functionality"
 authors = [
     { name = "Matěj Pekár", email = "matejpekar@mail.muni.cz" },
     { name = "Jakub Pekár", email = "jakubpekar@mail.muni.cz" },
@@ -9,7 +9,24 @@ authors = [
 ]
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["numpy>=2.2.2"]
+dependencies = [
+    "numpy>=2.2.2",
+    "Pillow>=10.0.0",
+]
+
+
+[project.urls]
+Homepage = "https://github.com/RationAI/histopath"
+Issues = "https://github.com/RationAI/histopath/issues"
+
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/histopath"]
 
 
 [tool.uv]
