@@ -3,7 +3,7 @@ import pyvips
 from histopath.masks.vips_filters.typed import Res
 from histopath.masks.vips_filters.vips_filter import VipsFilter
 
-# The default value 10 is based on empiracal observations.
+# The default value 10 is based on empirical observations.
 DISC_FACTOR = 10
 
 
