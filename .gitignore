@@ -11,3 +11,10 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Pytest
+.pytest_cache/
+
+
+# VS Code
+.vscode/
