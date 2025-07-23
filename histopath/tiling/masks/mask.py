@@ -21,8 +21,7 @@ def read_tile(
         if resolution is not None:
             level = slide.closest_level(resolution)
 
-        assert level is not None
-        slide_region = slide.read_region_relative(tile_coords, level, tile_extent)
+        slide_region = slide.read_region_relative(tile_coords, level, tile_extent)  # type: ignore[arg-type]
 
         return np.asarray(slide_region.convert("RGB"))
 
