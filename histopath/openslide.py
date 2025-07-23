@@ -36,8 +36,9 @@ class OpenSlide(openslide.OpenSlide):
         slide_mpp_x = float(self.properties[PROPERTY_NAME_MPP_X])
         slide_mpp_y = float(self.properties[PROPERTY_NAME_MPP_Y])
 
-        return tuple(
-            self.level_downsamples[level] * np.asarray((slide_mpp_x, slide_mpp_y))
+        return (
+            slide_mpp_x * self.level_downsamples[level],
+            slide_mpp_y * self.level_downsamples[level],
         )
 
     def read_region_relative(
@@ -56,5 +57,7 @@ class OpenSlide(openslide.OpenSlide):
         Returns:
             The image of the requested region.
         """
-        location = tuple(np.asarray(location) * self.level_downsamples[level])
+        downsample = self.level_downsamples[level]
+        location = (int(location[0] * downsample), int(location[1] * downsample))
+
         return super().read_region(location, level, size)

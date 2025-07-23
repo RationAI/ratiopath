@@ -70,6 +70,6 @@ class SlideDataset(Dataset[pd.Series], OpenSlideTileReader):
 
         return super().get_openslide_tile(
             tile_coords=tile_coords,
-            tile_extent=tuple(np.broadcast_to(tile_extent, 2)),
+            tile_extent=tuple(np.broadcast_to(tile_extent, 2)),  # type: ignore[call-overload]
             tile=tile,
         )
