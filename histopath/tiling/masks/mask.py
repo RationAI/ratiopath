@@ -13,15 +13,12 @@ def read_tile(
     level: int | None = None,
     resolution: float | tuple[float, float] | None = None,
 ) -> NDArray:
-    assert level is not None or resolution is not None, (
+    assert (level is None) != (resolution is None), (
         "Either level or resolution must be provided"
-    )
-    assert level is None or resolution is None, (
-        "Only one of level or resolution must be provided"
     )
 
     with OpenSlide(slide_path) as slide:
-        if level is None:
+        if resolution is not None:
             level = slide.closest_level(resolution)
 
         slide_region = slide.read_region_relative(tile_coords, level, tile_extent)

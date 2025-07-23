@@ -10,6 +10,7 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "albumentations>=2.0.8",
     "numpy>=2.2.2",
     "openslide-python>=1.4.1",
     "pandas>=2.2.3",
@@ -17,6 +18,7 @@ dependencies = [
     "pillow>=11.1.0",
     "pyvips>=2.2.3",
     "ray[data]>=2.42.1",
+    "scikit-image>=0.25.2",
     "torch>=2.6.0",
 ]
 
