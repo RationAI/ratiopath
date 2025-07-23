@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -17,7 +17,7 @@ class Overlay(OpenSlideTileReader):
         slide_resolution: float | tuple[float, float],
         overlay_resolution: float | tuple[float, float] | None = None,
         level: int | str | None = None,
-        overlay_mode: Literal[*Image.MODES] = "1",
+        overlay_mode: str = "1",
         resample_kwargs: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(
@@ -48,6 +48,6 @@ class Overlay(OpenSlideTileReader):
         )
 
         return overlay_tile.convert(self.overlay_mode).resize(
-            np.broadcast_to(tile_extent, 2),
+            np.broadcast_to(tile_extent, 2),  # type: ignore[call-overload]
             **(self.resample_kwargs if self.resample_kwargs else {}),
         )
