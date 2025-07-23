@@ -1,6 +1,6 @@
 [project]
 name = "histopath"
-version = "0.1.0"
+version = "0.1.1"
 description = ""
 authors = [
     { name = "Matěj Pekár", email = "matejpekar@mail.muni.cz" },
