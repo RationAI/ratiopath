@@ -29,15 +29,19 @@ class StainAugmentor(ImageOnlyTransform):
         self.alpha = alpha
         self.beta = beta
 
+        if isinstance(self.conv_matrix, np.ndarray):
+            self.inv_conv_matrix = np.linalg.inv(self.conv_matrix)
+
     def apply(
         self,
         img: np.ndarray,
         conv_matrix: np.ndarray,
+        inv_conv_matrix: np.ndarray,
         alphas: list[float],
         betas: list[float],
         **params: dict[str, Any],
     ) -> np.ndarray:
-        stains = separate_stains(img, np.linalg.inv(conv_matrix))
+        stains = separate_stains(img, inv_conv_matrix)
 
         for i in range(stains.shape[-1]):
             stains[..., i] *= alphas[i]
@@ -53,9 +57,15 @@ class StainAugmentor(ImageOnlyTransform):
             if callable(self.conv_matrix)
             else self.conv_matrix
         )
+        inv_conv_matrix = (
+            self.inv_conv_matrix
+            if hasattr(self, "inv_conv_matrix")
+            else np.linalg.inv(conv_matrix)
+        )
 
         return {
             "conv_matrix": conv_matrix,
+            "inv_conv_matrix": inv_conv_matrix,
             "alphas": [
                 self.py_random.uniform(1 - self.alpha, 1 + self.alpha)
                 for _ in range(conv_matrix.shape[-1])
