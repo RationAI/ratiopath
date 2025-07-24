@@ -45,7 +45,7 @@ def discard_pixels(
     - gray_threshold: Threshold for excluding very gray pixels (default is cos(0.15)).
 
     Returns:
-    - Tuple of numpy arrays containing the filtered optical densities for red, green, and blue channels.
+    - A numpy array containing the filtered optical densities for red, green, and blue channels.
     """
 
     keep_count = 0
