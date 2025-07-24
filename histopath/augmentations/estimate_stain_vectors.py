@@ -6,7 +6,7 @@ EOSIN = np.array([0.2159, 0.8012, 0.5581])  # From http://amida13.isi.uu.nl/?q=n
 DAB = np.array([0.27, 0.57, 0.78])  # From Ruifrok & Johnston's original paper
 
 
-def make_resitual_stain(stain1: np.ndarray, stain2: np.ndarray) -> np.ndarray:
+def make_residual_stain(stain1: np.ndarray, stain2: np.ndarray) -> np.ndarray:
     """
     Create a residual stain vector from two stain vectors.
 
