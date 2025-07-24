@@ -22,10 +22,10 @@ def make_residual_stain(stain1: np.ndarray, stain2: np.ndarray) -> np.ndarray:
 
 
 HE = np.array(
-    [HEMATOXYLIN, EOSIN, make_resitual_stain(HEMATOXYLIN, EOSIN)], dtype=np.float32
+    [HEMATOXYLIN, EOSIN, make_residual_stain(HEMATOXYLIN, EOSIN)], dtype=np.float32
 )
 HDAB = np.array(
-    [HEMATOXYLIN, DAB, make_resitual_stain(HEMATOXYLIN, DAB)], dtype=np.float32
+    [HEMATOXYLIN, DAB, make_residual_stain(HEMATOXYLIN, DAB)], dtype=np.float32
 )
 
 
