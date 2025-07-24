@@ -133,4 +133,4 @@ def estimate_stain_vectors(
     if max(cos_angle12, cos_angle21) > max(cos_angle11, cos_angle22):
         stain1, stain2 = stain2, stain1
 
-    return np.array([stain1, stain2, make_resitual_stain(stain1, stain2)])
+    return np.array([stain1, stain2, make_residual_stain(stain1, stain2)])
