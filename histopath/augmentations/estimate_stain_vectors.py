@@ -42,7 +42,7 @@ def discard_pixels(
     - od: A numpy array of optical densities for red, green, and blue channels.
     - min_stain: Minimum optical density threshold.
     - max_stain: Maximum optical density threshold.
-    - gray_treshold: Threshold for excluding very gray pixels (default is cos(0.15)).
+    - gray_threshold: Threshold for excluding very gray pixels (default is cos(0.15)).
 
     Returns:
     - Tuple of numpy arrays containing the filtered optical densities for red, green, and blue channels.
