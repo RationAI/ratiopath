@@ -33,7 +33,7 @@ def discard_pixels(
     od: np.ndarray,
     min_stain: float,
     max_stain: float,
-    gray_treshold: float = np.cos(0.15),
+    gray_threshold: float = np.cos(0.15),
 ) -> np.ndarray:
     """
     Discard pixels based on optical density thresholds.
