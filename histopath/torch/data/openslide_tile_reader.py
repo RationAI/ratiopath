@@ -18,12 +18,8 @@ class OpenSlideTileReader:
         resolution: float | tuple[float, float] | None = None,
         background: None | tuple[int, int, int] = (255, 255, 255),
     ) -> None:
-        # Check if one of level or slide_resolution is provided
-        assert level is not None or resolution is not None, (
+        assert (level is None) != (resolution is None), (
             "Either level or resolution must be provided"
-        )
-        assert level is None or resolution is None, (
-            "Only one of level or resolution must be provided"
         )
 
         assert os.path.exists(path), f"Path {path} does not exist"
@@ -34,9 +30,9 @@ class OpenSlideTileReader:
         # Assign level based on the provided arguments
         if resolution is not None:
             with OpenSlide(self.path) as slide:
-                self.level = slide.closest_level(resolution)
-        else:
-            self.level: str | int = level  # type: ignore - level is not None (assert)
+                self.level: int | str = slide.closest_level(resolution)
+        elif level is not None:
+            self.level = level
 
     def get_openslide_tile(
         self,

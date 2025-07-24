@@ -108,20 +108,32 @@ class OpenSlideMetaDatasource(FileBasedDatasource):
         return 1
 
     def estimate_inmemory_data_size(self) -> int | None:
-        size = 0
+        paths = self._paths()
+        if not paths:
+            return 0
 
-        isize = getsizeof(int())
-        fsize = getsizeof(float())
-        size += isize * 2  # extent
-        size += isize * 2  # tile_extent
-        size += isize * 2  # stride
-        size += fsize * 2  # mpp
-        size += isize * 1  # level
+        # Create a sample item to calculate the base size of a single row.
+        sample_item = {
+            "path": "",
+            "extent_x": 0,
+            "extent_y": 0,
+            "tile_extent_x": 0,
+            "tile_extent_y": 0,
+            "stride_x": 0,
+            "stride_y": 0,
+            "mpp_x": 0.0,
+            "mpp_y": 0.0,
+            "level": 0,
+        }
 
-        total_rows = self._rows_per_file() * len(self._paths())
-        size *= total_rows
+        # Calculate the size of the dictionary structure, keys, and fixed-size values.
+        base_row_size = getsizeof(sample_item)
+        for k, v in sample_item.items():
+            base_row_size += getsizeof(k)
+            base_row_size += getsizeof(v)
 
-        for path in self._paths():
-            size += len(path)
+        # Calculate the total size of all path strings.
+        total_path_size = sum(getsizeof(p) for p in paths)
 
-        return size
+        # The total estimated size is the base size for each row plus the total size of paths.
+        return base_row_size * len(paths) + total_path_size
