@@ -65,7 +65,7 @@ def discard_pixels(
             continue
 
         # Exclude very gray pixels
-        if (r * sqrt3 + g * sqrt3 + b * sqrt3) / np.sqrt(mag_squared) >= gray_treshold:
+        if (r * sqrt3 + g * sqrt3 + b * sqrt3) / np.sqrt(mag_squared) >= gray_threshold:
             continue
 
         od[keep_count] = np.array([r, g, b])
