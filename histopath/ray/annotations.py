@@ -78,10 +78,11 @@ def _get_parser_for_file(file_path: str):
                 data_type = data.get('type', '').lower()
                 if data_type in ['featurecollection', 'feature', 'point', 'polygon', 'multipoint', 'multipolygon']:
                     return GeoJSONParser
-                elif 'objectType' in data or (isinstance(data, dict) and 'roi' in data):
+                elif 'objectType' in data or 'roi' in data:
                     return QuPathParser
-                elif isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
-                    # Check first item for QuPath-like structure
+            elif isinstance(data, list) and len(data) > 0:
+                # Check first item for QuPath-like structure
+                if isinstance(data[0], dict):
                     first_item = data[0]
                     if 'objectType' in first_item or 'roi' in first_item:
                         return QuPathParser
