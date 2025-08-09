@@ -148,7 +148,9 @@ class TestGeoJSONParser:
 
     def test_get_points(self, geojson_content):
         """Test parsing points from GeoJSON."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".geojson", delete=False
+        ) as f:
             json.dump(geojson_content, f)
             f.flush()
 
@@ -165,7 +167,9 @@ class TestGeoJSONParser:
 
     def test_get_polygons_with_filters(self, geojson_content):
         """Test parsing polygons with filters."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".geojson", delete=False
+        ) as f:
             json.dump(geojson_content, f)
             f.flush()
 

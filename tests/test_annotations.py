@@ -39,7 +39,9 @@ class TestMapAnnotations:
     def test_map_annotations_basic(self, sample_geojson_content):
         """Test basic functionality of map_annotations."""
         # Create a temporary annotation file
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".geojson", delete=False
+        ) as f:
             json.dump(sample_geojson_content, f)
             f.flush()
 
@@ -90,7 +92,9 @@ class TestMapAnnotations:
 
     def test_map_annotations_custom_roi(self, sample_geojson_content):
         """Test map_annotations with a custom region of interest."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".geojson", delete=False
+        ) as f:
             json.dump(sample_geojson_content, f)
             f.flush()
 
