@@ -30,7 +30,7 @@ class GeoJSONParser(AbstractParser):
         if "type" not in geometry:
             raise ValueError("Geometry must contain 'type' key")
 
-        if "type" == "GeometryCollection":
+        if geometry["type"] == "GeometryCollection":
             if "geometries" not in geometry:
                 raise ValueError("GeometryCollection must contain 'geometries' key")
             geometries = []
