@@ -55,7 +55,7 @@ class TestASAPParser:
                 assert len(polygons) == 1
                 # Check that we have a polygon-like object
                 polygon = polygons[0]
-                assert hasattr(polygon, "coords") or hasattr(polygon, "exterior")
+                assert hasattr(polygon, "exterior")
             finally:
                 os.unlink(f.name)
 
@@ -140,7 +140,7 @@ class TestGeoJSONParser:
                 assert len(polygons) == 1
                 # Check that we have a polygon-like object
                 polygon = polygons[0]
-                assert hasattr(polygon, "coords") or hasattr(polygon, "exterior")
+                assert hasattr(polygon, "exterior")
             finally:
                 os.unlink(f.name)
 
@@ -169,9 +169,7 @@ class TestGeoJSONParser:
 
             try:
                 parser = GeoJSONParser(f.name)
-                polygons = list(
-                    parser.get_polygons(name="nested.property", separator=".")
-                )
+                polygons = list(parser.get_polygons(nested_property="value"))
 
                 assert len(polygons) == 1
                 assert polygons[0].exterior.coords[0] == (100.0, 200.0)

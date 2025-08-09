@@ -140,7 +140,7 @@ class GeoJSONParser(AbstractParser):
             for key, value in kwargs.items()
             if key != "separator"
         }
-        separator = str(kwargs["separator"]) if "separator" in kwargs else None
+        separator = str(kwargs.get("separator", "_"))
 
         for feature in features:
             valid = True
