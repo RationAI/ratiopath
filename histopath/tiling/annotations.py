@@ -59,6 +59,15 @@ def map_annotations(
 
     parser = _get_parser_for_file(annotation_file)
 
+    # Validate that all tiles have the same extent and downsample values
+    if (
+        not np.all(rows["tile_extent_x"] == rows["tile_extent_x"][0])
+        or not np.all(rows["tile_extent_y"] == rows["tile_extent_y"][0])
+        or not np.all(rows["downsample"] == rows["downsample"][0])
+    ):
+        raise ValueError(
+            "All tiles in the batch must have the same extent and downsample values."
+        )
     tile_extent_x = rows["tile_extent_x"][0]
     tile_extent_y = rows["tile_extent_y"][0]
     downsample = rows["downsample"][0]
