@@ -70,7 +70,7 @@ class GeoJSONParser(AbstractParser):
             for key, value in kwargs.items()
             if key != "separator"
         }
-        separator = str(filters.get("separator", "."))
+        separator = str(kwargs["separator"]) if "separator" in kwargs else None
 
         for feature in features:
             valid = True
@@ -82,7 +82,10 @@ class GeoJSONParser(AbstractParser):
                         valid = False
                         break
                     properties = properties[subkey]
-                if not pattern.match(str(properties)):
+                if not isinstance(properties, str):
+                    valid = False
+                    break
+                if not pattern.match(properties):
                     valid = False
                     break
 
@@ -92,6 +95,9 @@ class GeoJSONParser(AbstractParser):
 
     def get_polygons(self, **kwargs) -> Iterable[Polygon]:
         """Parse polygon annotations from GeoJSON file.
+
+        Args:
+            **kwargs: Optional keyword arguments for filtering annotations.
 
         Returns:
             An iterable of shapely Polygon objects.
@@ -110,6 +116,9 @@ class GeoJSONParser(AbstractParser):
 
     def get_points(self, **kwargs) -> Iterable[Point]:
         """Parse point annotations from GeoJSON file.
+
+        Args:
+            **kwargs: Optional keyword arguments for filtering annotations.
 
         Returns:
             An iterable of shapely Point objects.

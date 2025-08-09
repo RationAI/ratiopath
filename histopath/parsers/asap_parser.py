@@ -41,7 +41,7 @@ class ASAPParser(AbstractParser):
 
             yield annotation
 
-    def _extract_coordinates(self, annotation: ET.Element[str]) -> list[Point]:
+    def _extract_coordinates(self, annotation: ET.Element) -> list[Point]:
         """Extract coordinates from an annotation element.
 
         Args:
@@ -60,6 +60,9 @@ class ASAPParser(AbstractParser):
     def get_polygons(self, **kwargs) -> Iterable[Polygon]:
         """Parse polygon annotations from ASAP XML file.
 
+        Args:
+            **kwargs: Optional keyword arguments for filtering annotations.
+
         Returns:
             An iterable of shapely Polygon objects.
         """
@@ -69,6 +72,9 @@ class ASAPParser(AbstractParser):
 
     def get_points(self, **kwargs) -> Iterable[Point]:
         """Parse point annotations from ASAP XML file.
+
+        Args:
+            **kwargs: Optional keyword arguments for filtering annotations.
 
         Returns:
             An iterable of shapely Point objects.

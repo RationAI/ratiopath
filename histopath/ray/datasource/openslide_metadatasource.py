@@ -3,6 +3,7 @@ from typing import Iterator
 
 import numpy as np
 import pyarrow
+
 from ray.data.block import Block
 from ray.data.datasource import FileBasedDatasource
 
@@ -74,9 +75,8 @@ class OpenSlideMetaDatasource(FileBasedDatasource):
         self.stride = np.broadcast_to(stride, 2)
 
     def _read_stream(self, f: pyarrow.NativeFile, path: str) -> Iterator[Block]:
-        from ray.data._internal.delegating_block_builder import DelegatingBlockBuilder
-
         from histopath.openslide import OpenSlide
+        from ray.data._internal.delegating_block_builder import DelegatingBlockBuilder
 
         with OpenSlide(path) as slide:
             if self.desired_level is not None:
@@ -87,6 +87,7 @@ class OpenSlideMetaDatasource(FileBasedDatasource):
             mpp_x, mpp_y = slide.slide_resolution(level)
 
             extent = slide.level_dimensions[level]
+            downsample = slide.level_downsamples[level]
 
         builder = DelegatingBlockBuilder()
         item = {
@@ -100,6 +101,7 @@ class OpenSlideMetaDatasource(FileBasedDatasource):
             "mpp_x": mpp_x,
             "mpp_y": mpp_y,
             "level": level,
+            "downsample": downsample,
         }
         builder.add(item)
         yield builder.build()
@@ -124,6 +126,7 @@ class OpenSlideMetaDatasource(FileBasedDatasource):
             "mpp_x": 0.0,
             "mpp_y": 0.0,
             "level": 0,
+            "downsample": 0.0,
         }
 
         # Calculate the size of the dictionary structure, keys, and fixed-size values.
