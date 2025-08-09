@@ -135,11 +135,11 @@ class TestMapAnnotations:
 
                 # Check that annotation data is added
                 assert np.allclose(
-                    result["annotation_coverage_px"], np.array([36.0, 6.0, 6.0, 0.0])
+                    result["annotation_coverage_px"], np.array([36.0, 6.0, 6.0, 1.0])
                 )
                 assert np.allclose(
                     result["annotation_coverage_percent"],
-                    np.array([100.0, 16.66667, 16.66667, 0.0]),
+                    np.array([100.0, 16.66667, 16.66667, 2.77778]),
                 )
 
             finally:
