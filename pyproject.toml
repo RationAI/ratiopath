@@ -11,6 +11,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "albumentations>=2.0.8",
+    "geojson>=3.2.0",
     "numpy>=2.2.2",
     "openslide-python>=1.4.1",
     "pandas>=2.2.3",
