@@ -62,7 +62,7 @@ class TestMapAnnotations:
 
                 # Check that the function returns expected structure
                 assert "annotation_path" in result
-                assert "tiel_x" in result
+                assert "tile_x" in result
                 assert "tile_y" in result
                 assert "tile_extent_x" in result
                 assert "tile_extent_y" in result
@@ -79,8 +79,8 @@ class TestMapAnnotations:
                 assert np.array_equal(result["downsample"], rows["downsample"])
 
                 # Check that annotation data is added
-                assert np.array_equal(
-                    result["annotation_coverage_px"], np.array([64, 16, 16, 4])
+                assert np.allclose(
+                    result["annotation_coverage_px"], np.array([64.0, 16.0, 16.0, 4.0])
                 )
                 assert np.allclose(
                     result["annotation_coverage_percent"],
@@ -134,8 +134,8 @@ class TestMapAnnotations:
                 assert np.array_equal(result["downsample"], rows["downsample"])
 
                 # Check that annotation data is added
-                assert np.array_equal(
-                    result["annotation_coverage_px"], np.array([36, 6, 6, 0])
+                assert np.allclose(
+                    result["annotation_coverage_px"], np.array([36.0, 6.0, 6.0, 0.0])
                 )
                 assert np.allclose(
                     result["annotation_coverage_percent"],
