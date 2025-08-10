@@ -19,6 +19,7 @@ dependencies = [
     "pyvips>=2.2.3",
     "ray[data]>=2.42.1",
     "scikit-image>=0.25.2",
+    "tifffile>=2024.5.22",
     "torch>=2.6.0",
 ]
 
