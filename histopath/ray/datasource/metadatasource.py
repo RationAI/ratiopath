@@ -86,6 +86,7 @@ class MetaDatasource(AbstractMetaDatasource):
 
     def _read_stream(self, f: pyarrow.NativeFile, path: str) -> Iterator[Block]:
         """Read metadata using the appropriate datasource based on file type."""
+        datasource: OmeTypesMetaDatasource | OpenSlideMetaDatasource
         if self._is_ome_tiff(path):
             # Use OME-TIFF datasource
             datasource = OmeTypesMetaDatasource(
