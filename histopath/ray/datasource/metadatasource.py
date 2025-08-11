@@ -3,7 +3,7 @@ from typing import Iterator
 import pyarrow
 from ray.data.block import Block
 
-from histopath.ray.datasource.abstact_metadatasource import AbstractMetaDatasource
+from histopath.ray.datasource.abstract_metadatasource import AbstractMetaDatasource
 
 from .ometypes_metadatasource import OmeTypesMetaDatasource
 from .openslide_metadatasource import OpenSlideMetaDatasource

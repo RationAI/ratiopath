@@ -4,7 +4,7 @@ import numpy as np
 import pyarrow
 from ray.data.block import Block
 
-from histopath.ray.datasource.abstact_metadatasource import AbstractMetaDatasource
+from histopath.ray.datasource.abstract_metadatasource import AbstractMetaDatasource
 
 FILE_EXTENSIONS = [
     "svs",

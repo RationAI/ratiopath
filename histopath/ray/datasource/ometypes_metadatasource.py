@@ -5,7 +5,7 @@ import pyarrow
 from ome_types import OME
 from ray.data.block import Block
 
-from histopath.ray.datasource.abstact_metadatasource import AbstractMetaDatasource
+from histopath.ray.datasource.abstract_metadatasource import AbstractMetaDatasource
 
 FILE_EXTENSIONS = [
     "ome.tiff",
