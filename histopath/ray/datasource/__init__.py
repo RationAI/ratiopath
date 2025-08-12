@@ -1,5 +1,4 @@
-from histopath.ray.datasource.metadatasource import MetaDatasource
-from histopath.ray.datasource.ometypes_metadatasource import OmeTypesMetaDatasource
-from histopath.ray.datasource.openslide_metadatasource import OpenSlideMetaDatasource
+from histopath.ray.datasource.slide_metadatasource import SlideMetaDatasource
+from histopath.ray.datasource.vips_tiff_datasink import VipsTiffDatasink
 
-__all__ = ["MetaDatasource", "OmeTypesMetaDatasource", "OpenSlideMetaDatasource"]
+__all__ = ["SlideMetaDatasource", "VipsTiffDatasink"]

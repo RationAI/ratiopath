@@ -1,7 +1,8 @@
-import numpy as np
 import openslide
 from openslide import PROPERTY_NAME_MPP_X, PROPERTY_NAME_MPP_Y
 from PIL.Image import Image
+
+from histopath.utils.closest_level import closest_level
 
 
 class OpenSlide(openslide.OpenSlide):
@@ -17,12 +18,14 @@ class OpenSlide(openslide.OpenSlide):
         Returns:
             The index of the level with the closest µm/px resolution to the desired value.
         """
-        slide_mpp_x = float(self.properties[PROPERTY_NAME_MPP_X])
-        slide_mpp_y = float(self.properties[PROPERTY_NAME_MPP_Y])
-
-        scale_factor = np.mean(np.asarray(mpp) / np.asarray([slide_mpp_x, slide_mpp_y]))
-
-        return np.abs(np.asarray(self.level_downsamples) - scale_factor).argmin().item()
+        return closest_level(
+            mpp,
+            (
+                float(self.properties[PROPERTY_NAME_MPP_X]),
+                float(self.properties[PROPERTY_NAME_MPP_Y]),
+            ),
+            list(self.level_downsamples),
+        )
 
     def slide_resolution(self, level: int) -> tuple[float, float]:
         """Returns the resolution of the slide in µm/px at the given level.
