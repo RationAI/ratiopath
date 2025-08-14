@@ -88,7 +88,7 @@ class SlideMetaDatasource(FileBasedDatasource):
         if mpp_x is None or mpp_y is None:
             raise ValueError("Physical size (MPP) is not available in the metadata.")
 
-        yield from self._build_block(path, extent, (mpp_x, mpp_y), level, downsample)
+        yield self._build_block(path, extent, (mpp_x, mpp_y), level, downsample)
 
     def _read_openslide_stream(
         self, f: pyarrow.NativeFile, path: str
