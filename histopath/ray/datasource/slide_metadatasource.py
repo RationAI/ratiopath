@@ -6,7 +6,10 @@ import pyarrow
 from ray.data.block import Block
 from ray.data.datasource import FileBasedDatasource
 
+from histopath.utils.closest_level import closest_level
+
 FILE_EXTENSIONS = [
+    # OpenSlide formats
     "svs",
     "tif",
     "dcm",
@@ -19,37 +22,13 @@ FILE_EXTENSIONS = [
     "svslide",
     "bif",
     "czi",
+    # OME-TIFF formats
+    "ome.tiff",
+    "ome.tif",
 ]
 
 
-class OpenSlideMetaDatasource(FileBasedDatasource):
-    """Datasource for reading OpenSlide metadata.
-
-    This datasource reads metadata from OpenSlide files and returns a block containing
-    the metadata for each file. The metadata includes the slide dimensions, tile extent,
-    stride, and resolution (microns per pixel) for the specified level or resolution.
-
-    Args:
-        paths: Path(s) to the OpenSlide files.
-        mpp: Desired resolution in microns per pixel. If provided, `level` must be None.
-        level: Desired level of the slide. If provided, `mpp` must be None.
-        tile_extent: Size of the tiles to be generated from the slide.
-        stride: Stride for tiling the slide.
-        **file_based_datasource_kwargs: Additional arguments for the FileBasedDatasource.
-
-    Raises:
-        AssertionError: If both `mpp` and `level` are provided or if neither is provided.
-
-    Example:
-        >>> from histopath.ray.datasource.openslide_metadatasource import OpenSlideMetaDatasource
-        >>> datasource = OpenSlideMetaDatasource(
-        ...     paths=["slide1.svs", "slide2.tiff"],
-        ...     mpp=0.25,
-        ...     tile_extent=(512, 512),
-        ...     stride=(256, 256),
-        ... )
-    """
-
+class SlideMetaDatasource(FileBasedDatasource):
     def __init__(
         self,
         paths: str | list[str],
@@ -74,8 +53,46 @@ class OpenSlideMetaDatasource(FileBasedDatasource):
         self.stride = np.broadcast_to(stride, 2)
 
     def _read_stream(self, f: pyarrow.NativeFile, path: str) -> Iterator[Block]:
-        from ray.data._internal.delegating_block_builder import DelegatingBlockBuilder
+        if path.lower().endswith((".ome.tiff", ".ome.tif")):
+            return self._read_ome_stream(f, path)
+        return self._read_openslide_stream(f, path)
 
+    def _read_ome_stream(self, f: pyarrow.NativeFile, path: str) -> Iterator[Block]:
+        from ome_types import from_xml
+        from tifffile import TiffFile
+
+        with TiffFile(path) as tif:
+            assert hasattr(tif, "ome_metadata") and tif.ome_metadata
+            metadata = from_xml(tif.ome_metadata)
+
+        base_px = metadata.images[0].pixels
+        if base_px.physical_size_x is None or base_px.physical_size_y is None:
+            raise ValueError("Physical size (MPP) is not available in the metadata.")
+
+        if self.desired_level is not None:
+            level = self.desired_level
+        else:
+            assert self.desired_mpp is not None
+            level = closest_level(
+                self.desired_mpp,
+                (base_px.physical_size_x, base_px.physical_size_y),
+                [base_px.size_x / img.pixels.size_x for img in metadata.images],
+            )
+
+        px = metadata.images[level].pixels
+        mpp_x = px.physical_size_x
+        mpp_y = px.physical_size_y
+        extent = (px.size_x, px.size_y)
+        downsample = metadata.images[0].pixels.size_x / px.size_x
+
+        if mpp_x is None or mpp_y is None:
+            raise ValueError("Physical size (MPP) is not available in the metadata.")
+
+        yield self._build_block(path, extent, (mpp_x, mpp_y), level, downsample)
+
+    def _read_openslide_stream(
+        self, f: pyarrow.NativeFile, path: str
+    ) -> Iterator[Block]:
         from histopath.openslide import OpenSlide
 
         with OpenSlide(path) as slide:
@@ -87,6 +104,19 @@ class OpenSlideMetaDatasource(FileBasedDatasource):
             mpp_x, mpp_y = slide.slide_resolution(level)
 
             extent = slide.level_dimensions[level]
+            downsample = slide.level_downsamples[level]
+
+        yield self._build_block(path, extent, (mpp_x, mpp_y), level, downsample)
+
+    def _build_block(
+        self,
+        path: str,
+        extent: tuple[int, int],
+        mpp: tuple[float, float],
+        level: int,
+        downsample: float,
+    ) -> Block:
+        from ray.data._internal.delegating_block_builder import DelegatingBlockBuilder
 
         builder = DelegatingBlockBuilder()
         item = {
@@ -97,14 +127,15 @@ class OpenSlideMetaDatasource(FileBasedDatasource):
             "tile_extent_y": self.tile_extent[1],
             "stride_x": self.stride[0],
             "stride_y": self.stride[1],
-            "mpp_x": mpp_x,
-            "mpp_y": mpp_y,
+            "mpp_x": mpp[0],
+            "mpp_y": mpp[1],
             "level": level,
+            "downsample": downsample,
         }
         builder.add(item)
-        yield builder.build()
+        return builder.build()
 
-    def _rows_per_file(self) -> int:  # type: ignore[override]
+    def _rows_per_file(self) -> int:
         return 1
 
     def estimate_inmemory_data_size(self) -> int | None:
@@ -124,6 +155,7 @@ class OpenSlideMetaDatasource(FileBasedDatasource):
             "mpp_x": 0.0,
             "mpp_y": 0.0,
             "level": 0,
+            "downsample": 0.0,
         }
 
         # Calculate the size of the dictionary structure, keys, and fixed-size values.
