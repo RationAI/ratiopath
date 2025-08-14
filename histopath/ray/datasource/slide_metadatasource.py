@@ -53,10 +53,9 @@ class SlideMetaDatasource(FileBasedDatasource):
         self.stride = np.broadcast_to(stride, 2)
 
     def _read_stream(self, f: pyarrow.NativeFile, path: str) -> Iterator[Block]:
-        if self._is_ome_tiff(path):
-            yield from self._read_ome_stream(f, path)
-        else:
-            yield from self._read_openslide_stream(f, path)
+        if path.lower().endswith((".ome.tiff", ".ome.tif")):
+            return self._read_ome_stream(f, path)
+        return self._read_openslide_stream(f, path)
 
     def _read_ome_stream(self, f: pyarrow.NativeFile, path: str) -> Iterator[Block]:
         from ome_types import from_xml
@@ -89,7 +88,7 @@ class SlideMetaDatasource(FileBasedDatasource):
         if mpp_x is None or mpp_y is None:
             raise ValueError("Physical size (MPP) is not available in the metadata.")
 
-        yield from self._create_block(path, extent, (mpp_x, mpp_y), level, downsample)
+        yield from self._build_block(path, extent, (mpp_x, mpp_y), level, downsample)
 
     def _read_openslide_stream(
         self, f: pyarrow.NativeFile, path: str
@@ -107,16 +106,16 @@ class SlideMetaDatasource(FileBasedDatasource):
             extent = slide.level_dimensions[level]
             downsample = slide.level_downsamples[level]
 
-        yield from self._create_block(path, extent, (mpp_x, mpp_y), level, downsample)
+        yield self._build_block(path, extent, (mpp_x, mpp_y), level, downsample)
 
-    def _create_block(
+    def _build_block(
         self,
         path: str,
         extent: tuple[int, int],
         mpp: tuple[float, float],
         level: int,
         downsample: float,
-    ) -> Iterator[Block]:
+    ) -> Block:
         from ray.data._internal.delegating_block_builder import DelegatingBlockBuilder
 
         builder = DelegatingBlockBuilder()
@@ -134,11 +133,7 @@ class SlideMetaDatasource(FileBasedDatasource):
             "downsample": downsample,
         }
         builder.add(item)
-        yield builder.build()
-
-    def _is_ome_tiff(self, path: str) -> bool:
-        """Check if the file is an OME-TIFF based on file extension."""
-        return path.lower().endswith((".ome.tiff", ".ome.tif"))
+        return builder.build()
 
     def _rows_per_file(self) -> int:
         return 1

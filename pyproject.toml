@@ -14,7 +14,6 @@ dependencies = [
     "imagecodecs>=2025.8.2",
     "numpy>=2.2.2",
     "ome-types>=0.6.1",
-    "openslide-bin>=4.0.0.8",
     "openslide-python>=1.4.1",
     "pandas>=2.2.3",
     "pandas-stubs>=2.2.3.250308",

@@ -50,12 +50,10 @@ def _tifffile_tile_reader(row: dict[str, Any]) -> Any:
         z = zarr.open(page.aszarr(), mode="r")
         assert isinstance(z, zarr.Array)
 
-        roi = z[
+        row["tile"] = z[
             tile_y : tile_y + tile_extent_y,
             tile_x : tile_x + tile_extent_x,
         ]
-
-        row["tile"] = roi
 
     return row
 
@@ -83,5 +81,4 @@ def slide_tile_reader(row: dict[str, Any]) -> Any:
     # Check if it's an OME-TIFF file
     if path.lower().endswith((".ome.tiff", ".ome.tif")):
         return _tifffile_tile_reader(row)
-    else:
-        return _openslide_tile_reader(row)
+    return _openslide_tile_reader(row)
