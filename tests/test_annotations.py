@@ -70,8 +70,8 @@ class TestMapAnnotations:
                 assert "tile_extent_x" in result
                 assert "tile_extent_y" in result
                 assert "downsample" in result
-                assert "annotation_coverage_px" in result
-                assert "annotation_coverage_percent" in result
+                assert "annotation_coverage_area" in result
+                assert "annotation_coverage"
 
                 # Check that data is preserved
                 assert result["annotation_path"] == rows["annotation_path"]
@@ -83,11 +83,12 @@ class TestMapAnnotations:
 
                 # Check that annotation data is added
                 assert np.allclose(
-                    result["annotation_coverage_px"], np.array([64.0, 16.0, 16.0, 4.0])
+                    result["annotation_coverage_area"],
+                    np.array([64.0, 16.0, 16.0, 4.0]),
                 )
                 assert np.allclose(
-                    result["annotation_coverage_percent"],
-                    np.array([100.0, 25.0, 25.0, 6.25]),
+                    result["annotation_coverage"],
+                    np.array([1.0, 0.25, 0.25, 0.0625]),
                 )
 
             finally:
@@ -127,8 +128,8 @@ class TestMapAnnotations:
                 assert "tile_extent_x" in result
                 assert "tile_extent_y" in result
                 assert "downsample" in result
-                assert "annotation_coverage_px" in result
-                assert "annotation_coverage_percent" in result
+                assert "annotation_coverage_area" in result
+                assert "annotation_coverage" in result
 
                 # Check that data is preserved
                 assert result["annotation_path"] == rows["annotation_path"]
@@ -140,11 +141,11 @@ class TestMapAnnotations:
 
                 # Check that annotation data is added
                 assert np.allclose(
-                    result["annotation_coverage_px"], np.array([36.0, 6.0, 6.0, 1.0])
+                    result["annotation_coverage_area"], np.array([36.0, 6.0, 6.0, 1.0])
                 )
                 assert np.allclose(
-                    result["annotation_coverage_percent"],
-                    np.array([100.0, 16.66667, 16.66667, 2.77778]),
+                    result["annotation_coverage"],
+                    np.array([1.0, 0.1666667, 0.1666667, 0.277778]),
                 )
 
             finally:
