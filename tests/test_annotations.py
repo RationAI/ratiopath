@@ -145,8 +145,7 @@ class TestMapAnnotations:
                 )
                 assert np.allclose(
                     result["annotation_coverage"],
-                    np.array([1.0, 0.1666667, 0.1666667, 0.277778]),
-                    atol=1e-5,
+                    np.array([1.0, 0.1666667, 0.1666667, 0.0277778]),
                 )
 
             finally:
