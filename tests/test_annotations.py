@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from shapely import Polygon, STRtree
 
-from histopath.parsers.geojson_parser import GeoJSONParser
+from histopath.parsers import GeoJSONParser
 from histopath.tiling.annotations import map_annotations
 
 

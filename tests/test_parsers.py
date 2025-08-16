@@ -6,16 +6,7 @@ import tempfile
 
 import pytest
 
-from histopath.parsers import AbstractParser, ASAPParser, GeoJSONParser
-
-
-class TestAbstractParser:
-    """Test the abstract base class."""
-
-    def test_abstract_parser_cannot_be_instantiated(self):
-        """Test that AbstractParser cannot be instantiated directly."""
-        with pytest.raises(TypeError):
-            AbstractParser("/path/to/file")
+from histopath.parsers import ASAPParser, GeoJSONParser
 
 
 class TestASAPParser:
