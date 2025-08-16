@@ -2,38 +2,40 @@
 
 import re
 import xml.etree.ElementTree as ET
+from pathlib import Path
 from typing import Iterable
 
 from shapely.geometry import Point, Polygon
 
-from histopath.parsers.abstract_parser import AbstractParser
 
-
-class ASAPParser(AbstractParser):
+class ASAPParser:
     """Parser for ASAP format annotation files.
 
     ASAP (Automated Slide Analysis Platform) uses XML format for storing annotations.
     This parser supports both polygon and point annotations.
     """
 
-    def _get_filtered_annotations(self, **kwargs):
+    def __init__(self, file_path: Path | str):
+        self.file_path = Path(file_path)
+        self.tree = ET.parse(self.file_path)
+        self.root = self.tree.getroot()
+
+    def _get_filtered_annotations(
+        self, name: str, part_of_group: str
+    ) -> Iterable[ET.Element]:
         """Get annotations that match the provided regex filters.
 
         Args:
-            **kwargs: Keyword arguments containing optional regex patterns:
-                - name: Pattern to match annotation names
-                - part_of_group: Pattern to match annotation groups
+            name: Regex pattern to match annotation names.
+            part_of_group: Regex pattern to match annotation groups.
 
         Yields:
             XML annotation elements that match the filters.
         """
-        tree = ET.parse(self.file_path)
-        root = tree.getroot()
+        name_regex = re.compile(name)
+        part_of_group_regex = re.compile(part_of_group)
 
-        name_regex = re.compile(kwargs.get("name", ".*"))
-        part_of_group_regex = re.compile(kwargs.get("part_of_group", ".*"))
-
-        for annotation in root.findall(".//Annotation"):
+        for annotation in self.root.findall(".//Annotation"):
             if not name_regex.match(
                 annotation.attrib["Name"]
             ) or not part_of_group_regex.match(annotation.attrib["PartOfGroup"]):
@@ -50,35 +52,39 @@ class ASAPParser(AbstractParser):
         Returns:
             List of (x, y) coordinate tuples.
         """
-        coordinates = []
-        for coordinate in annotation.findall(".//Coordinate"):
-            x = float(coordinate.attrib["X"])
-            y = float(coordinate.attrib["Y"])
-            coordinates.append(Point(x, y))
-        return coordinates
+        return [
+            Point(float(coordinate.attrib["X"]), float(coordinate.attrib["Y"]))
+            for coordinate in annotation.findall(".//Coordinate")
+        ]
 
-    def get_polygons(self, **kwargs) -> Iterable[Polygon]:
+    def get_polygons(
+        self, name: str = ".*", part_of_group: str = ".*"
+    ) -> Iterable[Polygon]:
         """Parse polygon annotations from ASAP XML file.
 
         Args:
-            **kwargs: Optional keyword arguments for filtering annotations.
+            name: Regex pattern to match annotation names.
+            part_of_group: Regex pattern to match annotation groups.
 
         Returns:
             An iterable of shapely Polygon objects.
         """
-        for annotation in self._get_filtered_annotations(**kwargs):
+        for annotation in self._get_filtered_annotations(name, part_of_group):
             if annotation.attrib["Type"] in ["Polygon", "Spline"]:
                 yield Polygon(self._extract_coordinates(annotation))
 
-    def get_points(self, **kwargs) -> Iterable[Point]:
+    def get_points(
+        self, name: str = ".*", part_of_group: str = ".*"
+    ) -> Iterable[Point]:
         """Parse point annotations from ASAP XML file.
 
         Args:
-            **kwargs: Optional keyword arguments for filtering annotations.
+            name: Regex pattern to match annotation names.
+            part_of_group: Regex pattern to match annotation groups.
 
         Returns:
             An iterable of shapely Point objects.
         """
-        for annotation in self._get_filtered_annotations(**kwargs):
+        for annotation in self._get_filtered_annotations(name, part_of_group):
             if annotation.attrib["Type"] in ["Point", "Dot"]:
                 yield from self._extract_coordinates(annotation)

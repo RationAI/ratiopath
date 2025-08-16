@@ -1,6 +1,7 @@
 """GeoJSON format annotation parser."""
 
 import re
+from pathlib import Path
 from typing import Any, Iterable
 
 import geojson
@@ -8,15 +9,18 @@ import shapely
 from geojson import Feature, GeoJSON
 from geojson.geometry import Geometry
 
-from histopath.parsers.abstract_parser import AbstractParser
 
-
-class GeoJSONParser(AbstractParser):
+class GeoJSONParser:
     """Parser for GeoJSON format annotation files.
 
     GeoJSON is a format for encoding geographic data structures using JSON.
     This parser supports both polygon and point geometries.
     """
+
+    def __init__(self, file_path: Path | str) -> None:
+        self.file_path = Path(file_path)
+        with open(self.file_path, "r") as f:
+            self.data = GeoJSON(geojson.load(f))
 
     def _parse_geometry(self, geometry: dict[str, Any]) -> list[Geometry]:
         """Parse a GeoJSON geometry into a Geometry object.
@@ -90,7 +94,7 @@ class GeoJSONParser(AbstractParser):
             features.extend(self._parse_feature(feature))
         return features
 
-    def _get_list_of_features(self, data: GeoJSON) -> list[Feature]:
+    def _get_list_of_features(self) -> list[Feature]:
         """Get list of features from the GeoJSON and flatten all GeometryCollections.
 
         Args:
@@ -99,11 +103,11 @@ class GeoJSONParser(AbstractParser):
         Returns:
             A FeatureCollection object.
         """
-        match data["type"]:
+        match self.data["type"]:
             case "FeatureCollection":
-                return self._parse_feature_collection(data)
+                return self._parse_feature_collection(self.data)
             case "Feature":
-                return self._parse_feature(data)
+                return self._parse_feature(self.data)
             case (
                 "Point"
                 | "MultiPoint"
@@ -116,7 +120,7 @@ class GeoJSONParser(AbstractParser):
                         geometry=geometry,
                         properties={},
                     )
-                    for geometry in self._parse_geometry(data)
+                    for geometry in self._parse_geometry(self.data)
                 ]
             case _:
                 raise ValueError("Unsupported GeoJSON type")
@@ -130,10 +134,7 @@ class GeoJSONParser(AbstractParser):
         Yields:
             GeoJSONGeometry objects that match the filters.
         """
-        with open(self.file_path, "r") as f:
-            data = GeoJSON(geojson.load(f))
-
-        features = self._get_list_of_features(data)
+        features = self._get_list_of_features()
 
         filters = {
             key: re.compile(value)
@@ -162,7 +163,9 @@ class GeoJSONParser(AbstractParser):
             if valid:
                 yield feature["geometry"]  # this is not GeometryCollection!!!
 
-    def get_polygons(self, **kwargs) -> Iterable[shapely.Polygon]:
+    def get_polygons(
+        self, **kwargs
+    ) -> Iterable[shapely.Polygon | shapely.MultiPolygon]:
         """Parse polygon annotations from GeoJSON file.
 
         Args:
@@ -178,12 +181,16 @@ class GeoJSONParser(AbstractParser):
                         geometry["coordinates"][0], geometry["coordinates"][1:]
                     )
                 case "MultiPolygon":
-                    for coords in geometry["coordinates"]:
-                        yield shapely.Polygon(coords[0], coords[1:])
+                    yield shapely.MultiPolygon(
+                        [
+                            shapely.Polygon(coords[0], coords[1:])
+                            for coords in geometry["coordinates"]
+                        ]
+                    )
                 case _:
                     pass
 
-    def get_points(self, **kwargs) -> Iterable[shapely.Point]:
+    def get_points(self, **kwargs) -> Iterable[shapely.Point | shapely.MultiPoint]:
         """Parse point annotations from GeoJSON file.
 
         Args:
@@ -197,7 +204,8 @@ class GeoJSONParser(AbstractParser):
                 case "Point":
                     yield shapely.Point(geometry["coordinates"])
                 case "MultiPoint":
-                    for coords in geometry["coordinates"]:
-                        yield shapely.Point(coords)
+                    yield shapely.MultiPoint(
+                        [shapely.Point(coords) for coords in geometry["coordinates"]]
+                    )
                 case _:
                     pass
