@@ -7,29 +7,6 @@ import numpy as np
 from shapely import Polygon, STRtree, transform
 from shapely.geometry.base import BaseGeometry
 
-from histopath.parsers import AbstractParser, ASAPParser, GeoJSONParser
-
-
-def _get_parser_for_file(file_path: Path) -> AbstractParser:
-    """Determine the appropriate parser based on file extension.
-
-    Args:
-        file_path: Path to the annotation file.
-
-    Returns:
-        Parser class appropriate for the file type.
-
-    Raises:
-        ValueError: If the file extension is not supported.
-    """
-
-    if file_path.suffix == ".xml":
-        return ASAPParser(file_path)
-    elif file_path.suffix == ".geojson":
-        return GeoJSONParser(file_path)
-    else:
-        raise ValueError(f"Unsupported annotation file type: {file_path.suffix}")
-
 
 def get_annotation_path(
     rows: dict[str, np.ndarray], annotation_path_column: str
