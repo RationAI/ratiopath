@@ -6,8 +6,9 @@ import tempfile
 
 import numpy as np
 import pytest
-from shapely import Polygon
+from shapely import Polygon, STRtree
 
+from histopath.parsers.geojson_parser import GeoJSONParser
 from histopath.tiling.annotations import map_annotations
 
 
@@ -58,7 +59,9 @@ class TestMapAnnotations:
                 }
 
                 # Call map_annotations
-                result = map_annotations(rows)
+                result = map_annotations(
+                    rows, lambda x: STRtree(list(GeoJSONParser(x).get_polygons()))
+                )
 
                 # Check that the function returns expected structure
                 assert "annotation_path" in result
@@ -112,7 +115,9 @@ class TestMapAnnotations:
 
                 # Call map_annotations
                 result = map_annotations(
-                    rows, roi=Polygon([(1, 1), (7, 1), (7, 7), (1, 7)])
+                    rows,
+                    lambda x: STRtree(list(GeoJSONParser(x).get_polygons())),
+                    roi=Polygon([(1, 1), (7, 1), (7, 7), (1, 7)]),
                 )
 
                 # Check that the function returns expected structure
