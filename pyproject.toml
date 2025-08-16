@@ -11,8 +11,10 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "albumentations>=2.0.8",
+    "imagecodecs>=2025.8.2",
     "geojson>=3.2.0",
     "numpy>=2.2.2",
+    "ome-types>=0.6.1",
     "openslide-python>=1.4.1",
     "pandas>=2.2.3",
     "pandas-stubs>=2.2.3.250308",
@@ -20,8 +22,10 @@ dependencies = [
     "pyvips>=2.2.3",
     "ray[data]>=2.42.1",
     "scikit-image>=0.25.2",
+    "tifffile>=2024.5.22",
     "shapely>=2.0.0",
     "torch>=2.6.0",
+    "zarr>=3.1.1",
 ]
 
 
