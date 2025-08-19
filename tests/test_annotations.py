@@ -6,7 +6,7 @@ import tempfile
 from math import isclose
 
 import pytest
-from shapely import Polygon, STRtree
+from shapely import Polygon
 
 from histopath.parsers import GeoJSONParser
 from histopath.tiling.annotations import tile_annotations
@@ -48,7 +48,7 @@ class TestMapAnnotations:
 
             try:
                 results = tile_annotations(
-                    tree=STRtree(list(GeoJSONParser(f.name).get_polygons())),
+                    annotations=list(GeoJSONParser(f.name).get_polygons()),
                     roi=Polygon([(0, 0), (8, 0), (8, 8), (0, 8)]),
                     x=[0, 8, 0, 8],
                     y=[0, 0, 8, 8],
@@ -72,7 +72,7 @@ class TestMapAnnotations:
 
             try:
                 results = tile_annotations(
-                    tree=STRtree(list(GeoJSONParser(f.name).get_polygons())),
+                    annotations=list(GeoJSONParser(f.name).get_polygons()),
                     roi=Polygon([(1, 1), (7, 1), (7, 7), (1, 7)]),
                     x=[0, 8, 0, 8],
                     y=[0, 0, 8, 8],

@@ -1,13 +1,10 @@
-"""GeoJSON format annotation parser."""
-
-import re
+import json
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Iterable
 
-import geojson
-import shapely
-from geojson import Feature, GeoJSON
-from geojson.geometry import Geometry
+import geopandas as gpd
+from geopandas import GeoDataFrame
+from shapely import Point, Polygon
 
 
 class GeoJSONParser:
@@ -19,193 +16,90 @@ class GeoJSONParser:
 
     def __init__(self, file_path: Path | str) -> None:
         self.file_path = Path(file_path)
-        with open(self.file_path, "r") as f:
-            self.data = GeoJSON(geojson.load(f))
+        self.gdf = gpd.read_file(self.file_path)
 
-    def _parse_geometry(self, geometry: dict[str, Any]) -> list[Geometry]:
-        """Parse a GeoJSON geometry into a Geometry object.
+        if self.gdf.empty:
+            return
+
+        # Explode Multi-part geometries to simplify geometry handling
+        self.gdf = self.gdf.explode(index_parts=True)
+
+    def get_filtered_geodataframe(self, **kwargs: str) -> GeoDataFrame:
+        """Filter the GeoDataFrame based on property values.
 
         Args:
-            geometry: A dictionary representing a GeoJSON geometry.
+            **kwargs: Keyword arguments for filtering. Keys are column names
+                      (e.g., 'classification.name') and values are regex
+                      patterns to match against.
 
         Returns:
-            A Geometry object.
+            A filtered GeoDataFrame.
         """
-        if "type" not in geometry:
-            raise ValueError("Geometry must contain 'type' key")
+        separator = kwargs.get("separator", "_")
 
-        if geometry["type"] == "GeometryCollection":
-            if "geometries" not in geometry:
-                raise ValueError("GeometryCollection must contain 'geometries' key")
-            geometries = []
-            for geom in geometry["geometries"]:
-                geometries.extend(self._parse_geometry(geom))
-            return geometries
+        filtered_gdf = self.gdf
+        for key, pattern in kwargs.items():
+            if key == "separator":
+                continue
 
-        if "coordinates" not in geometry:
-            raise ValueError("Geometry must contain 'coordinates' key")
+            subkeys = key.split(separator)
+            if not subkeys or subkeys[0] not in filtered_gdf.columns:
+                # If the first part of the key doesn't exist, return an empty frame
+                return self.gdf.iloc[0:0]
 
-        match geometry["type"]:
-            case "Point":
-                return [geojson.Point(geometry["coordinates"], validate=True)]
-            case "Polygon":
-                return [geojson.Polygon(geometry["coordinates"], validate=True)]
-            case "MultiPoint":
-                return [geojson.MultiPoint(geometry["coordinates"], validate=True)]
-            case "MultiPolygon":
-                return [geojson.MultiPolygon(geometry["coordinates"], validate=True)]
-            case _:
-                raise ValueError(f"Unsupported geometry type: {geometry['type']}")
+            series = filtered_gdf[subkeys[0]].astype(str)
+            if len(subkeys) > 1:
+                mask = series.apply(is_json_dict)
+                series = series[mask].apply(lambda x: json.loads(x))
+                filtered_gdf = filtered_gdf[mask]
 
-    def _parse_feature(self, feature: dict[str, Any]) -> list[Feature]:
-        """Parse a single GeoJSON feature into a Feature object.
+            for subkey in subkeys[1:]:
+                mask = series.apply(
+                    lambda x, subkey=subkey: isinstance(x, dict) and subkey in x
+                )
+                series = series[mask].apply(lambda x, subkey=subkey: x[subkey])
+                filtered_gdf = filtered_gdf[mask]
+
+            series = series.astype(str)
+            mask = series.str.match(pattern, na=False)
+            filtered_gdf = filtered_gdf[mask]
+
+        return filtered_gdf
+
+    def get_polygons(self, **kwargs: str) -> Iterable[Polygon]:
+        """Get polygons from the GeoDataFrame.
 
         Args:
-            feature: A dictionary representing a GeoJSON feature.
-
-        Returns:
-            A Feature object.
-        """
-        if "geometry" not in feature or "properties" not in feature:
-            raise ValueError("Feature must contain 'geometry' and 'properties' keys")
-        return [
-            Feature(
-                geometry=geometry,
-                properties=feature["properties"],
-            )
-            for geometry in self._parse_geometry(feature["geometry"])
-        ]
-
-    def _parse_feature_collection(
-        self, feature_collection: dict[str, Any]
-    ) -> list[Feature]:
-        """Parse a GeoJSON feature collection into a list of Feature objects.
-
-        Args:
-            feature_collection: A dictionary representing a GeoJSON feature collection.
-
-        Returns:
-            A FeatureCollection object.
-        """
-        if "features" not in feature_collection:
-            raise ValueError("FeatureCollection must contain 'features' key")
-        features = []
-        for feature in feature_collection["features"]:
-            features.extend(self._parse_feature(feature))
-        return features
-
-    def _get_list_of_features(self) -> list[Feature]:
-        """Get list of features from the GeoJSON and flatten all GeometryCollections.
-
-        Args:
-            data: A GeoJSON object.
-
-        Returns:
-            A FeatureCollection object.
-        """
-        match self.data["type"]:
-            case "FeatureCollection":
-                return self._parse_feature_collection(self.data)
-            case "Feature":
-                return self._parse_feature(self.data)
-            case (
-                "Point"
-                | "MultiPoint"
-                | "Polygon"
-                | "MultiPolygon"
-                | "GeometryCollection"
-            ):
-                return [
-                    Feature(
-                        geometry=geometry,
-                        properties={},
-                    )
-                    for geometry in self._parse_geometry(self.data)
-                ]
-            case _:
-                raise ValueError("Unsupported GeoJSON type")
-
-    def _get_filtered_geojson_geometries(self, **kwargs) -> Iterable[Geometry]:
-        """Get geometries that match the provided filters.
-
-        Args:
-            **kwargs: Keyword arguments containing optional filters.
+            **kwargs: Keyword arguments for filtering properties.
 
         Yields:
-            GeoJSONGeometry objects that match the filters.
+            Shapely Polygon objects.
         """
-        features = self._get_list_of_features()
+        filtered_gdf = self.get_filtered_geodataframe(**kwargs)
+        for geom in filtered_gdf.geometry:
+            if isinstance(geom, Polygon):
+                yield geom
 
-        filters = {
-            key: re.compile(value)
-            for key, value in kwargs.items()
-            if key != "separator"
-        }
-        separator = str(kwargs.get("separator", "_"))
-
-        for feature in features:
-            valid = True
-            for key, pattern in filters.items():
-                subkeys = key.split(separator)
-                properties = feature["properties"]
-                for subkey in subkeys:
-                    if subkey not in properties:
-                        valid = False
-                        break
-                    properties = properties[subkey]
-                if not isinstance(properties, str):
-                    valid = False
-                    break
-                if not pattern.match(properties):
-                    valid = False
-                    break
-
-            if valid:
-                yield feature["geometry"]  # this is not GeometryCollection!!!
-
-    def get_polygons(
-        self, **kwargs
-    ) -> Iterable[shapely.Polygon | shapely.MultiPolygon]:
-        """Parse polygon annotations from GeoJSON file.
+    def get_points(self, **kwargs: str) -> Iterable[Point]:
+        """Get points from the GeoDataFrame.
 
         Args:
-            **kwargs: Optional keyword arguments for filtering annotations.
+            **kwargs: Keyword arguments for filtering properties.
 
-        Returns:
-            An iterable of shapely Polygon objects.
+        Yields:
+            Shapely Point objects.
         """
-        for geometry in self._get_filtered_geojson_geometries(**kwargs):
-            match geometry["type"]:
-                case "Polygon":
-                    yield shapely.Polygon(
-                        geometry["coordinates"][0], geometry["coordinates"][1:]
-                    )
-                case "MultiPolygon":
-                    yield shapely.MultiPolygon(
-                        [
-                            shapely.Polygon(coords[0], coords[1:])
-                            for coords in geometry["coordinates"]
-                        ]
-                    )
-                case _:
-                    pass
+        filtered_gdf = self.get_filtered_geodataframe(**kwargs)
+        for geom in filtered_gdf.geometry:
+            if isinstance(geom, Point):
+                yield geom
 
-    def get_points(self, **kwargs) -> Iterable[shapely.Point | shapely.MultiPoint]:
-        """Parse point annotations from GeoJSON file.
 
-        Args:
-            **kwargs: Optional keyword arguments for filtering annotations.
-
-        Returns:
-            An iterable of shapely Point objects.
-        """
-        for geometry in self._get_filtered_geojson_geometries(**kwargs):
-            match geometry["type"]:
-                case "Point":
-                    yield shapely.Point(geometry["coordinates"])
-                case "MultiPoint":
-                    yield shapely.MultiPoint(
-                        [shapely.Point(coords) for coords in geometry["coordinates"]]
-                    )
-                case _:
-                    pass
+def is_json_dict(string: str) -> bool:
+    try:
+        valid_json = json.loads(string)
+        if isinstance(valid_json, dict):
+            return True
+    except ValueError:
+        return False
+    return False

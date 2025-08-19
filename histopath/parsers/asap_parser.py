@@ -36,12 +36,10 @@ class ASAPParser:
         part_of_group_regex = re.compile(part_of_group)
 
         for annotation in self.root.findall(".//Annotation"):
-            if not name_regex.match(
+            if name_regex.match(
                 annotation.attrib["Name"]
-            ) or not part_of_group_regex.match(annotation.attrib["PartOfGroup"]):
-                continue
-
-            yield annotation
+            ) and part_of_group_regex.match(annotation.attrib["PartOfGroup"]):
+                yield annotation
 
     def _extract_coordinates(self, annotation: ET.Element) -> list[Point]:
         """Extract coordinates from an annotation element.
