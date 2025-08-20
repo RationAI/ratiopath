@@ -1,8 +1,7 @@
 """Tests for annotation processing functions."""
 
+import io
 import json
-import os
-import tempfile
 from math import isclose
 
 import pytest
@@ -40,48 +39,36 @@ class TestMapAnnotations:
     def test_map_annotations_basic(self, sample_geojson_content):
         """Test basic functionality of map_annotations."""
         # Create a temporary annotation file
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".geojson", delete=False
-        ) as f:
-            json.dump(sample_geojson_content, f)
-            f.flush()
+        f = io.StringIO()
+        json.dump(sample_geojson_content, f)
+        f.flush()
 
-            try:
-                results = tile_annotations(
-                    annotations=list(GeoJSONParser(f.name).get_polygons()),
-                    roi=Polygon([(0, 0), (8, 0), (8, 8), (0, 8)]),
-                    x=[0, 8, 0, 8],
-                    y=[0, 0, 8, 8],
-                    downsample=1,
-                )
+        results = tile_annotations(
+            annotations=list(GeoJSONParser(f.name).get_polygons()),
+            roi=Polygon([(0, 0), (8, 0), (8, 8), (0, 8)]),
+            x=[0, 8, 0, 8],
+            y=[0, 0, 8, 8],
+            downsample=1,
+        )
 
-                for result_polygon, area in zip(results, [64.0, 16.0, 16.0, 4.0]):
-                    assert result_polygon.is_valid
-                    assert isclose(result_polygon.area, area)
-
-            finally:
-                os.unlink(f.name)
+        for result_polygon, area in zip(results, [64.0, 16.0, 16.0, 4.0]):
+            assert result_polygon.is_valid
+            assert isclose(result_polygon.area, area)
 
     def test_map_annotations_custom_roi(self, sample_geojson_content):
         """Test map_annotations with a custom region of interest."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".geojson", delete=False
-        ) as f:
-            json.dump(sample_geojson_content, f)
-            f.flush()
+        f = io.StringIO()
+        json.dump(sample_geojson_content, f)
+        f.flush()
 
-            try:
-                results = tile_annotations(
-                    annotations=list(GeoJSONParser(f.name).get_polygons()),
-                    roi=Polygon([(1, 1), (7, 1), (7, 7), (1, 7)]),
-                    x=[0, 8, 0, 8],
-                    y=[0, 0, 8, 8],
-                    downsample=1,
-                )
+        results = tile_annotations(
+            annotations=list(GeoJSONParser(f.name).get_polygons()),
+            roi=Polygon([(1, 1), (7, 1), (7, 7), (1, 7)]),
+            x=[0, 8, 0, 8],
+            y=[0, 0, 8, 8],
+            downsample=1,
+        )
 
-                for result_polygon, area in zip(results, [36.0, 6.0, 6.0, 1.0]):
-                    assert result_polygon.is_valid
-                    assert isclose(result_polygon.area, area)
-
-            finally:
-                os.unlink(f.name)
+        for result_polygon, area in zip(results, [36.0, 6.0, 6.0, 1.0]):
+            assert result_polygon.is_valid
+            assert isclose(result_polygon.area, area)

@@ -15,14 +15,11 @@ class GeoJSONParser:
     """
 
     def __init__(self, file_path: Path | str) -> None:
-        self.file_path = Path(file_path)
-        self.gdf = gpd.read_file(self.file_path)
+        self.gdf = gpd.read_file(file_path)
 
-        if self.gdf.empty:
-            return
-
-        # Explode Multi-part geometries to simplify geometry handling
-        self.gdf = self.gdf.explode(index_parts=True)
+        if not self.gdf.empty:
+            # Explode Multi-part geometries to simplify geometry handling
+            self.gdf = self.gdf.explode(index_parts=True)
 
     def get_filtered_geodataframe(self, **kwargs: str) -> GeoDataFrame:
         """Filter the GeoDataFrame based on property values.

@@ -1,5 +1,6 @@
 """Tests for annotation parsers."""
 
+import io
 import json
 import os
 import tempfile
@@ -120,61 +121,46 @@ class TestGeoJSONParser:
 
     def test_get_polygons(self, geojson_content):
         """Test parsing polygons from GeoJSON."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".geojson", delete=False
-        ) as f:
-            json.dump(geojson_content, f)
-            f.flush()
+        f = io.StringIO()
+        json.dump(geojson_content, f)
+        f.flush()
 
-            try:
-                parser = GeoJSONParser(f.name)
-                polygons = list(parser.get_polygons())
+        parser = GeoJSONParser(f.name)
+        polygons = list(parser.get_polygons())
 
-                assert len(polygons) == 1
-                # Check that we have a polygon-like object
-                polygon = polygons[0]
-                assert hasattr(polygon, "exterior")
-            finally:
-                os.unlink(f.name)
+        assert len(polygons) == 1
+        # Check that we have a polygon-like object
+        polygon = polygons[0]
+        assert hasattr(polygon, "exterior")
 
     def test_get_points(self, geojson_content):
         """Test parsing points from GeoJSON."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".geojson", delete=False
-        ) as f:
-            json.dump(geojson_content, f)
-            f.flush()
+        f = io.StringIO()
+        json.dump(geojson_content, f)
+        f.flush()
 
-            try:
-                parser = GeoJSONParser(f.name)
-                points = list(parser.get_points())
+        parser = GeoJSONParser(f.name)
+        points = list(parser.get_points())
 
-                assert len(points) == 1
-                # Check that we have a point-like object
-                point = points[0]
-                assert hasattr(point, "x") and hasattr(point, "y")
-            finally:
-                os.unlink(f.name)
+        assert len(points) == 1
+        # Check that we have a point-like object
+        point = points[0]
+        assert hasattr(point, "x") and hasattr(point, "y")
 
     def test_get_polygons_with_filters(self, geojson_content):
         """Test parsing polygons with filters."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".geojson", delete=False
-        ) as f:
-            json.dump(geojson_content, f)
-            f.flush()
+        f = io.StringIO()
+        json.dump(geojson_content, f)
+        f.flush()
 
-            try:
-                parser = GeoJSONParser(f.name)
-                polygons = list(parser.get_polygons(nested_property="value"))
+        parser = GeoJSONParser(f.name)
+        polygons = list(parser.get_polygons(nested_property="value"))
 
-                assert len(polygons) == 1
-                assert polygons[0].exterior.coords[0] == (100.0, 200.0)
+        assert len(polygons) == 1
+        assert polygons[0].exterior.coords[0] == (100.0, 200.0)
 
-                polygons = list(parser.get_polygons(name="nested"))
-                assert len(polygons) == 0
+        polygons = list(parser.get_polygons(name="nested"))
+        assert len(polygons) == 0
 
-                polygons = list(parser.get_polygons(name="nonexistent"))
-                assert len(polygons) == 0
-            finally:
-                os.unlink(f.name)
+        polygons = list(parser.get_polygons(name="nonexistent"))
+        assert len(polygons) == 0

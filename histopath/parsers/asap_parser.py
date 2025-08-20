@@ -16,8 +16,7 @@ class ASAPParser:
     """
 
     def __init__(self, file_path: Path | str):
-        self.file_path = Path(file_path)
-        self.tree = ET.parse(self.file_path)
+        self.tree = ET.parse(file_path)
         self.root = self.tree.getroot()
 
     def _get_filtered_annotations(
