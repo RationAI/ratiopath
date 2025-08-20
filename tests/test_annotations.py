@@ -39,12 +39,10 @@ class TestMapAnnotations:
     def test_map_annotations_basic(self, sample_geojson_content):
         """Test basic functionality of map_annotations."""
         # Create a temporary annotation file
-        f = io.StringIO()
-        json.dump(sample_geojson_content, f)
-        f.flush()
+        f = io.StringIO(json.dumps(sample_geojson_content))
 
         results = tile_annotations(
-            annotations=list(GeoJSONParser(f.name).get_polygons()),
+            annotations=list(GeoJSONParser(f).get_polygons()),
             roi=Polygon([(0, 0), (8, 0), (8, 8), (0, 8)]),
             x=[0, 8, 0, 8],
             y=[0, 0, 8, 8],
@@ -57,12 +55,10 @@ class TestMapAnnotations:
 
     def test_map_annotations_custom_roi(self, sample_geojson_content):
         """Test map_annotations with a custom region of interest."""
-        f = io.StringIO()
-        json.dump(sample_geojson_content, f)
-        f.flush()
+        f = io.StringIO(json.dumps(sample_geojson_content))
 
         results = tile_annotations(
-            annotations=list(GeoJSONParser(f.name).get_polygons()),
+            annotations=list(GeoJSONParser(f).get_polygons()),
             roi=Polygon([(1, 1), (7, 1), (7, 7), (1, 7)]),
             x=[0, 8, 0, 8],
             y=[0, 0, 8, 8],

@@ -34,9 +34,7 @@ class TestASAPParser:
 
     def test_get_polygons(self, asap_xml_content):
         """Test parsing polygons from ASAP XML."""
-        f = io.StringIO()
-        f.write(asap_xml_content)
-        f.flush()
+        f = io.StringIO(asap_xml_content)
 
         parser = ASAPParser(f)
         polygons = list(parser.get_polygons())
@@ -48,9 +46,7 @@ class TestASAPParser:
 
     def test_get_points(self, asap_xml_content):
         """Test parsing points from ASAP XML."""
-        f = io.StringIO()
-        f.write(asap_xml_content)
-        f.flush()
+        f = io.StringIO(asap_xml_content)
 
         parser = ASAPParser(f)
         points = list(parser.get_points())
@@ -62,9 +58,7 @@ class TestASAPParser:
 
     def test_get_polygons_with_filters(self, asap_xml_content):
         """Test parsing polygons with filters."""
-        f = io.StringIO()
-        f.write(asap_xml_content)
-        f.flush()
+        f = io.StringIO(asap_xml_content)
         parser = ASAPParser(f)
         polygons = list(parser.get_polygons(name="Annotation 1"))
 
@@ -109,9 +103,7 @@ class TestGeoJSONParser:
 
     def test_get_polygons(self, geojson_content):
         """Test parsing polygons from GeoJSON."""
-        f = io.StringIO()
-        json.dump(geojson_content, f)
-        f.flush()
+        f = io.StringIO(json.dumps(geojson_content))
 
         parser = GeoJSONParser(f)
         polygons = list(parser.get_polygons())
@@ -123,9 +115,7 @@ class TestGeoJSONParser:
 
     def test_get_points(self, geojson_content):
         """Test parsing points from GeoJSON."""
-        f = io.StringIO()
-        json.dump(geojson_content, f)
-        f.flush()
+        f = io.StringIO(json.dumps(geojson_content))
 
         parser = GeoJSONParser(f)
         points = list(parser.get_points())
@@ -137,9 +127,7 @@ class TestGeoJSONParser:
 
     def test_get_polygons_with_filters(self, geojson_content):
         """Test parsing polygons with filters."""
-        f = io.StringIO()
-        json.dump(geojson_content, f)
-        f.flush()
+        f = io.StringIO(json.dumps(geojson_content))
 
         parser = GeoJSONParser(f)
         polygons = list(parser.get_polygons(nested_property="value"))
