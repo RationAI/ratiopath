@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, TextIO
 
 import geopandas as gpd
 from geopandas import GeoDataFrame
@@ -14,7 +14,7 @@ class GeoJSONParser:
     This parser supports both polygon and point geometries.
     """
 
-    def __init__(self, file_path: Path | str) -> None:
+    def __init__(self, file_path: Path | str | TextIO) -> None:
         self.gdf = gpd.read_file(file_path)
 
         if not self.gdf.empty:

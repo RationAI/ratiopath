@@ -2,8 +2,6 @@
 
 import io
 import json
-import os
-import tempfile
 
 import pytest
 
@@ -36,55 +34,45 @@ class TestASAPParser:
 
     def test_get_polygons(self, asap_xml_content):
         """Test parsing polygons from ASAP XML."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".xml", delete=False) as f:
-            f.write(asap_xml_content)
-            f.flush()
+        f = io.StringIO()
+        f.write(asap_xml_content)
+        f.flush()
 
-            try:
-                parser = ASAPParser(f.name)
-                polygons = list(parser.get_polygons())
+        parser = ASAPParser(f)
+        polygons = list(parser.get_polygons())
 
-                assert len(polygons) == 1
-                # Check that we have a polygon-like object
-                polygon = polygons[0]
-                assert hasattr(polygon, "exterior")
-            finally:
-                os.unlink(f.name)
+        assert len(polygons) == 1
+        # Check that we have a polygon-like object
+        polygon = polygons[0]
+        assert hasattr(polygon, "exterior")
 
     def test_get_points(self, asap_xml_content):
         """Test parsing points from ASAP XML."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".xml", delete=False) as f:
-            f.write(asap_xml_content)
-            f.flush()
+        f = io.StringIO()
+        f.write(asap_xml_content)
+        f.flush()
 
-            try:
-                parser = ASAPParser(f.name)
-                points = list(parser.get_points())
+        parser = ASAPParser(f)
+        points = list(parser.get_points())
 
-                assert len(points) == 1
-                # Check that we have a point-like object
-                point = points[0]
-                assert hasattr(point, "x") and hasattr(point, "y")
-            finally:
-                os.unlink(f.name)
+        assert len(points) == 1
+        # Check that we have a point-like object
+        point = points[0]
+        assert hasattr(point, "x") and hasattr(point, "y")
 
     def test_get_polygons_with_filters(self, asap_xml_content):
         """Test parsing polygons with filters."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".xml", delete=False) as f:
-            f.write(asap_xml_content)
-            f.flush()
+        f = io.StringIO()
+        f.write(asap_xml_content)
+        f.flush()
+        parser = ASAPParser(f)
+        polygons = list(parser.get_polygons(name="Annotation 1"))
 
-            try:
-                parser = ASAPParser(f.name)
-                polygons = list(parser.get_polygons(name="Annotation 1"))
+        assert len(polygons) == 1
+        assert polygons[0].exterior.coords[0] == (100.0, 200.0)
 
-                assert len(polygons) == 1
-                assert polygons[0].exterior.coords[0] == (100.0, 200.0)
-
-                polygons = list(parser.get_polygons(name="Nonexistent"))
-                assert len(polygons) == 0
-            finally:
-                os.unlink(f.name)
+        polygons = list(parser.get_polygons(name="Nonexistent"))
+        assert len(polygons) == 0
 
 
 class TestGeoJSONParser:
@@ -125,7 +113,7 @@ class TestGeoJSONParser:
         json.dump(geojson_content, f)
         f.flush()
 
-        parser = GeoJSONParser(f.name)
+        parser = GeoJSONParser(f)
         polygons = list(parser.get_polygons())
 
         assert len(polygons) == 1
@@ -139,7 +127,7 @@ class TestGeoJSONParser:
         json.dump(geojson_content, f)
         f.flush()
 
-        parser = GeoJSONParser(f.name)
+        parser = GeoJSONParser(f)
         points = list(parser.get_points())
 
         assert len(points) == 1
@@ -153,7 +141,7 @@ class TestGeoJSONParser:
         json.dump(geojson_content, f)
         f.flush()
 
-        parser = GeoJSONParser(f.name)
+        parser = GeoJSONParser(f)
         polygons = list(parser.get_polygons(nested_property="value"))
 
         assert len(polygons) == 1

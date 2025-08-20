@@ -3,7 +3,7 @@
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, TextIO
 
 from shapely.geometry import Point, Polygon
 
@@ -15,7 +15,7 @@ class ASAPParser:
     This parser supports both polygon and point annotations.
     """
 
-    def __init__(self, file_path: Path | str):
+    def __init__(self, file_path: Path | str | TextIO):
         self.tree = ET.parse(file_path)
         self.root = self.tree.getroot()
 
