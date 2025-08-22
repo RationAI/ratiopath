@@ -37,9 +37,6 @@ class GeoJSONParser:
         """
         filtered_gdf = self.gdf
         for key, pattern in kwargs.items():
-            if key == "separator":
-                continue
-
             subkeys = key.split(separator)
             if not subkeys or subkeys[0] not in filtered_gdf.columns:
                 # If the first part of the key doesn't exist, return an empty frame
