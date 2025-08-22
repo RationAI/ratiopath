@@ -21,10 +21,13 @@ class GeoJSONParser:
             # Explode Multi-part geometries to simplify geometry handling
             self.gdf = self.gdf.explode(index_parts=True)
 
-    def get_filtered_geodataframe(self, **kwargs: str) -> GeoDataFrame:
+    def get_filtered_geodataframe(
+        self, separator: str = "_", **kwargs: str
+    ) -> GeoDataFrame:
         """Filter the GeoDataFrame based on property values.
 
         Args:
+            separator: The string used to separate keys in the filtering.
             **kwargs: Keyword arguments for filtering. Keys are column names
                       (e.g., 'classification.name') and values are regex
                       patterns to match against.
@@ -32,8 +35,6 @@ class GeoJSONParser:
         Returns:
             A filtered GeoDataFrame.
         """
-        separator = kwargs.get("separator", "_")
-
         filtered_gdf = self.gdf
         for key, pattern in kwargs.items():
             if key == "separator":
