@@ -22,8 +22,10 @@ dependencies = [
     "ray[data]>=2.42.1",
     "scikit-image>=0.25.2",
     "tifffile>=2024.5.22",
+    "shapely>=2.0.0",
     "torch>=2.6.0",
     "zarr>=3.1.1",
+    "geopandas>=1.1.1",
 ]
 
 
