@@ -1,0 +1,26 @@
+name: Documentation
+description: Report an issue related to https://rationai.github.io/histopath/
+labels: ["category: documentation"]
+
+body:
+  - type: markdown
+    attributes:
+      value: >
+        #### Thank you for contributing! Before submitting a doc issue, please make sure it has no duplicate by searching through [the existing and past issues](https://github.com/RationAI/histopath/issues)
+
+  - type: textarea
+    attributes:
+      label: Describe the doc issue
+      description: >
+        Please provide a clear and concise description of what content in https://rationai.github.io/histopath/ is an issue.
+      placeholder: |
+        A clear and concise description of what content in https://rationai.github.io/histopath/ is an issue.
+
+        Link to the doc: https://rationai.github.io/histopath/
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Fix suggestion
+      description: >
+        Tell us how we could improve the documentation in this regard.

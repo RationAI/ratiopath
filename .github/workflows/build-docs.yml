@@ -31,12 +31,12 @@ jobs:
         with:
           key: mkdocs-material-${{ env.cache_id }}
           path: ~/.cache
-
-
+          restore-keys: |
+            mkdocs-material-
       - name: Build (validation only on PR)
         if: github.event_name == 'pull_request'
         run: uv run mkdocs build --strict
 
       - name: Deploy (push -> gh-pages)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: 'uv run mkdocs gh-deploy -m "docs: deploy ${{ github.sha }}" --remote-name origin --strict'
+        run: 'uv run mkdocs gh-deploy --force -m "docs: deploy ${{ github.sha }}"'
