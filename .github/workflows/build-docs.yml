@@ -1,0 +1,42 @@
+name: Build Docs
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  docs-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Configure Git Credentials
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+        
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        run: uv sync --locked --extra docs
+
+      - name: Cache MkDocs / Material
+        run: echo "cache_id=$(date --utc '+%V')" >> $GITHUB_ENV
+      - uses: actions/cache@v4
+        with:
+          key: mkdocs-material-${{ env.cache_id }}
+          path: ~/.cache
+
+
+      - name: Build (validation only on PR)
+        if: github.event_name == 'pull_request'
+        run: uv run mkdocs build --strict
+
+      - name: Deploy (push -> gh-pages)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: 'uv run mkdocs gh-deploy -m "docs: deploy ${{ github.sha }}" --remote-name origin --strict'
