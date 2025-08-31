@@ -44,7 +44,7 @@ class ASAPParser:
         """Extract coordinates from an annotation element.
 
         Args:
-            annotation: XML annotation element
+            annotation: XML annotation element.
 
         Returns:
             List of (x, y) coordinate tuples.

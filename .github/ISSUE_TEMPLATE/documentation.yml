@@ -1,12 +1,12 @@
 name: Documentation
 description: Report an issue related to https://rationai.github.io/histopath/
-labels: ["category: documentation"]
+labels: ["documentation"]
 
 body:
   - type: markdown
     attributes:
       value: >
-        #### Thank you for contributing! Before submitting a doc issue, please make sure it has no duplicate by searching through [the existing and past issues](https://github.com/RationAI/histopath/issues)
+        #### Thank you for contributing! Before submitting a doc issue, please make sure it has no duplicate by searching through [the existing and past issues](https://github.com/RationAI/histopath/issues?page=1&q=is%3Aissue+sort%3Acreated-desc)
 
   - type: textarea
     attributes:

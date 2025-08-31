@@ -20,10 +20,11 @@ You can see what it will look like when you’re finished here:
 
 ```python
 from typing import Any
+
 import ray
+
 from histopath.ray.datasource import SlideMetaDatasource
-from histopath.tiling import grid_tiles
-from histopath.tiling.slide_tile_reader import slide_tile_reader
+from histopath.tiling import grid_tiles, read_slide_tile
 from histopath.tiling.utils import row_hash
 
 
@@ -44,7 +45,11 @@ def filter_tissue(row: dict[str, Any]) -> bool:
 
 
 def write_schema(batch: dict[str, Any]) -> dict[str, Any]:
-    return {"slide_id": batch["id"], "tile_x": batch["tile_x"], "tile_y": batch["tile_y"]}
+    return {
+        "slide_id": batch["id"],
+        "tile_x": batch["tile_x"],
+        "tile_y": batch["tile_y"],
+    }
 
 
 if __name__ == "__main__":
@@ -58,7 +63,7 @@ if __name__ == "__main__":
         target_num_rows_per_block=200
     )
 
-    tissue_tiles = tiles.map(slide_tile_reader, num_cpus=1, memory=3 * 1024**3).filter(
+    tissue_tiles = tiles.map(read_slide_tile, num_cpus=1, memory=3 * 1024**3).filter(
         filter_tissue, memory=1.5 * 1024**3
     )
 
@@ -205,13 +210,13 @@ tiles = tiles.repartition(target_num_rows_per_block=200)
 So far, you've only worked with coordinates.
 Now, you'll read the actual image data for each tile and filter out the ones that don't contain tissue.
 
-The `slide_tile_reader` function, when mapped over the tile rows, reads the corresponding tile region from the original slide file and adds it to the row as a NumPy array.
+The `read_slide_tile` function, when mapped over the tile rows, reads the corresponding tile region from the original slide file and adds it to the row as a NumPy array.
 
 ```python
-from histopath.tiling.slide_tile_reader import slide_tile_reader
+from histopath.tiling import read_slide_tile
 
 tiles_with_pixels = tiles.map(
-    slide_tile_reader,
+    read_slide_tile,
     num_cpus=1,              # Reading and decoding images is CPU-heavy.
     memory=3 * 1024**3       # Give Ray a hint about how much memory this task needs.
 )
@@ -236,7 +241,11 @@ So, you'll define a `write_schema` function to select only the columns you care 
 
 ```python
 def write_schema(batch: dict[str, Any]) -> dict[str, Any]:
-    return {"slide_id": batch["id"], "tile_x": batch["tile_x"], "tile_y": batch["tile_y"]}
+    return {
+        "slide_id": batch["id"],
+        "tile_x": batch["tile_x"],
+        "tile_y": batch["tile_y"],
+    }
 
 tissue_tiles.map_batches(
     write_schema,

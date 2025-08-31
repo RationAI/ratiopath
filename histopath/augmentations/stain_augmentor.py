@@ -6,7 +6,7 @@ from skimage.color import combine_stains, separate_stains
 
 
 class StainAugmentor(ImageOnlyTransform):
-    """StainAugmentor
+    """Applies stain augmentation to histopathological images.
 
     Reference:
         Tellez, D., Balkenhol, M., Karssemeijer, N., Litjens, G.,
@@ -14,7 +14,6 @@ class StainAugmentor(ImageOnlyTransform):
         generalization of convolutional networks for histopathological mitosis detection.
         In Medical Imaging 2018: Digital Pathology (Vol. 10581, pp. 264-270). SPIE.
         https://geertlitjens.nl/publication/tell-18-a/tell-18-a.pdf
-
     """
 
     def __init__(
@@ -24,6 +23,15 @@ class StainAugmentor(ImageOnlyTransform):
         beta: float = 0.02,
         **kwargs: Any,
     ) -> None:
+        """Initializes StainAugmentor.
+
+        Args:
+            conv_matrix (Callable[[np.ndarray], np.ndarray] | np.ndarray): Stain matrix for stain separation.
+                Can be a fixed matrix or a callable that returns a matrix from an image.
+            alpha (float): Multiplicative factor range for stain augmentation.
+            beta (float): Additive factor range for stain augmentation.
+            **kwargs (Any): Keyword arguments for ImageOnlyTransform.
+        """
         super().__init__(**kwargs)
         self.conv_matrix = conv_matrix
         self.alpha = alpha

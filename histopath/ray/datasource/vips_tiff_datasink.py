@@ -17,7 +17,7 @@ class VipsTiffDatasink(RowBasedFileDatasink):
         data_column: str,
         options_column: str | None = None,
         default_options: dict[str, Any] | None = None,
-        **file_datasink_kwargs,
+        **file_datasink_kwargs: Any,
     ) -> None:
         """Initialize a VipsTIFFDatasink.
 

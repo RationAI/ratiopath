@@ -1,7 +1,8 @@
 from typing import Any
 
 
-def _openslide_tile_reader(row: dict[str, Any]) -> Any:
+def _read_openslide_tile(row: dict[str, Any]) -> dict[str, Any]:
+    """Read a tile from a whole-slide image using OpenSlide."""
     import numpy as np
     from PIL import Image
 
@@ -21,21 +22,8 @@ def _openslide_tile_reader(row: dict[str, Any]) -> Any:
     return row
 
 
-def _tifffile_tile_reader(row: dict[str, Any]) -> Any:
-    """Read a tile from an OME-TIFF file using tifffile.
-
-    Args:
-        row: Dictionary containing tile information with keys:
-            - path: Path to the OME-TIFF file
-            - tile_x: X coordinate of the tile
-            - tile_y: Y coordinate of the tile
-            - level: Pyramid level
-            - tile_extent_x: Width of the tile
-            - tile_extent_y: Height of the tile
-
-    Returns:
-        The input row with an added 'tile' key containing the tile as a numpy array.
-    """
+def _read_tifffile_tile(row: dict[str, Any]) -> dict[str, Any]:
+    """Read a tile from an OME-TIFF file using tifffile."""
     import tifffile
     import zarr
 
@@ -58,14 +46,11 @@ def _tifffile_tile_reader(row: dict[str, Any]) -> Any:
     return row
 
 
-def slide_tile_reader(row: dict[str, Any]) -> Any:
-    """Unified slide tile reader that chooses the appropriate implementation based on file extension.
-
-    This function automatically selects between openslide_tile_reader and tifffile_tile_reader
-    based on the file extension in the row["path"] field.
+def read_slide_tile(row: dict[str, Any]) -> dict[str, Any]:
+    """Read a tile from a whole-slide image using either OpenSlide or tifffile.
 
     Args:
-        row: Dictionary containing tile information with keys:
+        row:
             - path: Path to the image file
             - tile_x: X coordinate of the tile
             - tile_y: Y coordinate of the tile
@@ -74,11 +59,11 @@ def slide_tile_reader(row: dict[str, Any]) -> Any:
             - tile_extent_y: Height of the tile
 
     Returns:
-        The input row with an added 'tile' key containing the tile as a numpy array.
+        The input row with an added `tile` key containing the tile as a numpy array.
     """
     path = str(row["path"])
 
     # Check if it's an OME-TIFF file
     if path.lower().endswith((".ome.tiff", ".ome.tif")):
-        return _tifffile_tile_reader(row)
-    return _openslide_tile_reader(row)
+        return _read_tifffile_tile(row)
+    return _read_openslide_tile(row)

@@ -1,5 +1,5 @@
 from sys import getsizeof
-from typing import Iterator
+from typing import Any, Iterator
 
 import numpy as np
 import pyarrow
@@ -29,6 +29,34 @@ FILE_EXTENSIONS = [
 
 
 class SlideMetaDatasource(FileBasedDatasource):
+    """A Ray datasource that extracts metadata from whole slide image files.
+
+    This datasource reads whole slide image files and extracts metadata required for
+    tiled processing. For each slide, it determines the best level to use based on
+    the provided `mpp` (microns per pixel) or `level`, and extracts properties
+    like dimensions, MPP, and downsampling factor for that level.
+
+    The output of this datasource is a Ray Dataset where each row corresponds to a
+    single slide and contains the necessary metadata for subsequent tiling operations.
+
+    Supported file formats:
+        - OpenSlide: `svs`, `tif`, `dcm`, `ndpi`, `vms`, `vmu`, `scn`, `mrxs`, `tiff`, `svslide`, `bif`, `czi`
+        - OME-TIFF: `ome.tiff`, `ome.tif`
+
+    Output columns:
+        - path (str): Path to the slide file.
+        - extent_x (int): Width of the selected slide level in pixels.
+        - extent_y (int): Height of the selected slide level in pixels.
+        - tile_extent_x (int): Width of the tiles to be extracted.
+        - tile_extent_y (int): Height of the tiles to be extracted.
+        - stride_x (int): Horizontal stride for tiling.
+        - stride_y (int): Vertical stride for tiling.
+        - mpp_x (float): Microns per pixel in the x-direction for the selected level.
+        - mpp_y (float): Microns per pixel in the y-direction for the selected level.
+        - level (int): The selected slide level.
+        - downsample (float): The downsample factor for the selected level.
+    """
+
     def __init__(
         self,
         paths: str | list[str],
@@ -37,8 +65,24 @@ class SlideMetaDatasource(FileBasedDatasource):
         level: int | None = None,
         tile_extent: int | tuple[int, int],
         stride: int | tuple[int, int],
-        **file_based_datasource_kwargs,
+        **file_based_datasource_kwargs: Any,
     ) -> None:
+        """Initializes the SlideMetaDatasource.
+
+        Args:
+            paths: A path or list of paths to whole slide image files.
+            mpp: The desired microns per pixel. The datasource will select the slide
+                level with the closest MPP. Exactly one of `mpp` or `level` must be
+                provided.
+            level: The desired slide level to use. Exactly one of `mpp` or `level`
+                must be provided.
+            tile_extent: The size of the tiles to be generated, as (width, height).
+                If a single integer is provided, it's used for both dimensions.
+            stride: The step size between consecutive tiles, as (x_stride, y_stride).
+                If a single integer is provided, it's used for both dimensions.
+            **file_based_datasource_kwargs: Additional keyword arguments passed to
+                the base `FileBasedDatasource`.
+        """
         super().__init__(
             paths, file_extensions=FILE_EXTENSIONS, **file_based_datasource_kwargs
         )

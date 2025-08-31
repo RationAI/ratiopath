@@ -29,8 +29,8 @@ class GeoJSONParser:
         Args:
             separator: The string used to separate keys in the filtering.
             **kwargs: Keyword arguments for filtering. Keys are column names
-                      (e.g., 'classification.name') and values are regex
-                      patterns to match against.
+                (e.g., 'classification.name') and values are regex patterns to match
+                against.
 
         Returns:
             A filtered GeoDataFrame.

@@ -7,15 +7,14 @@ DAB = np.array([0.27, 0.57, 0.78])  # From Ruifrok & Johnston's original paper
 
 
 def make_residual_stain(stain1: np.ndarray, stain2: np.ndarray) -> np.ndarray:
-    """
-    Create a residual stain vector from two stain vectors.
+    """Create a residual stain vector from two stain vectors.
 
     Parameters:
-    - stain1: A numpy array representing the first stain vector.
-    - stain2: A numpy array representing the second stain vector.
+        stain1: A numpy array representing the first stain vector.
+        stain2: A numpy array representing the second stain vector.
 
     Returns:
-    - A numpy array representing the residual stain vector.
+        A numpy array representing the residual stain vector.
     """
     res = np.linalg.cross(stain1, stain2)
     return res / np.linalg.norm(res)
@@ -35,17 +34,16 @@ def discard_pixels(
     max_stain: float,
     gray_threshold: float = np.cos(0.15),
 ) -> np.ndarray:
-    """
-    Discard pixels based on optical density thresholds.
+    """Discard pixels based on optical density thresholds.
 
     Parameters:
-    - od: A numpy array of optical densities for red, green, and blue channels.
-    - min_stain: Minimum optical density threshold.
-    - max_stain: Maximum optical density threshold.
-    - gray_threshold: Threshold for excluding very gray pixels (default is cos(0.15)).
+        od: A numpy array of optical densities for red, green, and blue channels.
+        min_stain: Minimum optical density threshold.
+        max_stain: Maximum optical density threshold.
+        gray_threshold: Threshold for excluding very gray pixels (default is cos(0.15)).
 
     Returns:
-    - A numpy array containing the filtered optical densities for red, green, and blue channels.
+        A numpy array containing the filtered optical densities for red, green, and blue channels.
     """
 
     keep_count = 0
@@ -82,20 +80,19 @@ def estimate_stain_vectors(
     max_stain: float = 1.0,
     alpha: float = 0.01,
 ) -> np.ndarray:
-    """
-    Estimate stain vectors from an image using optical density transformation.
+    """Estimate stain vectors from an image using optical density transformation.
 
     Parameters:
-    - image: A numpy array representing the input image.
-    - default_stain_vectors: A numpy array of default unit stain vectors.
-    - i0: The intensity value for normalization (default is 256).
-    - min_stain: Minimum optical density threshold for discarding pixels (default is 0.05).
-    - max_stain: Maximum optical density threshold for discarding pixels (default is 1.0).
-    - alpha: The percentage of pixels to use for estimating the stain vectors
-             (default is 0.01, which corresponds to 1%).
+        image: A numpy array representing the input image.
+        default_stain_vectors: A numpy array of default unit stain vectors.
+        i0: The intensity value for normalization.
+        min_stain: Minimum optical density threshold for discarding pixels.
+        max_stain: Maximum optical density threshold for discarding pixels.
+        alpha: The percentage of pixels to use for estimating the stain vectors
+            (default is 0.01, which corresponds to 1%).
 
     Returns:
-    - A numpy array of estimated stain vectors.
+        A numpy array of estimated stain vectors.
 
     References:
         Paper: A method for normalizing histology slides for quantitative analysis,

@@ -6,6 +6,8 @@ from histopath.utils.closest_level import closest_level
 
 
 class OpenSlide(openslide.OpenSlide):
+    """A wrapper around the OpenSlide library to provide additional functionality."""
+
     def closest_level(self, mpp: float | tuple[float, float]) -> int:
         """Finds the closest slide level to match the desired MPP.
 

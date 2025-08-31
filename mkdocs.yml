@@ -1,22 +1,38 @@
-site_name: RatioPath
+site_name: HistoPath
+repo_url: https://github.com/RationAI/histopath
 
 nav:
+  - Home: index.md
   - Learn:
       - GET STARTED:
           - Quick Start:
               - learn/get-started/quick-start/index.md
               - learn/get-started/quick-start/tiling.md
           - learn/get-started/installation.md
-  # - Reference:
-  #   - learn/get-started/quick-start.md
-  #   - learn/get-started/installation.md
+  - Reference:
+      - Tiling:
+          - annotations: reference/tiling/annotations.md
+          - read_slide_tile: reference/tiling/read_slide_tile.md
+          - tilers: reference/tiling/tilers.md
+          - utils: reference/tiling/utils.md
+      - Parsers:
+          - ASAPParser: reference/parsers/asap.md
+          - GeoJSONParser: reference/parsers/geojson.md
+      - Augmentations:
+          - estimate_stain_vectors: reference/augmentations/estimate_stain_vectors.md
+          - StainAugmentor: reference/augmentations/stain_augmentor.md
+      - Ray:
+          - SlideMetaDatasource: reference/ray/slide_metadatasource.md
+          - VipsTiffDatasink: reference/ray/vips_tiff_datasink.md
+      - Openslide: reference/openslide.md
+      - Utils: reference/utils.md
 
 theme:
   name: material
+  icon:
+    repo: fontawesome/brands/github
   features:
     - announce.dismiss
-    - content.action.edit
-    - content.action.view
     - content.code.annotate
     - content.code.copy
     - content.code.select
@@ -26,7 +42,6 @@ theme:
     - navigation.tabs
     - navigation.tabs.sticky
     - navigation.footer
-    - navigation.tracking
     - search.highlight
     - search.share
     - search.suggest

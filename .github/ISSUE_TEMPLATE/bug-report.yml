@@ -14,7 +14,7 @@ body:
       description: |
         Please provide the following system information to help us diagnose the bug. For example:
 
-        HistoPath version: 0.1.0
+        HistoPath version: 0.2.0
         Operating System / Platform: Ubuntu 20.04
         Python version: 3.12.9
     validations:
