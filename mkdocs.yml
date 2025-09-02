@@ -22,7 +22,7 @@ nav:
           - estimate_stain_vectors: reference/augmentations/estimate_stain_vectors.md
           - StainAugmentor: reference/augmentations/stain_augmentor.md
       - Ray:
-          - SlideMetaDatasource: reference/ray/slide_metadatasource.md
+          - read_slides: reference/ray/read_slides.md
           - VipsTiffDatasink: reference/ray/vips_tiff_datasink.md
       - Openslide: reference/openslide.md
       - Utils: reference/utils.md

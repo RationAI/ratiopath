@@ -1,31 +1,14 @@
+from collections.abc import Iterator
 from sys import getsizeof
-from typing import Any, Iterator
+from typing import Any
 
 import numpy as np
 import pyarrow
-from ray.data.block import Block
-from ray.data.datasource import FileBasedDatasource
 
 from histopath.utils.closest_level import closest_level
-
-FILE_EXTENSIONS = [
-    # OpenSlide formats
-    "svs",
-    "tif",
-    "dcm",
-    "ndpi",
-    "vms",
-    "vmu",
-    "scn",
-    "mrxs",
-    "tiff",
-    "svslide",
-    "bif",
-    "czi",
-    # OME-TIFF formats
-    "ome.tiff",
-    "ome.tif",
-]
+from ray.data.block import Block, BlockMetadata
+from ray.data.datasource import FileBasedDatasource
+from ray.data.datasource.file_meta_provider import DefaultFileMetadataProvider
 
 
 class SlideMetaDatasource(FileBasedDatasource):
@@ -83,9 +66,7 @@ class SlideMetaDatasource(FileBasedDatasource):
             **file_based_datasource_kwargs: Additional keyword arguments passed to
                 the base `FileBasedDatasource`.
         """
-        super().__init__(
-            paths, file_extensions=FILE_EXTENSIONS, **file_based_datasource_kwargs
-        )
+        super().__init__(paths, **file_based_datasource_kwargs)
 
         assert (mpp is not None) != (level is not None), (
             "Exactly one of 'mpp' or 'level' must be provided, not both or neither."
@@ -213,3 +194,37 @@ class SlideMetaDatasource(FileBasedDatasource):
 
         # The total estimated size is the base size for each row plus the total size of paths.
         return base_row_size * len(paths) + total_path_size
+
+
+class SlideFileMetadataProvider(DefaultFileMetadataProvider):
+    def _get_block_metadata(
+        self,
+        paths: list[str],
+        *,
+        rows_per_file: int | None,
+        file_sizes: list[int | None],
+    ) -> BlockMetadata:
+        sample_item = {
+            "path": "",
+            "extent_x": 0,
+            "extent_y": 0,
+            "tile_extent_x": 0,
+            "tile_extent_y": 0,
+            "stride_x": 0,
+            "stride_y": 0,
+            "mpp_x": 0.0,
+            "mpp_y": 0.0,
+            "level": 0,
+            "downsample": 0.0,
+        }
+        base_row_size = getsizeof(sample_item)
+        for k, v in sample_item.items():
+            base_row_size += getsizeof(k)
+            base_row_size += getsizeof(v)
+
+        # Estimate size for each path and create a new list of file sizes.
+        estimated_file_sizes = [base_row_size + getsizeof(p) for p in paths]
+
+        return super()._get_block_metadata(
+            paths, rows_per_file=rows_per_file, file_sizes=estimated_file_sizes
+        )
