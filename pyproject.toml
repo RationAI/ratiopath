@@ -1,6 +1,6 @@
 [project]
-name = "histopath"
-version = "0.3.1"
+name = "ratiopath"
+version = "1.0.0"
 description = ""
 authors = [
     { name = "Matěj Pekár", email = "matejpekar@mail.muni.cz" },
@@ -8,6 +8,7 @@ authors = [
     { name = "Adam Kukučka", email = "adamkukucka@mail.muni.cz" },
 ]
 readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.11"
 dependencies = [
     "albumentations>=2.0.8",
@@ -30,11 +31,11 @@ dependencies = [
 
 [project.optional-dependencies]
 docs = ["mkdocs-material>=9.6.18", "mkdocstrings[python]>=0.30.0"]
-tests = [
-    "openslide-bin>=4.0.0.8",
-    "pytest>=8.4.1",
-]
+tests = ["openslide-bin>=4.0.0.8", "pytest>=8.4.1"]
 
 
 [tool.uv]
 dev-dependencies = ["mypy", "ruff"]
+
+[project.urls]
+"Homepage" = "https://github.com/RationAI/ratiopath"

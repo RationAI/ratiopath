@@ -1,5 +1,5 @@
-site_name: HistoPath
-repo_url: https://github.com/RationAI/histopath
+site_name: RatioPath
+repo_url: https://github.com/RationAI/ratiopath
 
 nav:
   - Home: index.md

@@ -1,9 +1,9 @@
 # Installation
 
-This guide walks you through installing the Histopath library and its required binary dependencies for working with whole-slide images (WSI).
+This guide walks you through installing the RatioPath library and its required binary dependencies for working with whole-slide images (WSI).
 
 !!! note "Python Requirement"
-    You need Python 3.11 or newer to run histopath.
+    You need Python 3.11 or newer to run ratiopath.
 
 
 ## Binary Dependencies
@@ -51,17 +51,17 @@ Choose your preferred package manager to install the library.
 === "uv"
 
     ```bash
-    uv add histopath
+    uv add ratiopath
     ```
 
 === "pip"
 
     ```bash
-    pip install histopath
+    pip install ratiopath
     ```
 
 === "pdm"
 
     ```bash
-    pdm add histopath
+    pdm add ratiopath
     ```

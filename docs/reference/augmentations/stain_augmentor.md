@@ -1,3 +1,3 @@
-# histopath.augmentations.StainAugmentor
+# ratiopath.augmentations.StainAugmentor
 
-::: histopath.augmentations.StainAugmentor
+::: ratiopath.augmentations.StainAugmentor

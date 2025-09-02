@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: >
-        #### Thank you for contributing! Before reporting a bug, make sure the issue has no duplicate and hasn't been already addressed by searching through [the existing and past issues](https://github.com/RationAI/histopath/issues?page=1&q=is%3Aissue+sort%3Acreated-desc).
+        #### Thank you for contributing! Before reporting a bug, make sure the issue has no duplicate and hasn't been already addressed by searching through [the existing and past issues](https://github.com/RationAI/ratiopath/issues?page=1&q=is%3Aissue+sort%3Acreated-desc).
 
   - type: textarea
     attributes:
@@ -14,7 +14,7 @@ body:
       description: |
         Please provide the following system information to help us diagnose the bug. For example:
 
-        HistoPath version: 0.2.0
+        RatioPath version: 1.0.0
         Operating System / Platform: Ubuntu 20.04
         Python version: 3.12.9
     validations:
@@ -54,5 +54,5 @@ body:
         - label: I report the issue, it's not a question
           required: true
         - label: I checked the problem with documentation, FAQ, open issues, Stack Overflow, etc and have not found any solution
-        - label: I updated to the latest HistoPath version and the issue is still there
+        - label: I updated to the latest RatioPath version and the issue is still there
         - label: There is reproducer code and related data files (images, models, etc)

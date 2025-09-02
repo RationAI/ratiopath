@@ -1,3 +1,3 @@
-# histopath.ray.datasource.VipsTiffDatasink
+# ratiopath.ray.datasource.VipsTiffDatasink
 
-::: histopath.ray.datasource.VipsTiffDatasink
+::: ratiopath.ray.datasource.VipsTiffDatasink

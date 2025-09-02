@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from histopath.parsers import ASAPParser, GeoJSONParser
+from ratiopath.parsers import ASAPParser, GeoJSONParser
 
 
 class TestASAPParser:

@@ -1,3 +1,3 @@
-# histopath.tiling.annotations
+# ratiopath.tiling.annotations
 
-::: histopath.tiling.annotations
+::: ratiopath.tiling.annotations

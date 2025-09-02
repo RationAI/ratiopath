@@ -1,12 +1,12 @@
 name: Feature request
-description: Submit a request for a new HistoPath feature
+description: Submit a request for a new RatioPath feature
 labels: ["enhancement"]
 
 body:
   - type: markdown
     attributes:
       value: >
-        #### Thank you for contributing! Before submitting a feature request, please make sure the request has no duplicate by searching through [the existing and past issues](https://github.com/RationAI/histopath/issues?page=1&q=is%3Aissue+sort%3Acreated-desc)
+        #### Thank you for contributing! Before submitting a feature request, please make sure the request has no duplicate by searching through [the existing and past issues](https://github.com/RationAI/ratiopath/issues?page=1&q=is%3Aissue+sort%3Acreated-desc)
 
   - type: textarea
     attributes:

@@ -1,6 +1,6 @@
 import pytest
 
-from histopath.tiling import grid_tiles
+from ratiopath.tiling import grid_tiles
 
 
 @pytest.mark.parametrize(

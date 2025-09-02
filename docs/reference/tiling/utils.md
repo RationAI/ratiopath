@@ -1,3 +1,3 @@
-# histopath.tiling.utils
+# ratiopath.tiling.utils
 
-::: histopath.tiling.utils
+::: ratiopath.tiling.utils

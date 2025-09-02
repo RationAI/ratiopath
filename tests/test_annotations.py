@@ -7,8 +7,8 @@ from math import isclose
 import pytest
 from shapely import Polygon
 
-from histopath.parsers import GeoJSONParser
-from histopath.tiling.annotations import tile_annotations
+from ratiopath.parsers import GeoJSONParser
+from ratiopath.tiling.annotations import tile_annotations
 
 
 class TestMapAnnotations:

@@ -1,3 +1,3 @@
-# histopath.openslide.OpenSlide
+# ratiopath.openslide.OpenSlide
 
-::: histopath.openslide.OpenSlide
+::: ratiopath.openslide.OpenSlide

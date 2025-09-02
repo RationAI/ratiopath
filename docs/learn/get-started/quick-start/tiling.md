@@ -3,12 +3,12 @@
 You will build a simple but efficient and scalable tiling pipeline for histopathology slides.
 This tutorial does not assume any existing knowledge of parallel processing frameworks.
 We will use [Ray Data](https://docs.ray.io/en/latest/data/data.html) and explain the necessary concepts as we go.
-The techniques you'll learn are fundamental to building scalable data processing workflows with `histopath`.
+The techniques you'll learn are fundamental to building scalable data processing workflows with `ratiopath`.
 
 This tutorial is divided into several sections:
 
 -   [Setup](#setup) will give you a starting point to follow the tutorial.
--   [Overview](#overview) will teach you the fundamentals of processing slides with `histopath` and Ray.
+-   [Overview](#overview) will teach you the fundamentals of processing slides with `ratiopath` and Ray.
 -   [Building the Pipeline](#building-the-pipeline) will guide you through the most common techniques in a tiling workflow.
 
 
@@ -23,9 +23,9 @@ from typing import Any
 
 import ray
 
-from histopath.ray.datasource import SlideMetaDatasource
-from histopath.tiling import grid_tiles, read_slide_tile
-from histopath.tiling.utils import row_hash
+from ratiopath.ray.datasource import SlideMetaDatasource
+from ratiopath.tiling import grid_tiles, read_slide_tile
+from ratiopath.tiling.utils import row_hash
 
 
 def tiling(row: dict[str, Any]) -> list[dict[str, Any]]:
@@ -78,14 +78,14 @@ We’ll break it down and reconstruct it piece by piece.
 
 ## Setup
 
-Before you start, make sure you have `histopath` installed.
+Before you start, make sure you have `ratiopath` installed.
 You will also need a directory with some sample whole-slide images (`.svs`, `.tif`, `.ndpi`, `.ome.tif`, ...).
 For this tutorial, we'll assume they are in a folder named `data/`.
 
 
 ## Overview
 
-Now that you're set up, let's get an overview of histopath!
+Now that you're set up, let's get an overview of ratiopath!
 
 ### Processing Slides as a Table
 
@@ -121,13 +121,13 @@ This is where you'll spend the rest of the tutorial.
 
 First, you'll create a `Dataset` from your slides. A `Dataset` is just Ray's name for a table that can be processed in parallel. Each row in our `Dataset` will correspond to a single slide.
 
-`histopath` provides a custom `SlideMetaDatasource` that plugs directly into Ray. You tell it where your slides are (`"data"`), and what resolution you want to work with. Here, we're asking for a resolution where one pixel is about `0.25` micrometers (`mpp=0.25`). The datasource will automatically find the best magnification level in each slide file to match this.
+`ratiopath` provides a custom `SlideMetaDatasource` that plugs directly into Ray. You tell it where your slides are (`"data"`), and what resolution you want to work with. Here, we're asking for a resolution where one pixel is about `0.25` micrometers (`mpp=0.25`). The datasource will automatically find the best magnification level in each slide file to match this.
 
 You also provide `tile_extent` (the size of your tiles, e.g., 1024x1024 pixels) and `stride` (how far to move before starting the next tile). These are added as metadata to each row, ready for the tiling step later.
 
 ```python
 import ray
-from histopath.ray.datasource import SlideMetaDatasource
+from ratiopath.ray.datasource import SlideMetaDatasource
 
 slides = ray.data.read_datasource(
     SlideMetaDatasource("data", mpp=0.25, tile_extent=1024, stride=1024 - 64)
@@ -160,7 +160,7 @@ You'll use `.map()` to apply the `row_hash` function to every row in your `Datas
 
 
 ```python
-from histopath.tiling.utils import row_hash
+from ratiopath.tiling.utils import row_hash
 
 slides = slides.map(row_hash, num_cpus=0.1, memory=128 * 1024**2)
 slides.write_parquet("slides")
@@ -178,7 +178,7 @@ First, define a `tiling` function. This function takes a slide row (which contai
 
 ```python
 from typing import Any
-from histopath.tiling import grid_tiles
+from ratiopath.tiling import grid_tiles
 
 def tiling(row: dict[str, Any]) -> list[dict[str, Any]]:
     return [
@@ -213,7 +213,7 @@ Now, you'll read the actual image data for each tile and filter out the ones tha
 The `read_slide_tile` function, when mapped over the tile rows, reads the corresponding tile region from the original slide file and adds it to the row as a NumPy array.
 
 ```python
-from histopath.tiling import read_slide_tile
+from ratiopath.tiling import read_slide_tile
 
 tiles_with_pixels = tiles.map(
     read_slide_tile,

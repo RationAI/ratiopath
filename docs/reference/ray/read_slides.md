@@ -1,3 +1,3 @@
-# histopath.ray.read_slides
+# ratiopath.ray.read_slides
 
-::: histopath.ray.read_slides
+::: ratiopath.ray.read_slides

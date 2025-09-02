@@ -1,3 +1,3 @@
-# histopath.parsers.GeoJSONParser
+# ratiopath.parsers.GeoJSONParser
 
-::: histopath.parsers.GeoJSONParser
+::: ratiopath.parsers.GeoJSONParser

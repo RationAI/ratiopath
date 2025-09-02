@@ -1,3 +1,3 @@
-# histopath.parsers.ASAPParser
+# ratiopath.parsers.ASAPParser
 
-::: histopath.parsers.ASAPParser
+::: ratiopath.parsers.ASAPParser
