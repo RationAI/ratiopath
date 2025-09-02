@@ -6,6 +6,7 @@ from typing import Literal, TypeVarTuple
 import numpy as np
 from numpy.typing import NDArray
 
+
 Dims = TypeVarTuple("Dims")
 
 
@@ -45,10 +46,7 @@ def grid_tiles(
         )
 
     dim_max = (slide_extent_array - tile_extent_array) / stride_array
-    if last == "drop":
-        dim_max = np.floor(dim_max)
-    else:
-        dim_max = np.ceil(dim_max)
+    dim_max = np.floor(dim_max) if last == "drop" else np.ceil(dim_max)
     dim_max = dim_max.astype(int)
 
     # Reverse the dimension max array to iterate over 'x' coordinates first

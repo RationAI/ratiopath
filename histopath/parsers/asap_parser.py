@@ -2,8 +2,9 @@
 
 import re
 import xml.etree.ElementTree as ET
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, TextIO
+from typing import TextIO
 
 from shapely.geometry import Point, Polygon
 

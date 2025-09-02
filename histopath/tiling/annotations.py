@@ -1,5 +1,7 @@
-from typing import Iterator
+from collections.abc import Iterator
+from functools import partial
 
+import numpy as np
 from shapely import Polygon, STRtree, transform
 from shapely.geometry.base import BaseGeometry
 
@@ -16,7 +18,7 @@ def shift_roi(roi: BaseGeometry, x: int, y: int, downsample: float) -> BaseGeome
     Returns:
         BaseGeometry: The shifted region of interest geometry.
     """
-    return transform(roi, lambda geom: geom + [x * downsample, y * downsample])
+    return transform(roi, partial(np.add, np.array([x * downsample, y * downsample])))
 
 
 def annotations_intersection(tree: STRtree, roi: BaseGeometry) -> BaseGeometry:

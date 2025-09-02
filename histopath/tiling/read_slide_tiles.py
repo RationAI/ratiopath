@@ -1,8 +1,8 @@
+from functools import partial
 from typing import Any
 
 import numpy as np
 import pandas as pd
-from numpy.typing import NDArray
 from pandas import DataFrame
 
 
@@ -14,7 +14,7 @@ def _read_openslide_tiles(path: str, df: DataFrame) -> pd.Series:
 
     with OpenSlide(path) as slide:
 
-        def get_tile(row: pd.Series) -> NDArray[np.uint8]:
+        def get_tile(row: pd.Series) -> np.ndarray:
             rgba_region = slide.read_region_relative(
                 (row["tile_x"], row["tile_y"]),
                 row["level"],
@@ -33,6 +33,13 @@ def _read_tifffile_tiles(path: str, df: DataFrame) -> pd.Series:
     import tifffile
     import zarr
 
+    def get_tile(row: pd.Series, z: zarr.Array) -> np.ndarray:
+        tile_slice = z[
+            row["tile_y"] : row["tile_y"] + row["tile_extent_y"],
+            row["tile_x"] : row["tile_x"] + row["tile_extent_x"],
+        ]
+        return np.asarray(tile_slice)
+
     tiles = pd.Series(index=df.index, dtype=object)
     with tifffile.TiffFile(path) as tif:
         for level, group in df.groupby("level"):
@@ -42,13 +49,7 @@ def _read_tifffile_tiles(path: str, df: DataFrame) -> pd.Series:
             z = zarr.open(page.aszarr(), mode="r")
             assert isinstance(z, zarr.Array)
 
-            def get_tile(row: pd.Series) -> NDArray[np.uint8]:
-                return z[
-                    row["tile_y"] : row["tile_y"] + row["tile_extent_y"],
-                    row["tile_x"] : row["tile_x"] + row["tile_extent_x"],
-                ]
-
-            tiles.loc[group.index] = group.apply(get_tile, axis=1)
+            tiles.loc[group.index] = group.apply(partial(get_tile, z=z), axis=1)
 
     return tiles
 

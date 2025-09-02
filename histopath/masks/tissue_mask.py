@@ -10,6 +10,7 @@ from histopath.masks.vips_filters import (
 )
 from histopath.masks.vips_filters.typed import Res
 
+
 default_filter = VipsCompose(
     [
         VipsGrayScaleFilter(),

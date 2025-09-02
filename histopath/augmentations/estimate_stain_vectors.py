@@ -1,5 +1,6 @@
 import numpy as np
 
+
 HEMATOXYLIN = np.array([0.65, 0.70, 0.29])  # From Ruifrok & Johnston's original paper
 # EOSIN = np.array([0.07, 0.99, 0.11]) # From Ruifrok & Johnston's original paper
 EOSIN = np.array([0.2159, 0.8012, 0.5581])  # From http://amida13.isi.uu.nl/?q=node/69
@@ -45,7 +46,6 @@ def discard_pixels(
     Returns:
         A numpy array containing the filtered optical densities for red, green, and blue channels.
     """
-
     keep_count = 0
     max_stain_squared = max_stain * max_stain
     sqrt3 = 1 / np.sqrt(3)

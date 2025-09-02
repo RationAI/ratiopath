@@ -49,7 +49,7 @@ class TestMapAnnotations:
             downsample=1,
         )
 
-        for result_polygon, area in zip(results, [64.0, 16.0, 16.0, 4.0]):
+        for result_polygon, area in zip(results, [64.0, 16.0, 16.0, 4.0], strict=True):
             assert result_polygon.is_valid
             assert isclose(result_polygon.area, area)
 
@@ -65,6 +65,6 @@ class TestMapAnnotations:
             downsample=1,
         )
 
-        for result_polygon, area in zip(results, [36.0, 6.0, 6.0, 1.0]):
+        for result_polygon, area in zip(results, [36.0, 6.0, 6.0, 1.0], strict=True):
             assert result_polygon.is_valid
             assert isclose(result_polygon.area, area)

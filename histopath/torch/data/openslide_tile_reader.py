@@ -7,6 +7,7 @@ from PIL import Image
 
 from histopath.openslide import OpenSlide
 
+
 T = TypeVar("T")
 
 
@@ -55,4 +56,4 @@ class OpenSlideTileReader:
         return rgba_region.convert("RGB")
 
     def _get_from_tile(self, tile: pd.Series, key: T | str) -> T:
-        return tile[key] if isinstance(key, str) else key  # type: ignore
+        return tile[key] if isinstance(key, str) else key

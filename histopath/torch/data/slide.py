@@ -39,14 +39,15 @@ class SlideDataset(Dataset[pd.Series], OpenSlideTileReader):
         """Initialize OpenSlideTilesDataset dataset.
 
         Args:
+            slide_tiles: DataFrame with columns ["x", "y"] specifying the tiles to be read.
             slide_path: Path to the slide image.
+            tile_extent: Width and height of the tile. If int, it is used as both the
+                width and height. If str, it is used as the column name in the tiles
+                DataFrame.
             level: Level of the slide to read. If int, it is used as the level. If str,
                 it is used as the column name in the tiles DataFrame.
-            tile_extent_x: Width of the tile. If int, it is used as the width. If str, it
-                is used as the column name in the tiles DataFrame.
-            tile_extent_y: Height of the tile. If int, it is used as the height. If str,
-                it is used as the column name in the tiles DataFrame.
-            tiles: DataFrame with columns ["x", "y"].
+            slide_resolution: Mpp resolution.
+            background: Background color for the tiles.
         """
         super().__init__(
             path=slide_path,
