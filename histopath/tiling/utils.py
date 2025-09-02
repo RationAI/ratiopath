@@ -5,7 +5,7 @@ from typing import Any, Callable
 def row_hash(
     row: dict[str, Any],
     column: str = "id",
-    algorithm: Callable[[bytes], hashlib.HASH] = hashlib.sha256,
+    algorithm: Callable[[bytes], hashlib.HASH] = hashlib.sha256,  # type: ignore [name-defined]
 ) -> dict[str, Any]:
     """Hashes a row (dictionary) using SHA256 and adds the hash as a new column.
 

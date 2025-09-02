@@ -30,7 +30,11 @@ dependencies = [
 
 [project.optional-dependencies]
 docs = ["mkdocs-material>=9.6.18", "mkdocstrings[python]>=0.30.0"]
+tests = [
+    "openslide-bin>=4.0.0.8",
+    "pytest>=8.4.1",
+]
 
 
 [tool.uv]
-dev-dependencies = ["mypy", "pytest", "ruff"]
+dev-dependencies = ["mypy", "ruff"]

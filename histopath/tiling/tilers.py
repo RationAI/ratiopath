@@ -17,6 +17,10 @@ def grid_tiles(
 ) -> Iterator[NDArray[np.int64]]:
     """Generates tiles for the given slide based on its size, tile size, and stride.
 
+    The function yields tile coordinates in row-major order, iterating first over the
+    x-axis (e.g. (0,0,...), (1,0,...), (2,0,...)) before incrementing the y-axis
+    (0,1,...), (1,1,...), etc.
+
     Args:
         slide_extent: The dimensions of the slide in pixels.
         tile_extent: The dimensions of the tile in pixels.
@@ -47,12 +51,15 @@ def grid_tiles(
         dim_max = np.ceil(dim_max)
     dim_max = dim_max.astype(int)
 
+    # Reverse the dimension max array to iterate over 'x' coordinates first
+    dim_max = dim_max[::-1]
+
     # Generate tile coordinates
     if last == "drop" or last == "keep":
         for i in itertools.product(*map(range, dim_max + 1)):
-            yield np.array(i) * stride_array
+            yield np.array(i[::-1]) * stride_array
 
     elif last == "shift":
         for i in itertools.product(*map(range, dim_max + 1)):
-            base_coord = np.array(i) * stride_array
+            base_coord = np.array(i[::-1]) * stride_array
             yield np.minimum(base_coord, slide_extent_array - tile_extent_array)
