@@ -2,7 +2,7 @@
   <h1>RatioPath</h1>
 
 <a href="https://pypi.org/project/ratiopath"><img alt="PyPI version" src="https://img.shields.io/pypi/v/ratiopath.svg?style=for-the-badge&labelColor=000000"></a>
-<a href="https://github.com/vercel/next.js/blob/canary/license.md"><img alt="License" src="https://img.shields.io/npm/l/next.svg?style=for-the-badge&labelColor=000000"></a>
+<a href="https://github.com/RationAI/ratiopath/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/npm/l/next.svg?style=for-the-badge&labelColor=000000"></a>
 </div>
 
 ## Getting Started
