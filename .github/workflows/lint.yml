@@ -18,10 +18,10 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Run ruff check
-        run: uvx run ruff check --no-fix -n
+        run: uvx ruff check --no-fix -n
 
       - name: Run ruff format check
-        run: uvx run ruff format --check -n
+        run: uvx ruff format --check -n
 
   mypy:
     name: MyPy
