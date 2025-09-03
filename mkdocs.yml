@@ -8,6 +8,7 @@ nav:
           - Quick Start:
               - learn/get-started/quick-start/index.md
               - learn/get-started/quick-start/tiling.md
+              - learn/get-started/quick-start/annotations.md
           - learn/get-started/installation.md
   - Reference:
       - Tiling:
