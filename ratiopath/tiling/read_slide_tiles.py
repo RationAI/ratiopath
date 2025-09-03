@@ -47,6 +47,7 @@ def _read_tifffile_tiles(path: str, df: DataFrame) -> pd.Series:
     tiles = pd.Series(index=df.index, dtype=object)
     with tifffile.TiffFile(path) as tif:
         for level, group in df.groupby("level"):
+            assert isinstance(level, int)
             page = tif.series[0].pages[level]
             assert isinstance(page, tifffile.TiffPage)
 
@@ -75,7 +76,8 @@ def read_slide_tiles(batch: dict[str, Any]) -> dict[str, Any]:
     # Check if it's an OME-TIFF file
     df = pd.DataFrame(batch)
     for path, group in df.groupby("path"):
-        if str(path).lower().endswith((".ome.tiff", ".ome.tif")):
+        assert isinstance(path, str)
+        if path.lower().endswith((".ome.tiff", ".ome.tif")):
             df.loc[group.index, "tile"] = _read_tifffile_tiles(path, group)
         else:
             df.loc[group.index, "tile"] = _read_openslide_tiles(path, group)
