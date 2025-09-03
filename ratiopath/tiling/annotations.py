@@ -1,24 +1,25 @@
-from collections.abc import Iterator
-from functools import partial
+from collections.abc import Iterable, Iterator
 
 import numpy as np
+from numpy.typing import NDArray
 from shapely import Polygon, STRtree, transform
 from shapely.geometry.base import BaseGeometry
 
 
-def shift_roi(roi: BaseGeometry, x: int, y: int, downsample: float) -> BaseGeometry:
+def shift_roi(
+    roi: BaseGeometry, coordinate: NDArray[np.int64], downsample: float
+) -> BaseGeometry:
     """Shift the region of interest (ROI) for a specific tile.
 
     Args:
         roi: The current region of interest geometry.
-        x: The x-coordinate of the tile to shift the ROI for.
-        y: The y-coordinate of the tile to shift the ROI for.
+        coordinate: The coordinates of the tile to shift the ROI for.
         downsample: The downsampling factor.
 
     Returns:
         BaseGeometry: The shifted region of interest geometry.
     """
-    return transform(roi, partial(np.add, np.array([x * downsample, y * downsample])))
+    return transform(roi, lambda r: r + coordinate * downsample)
 
 
 def annotations_intersection(tree: STRtree, roi: BaseGeometry) -> BaseGeometry:
@@ -40,10 +41,9 @@ def annotations_intersection(tree: STRtree, roi: BaseGeometry) -> BaseGeometry:
 
 
 def tile_annotations(
-    annotations: list[BaseGeometry],
+    annotations: Iterable[BaseGeometry],
     roi: BaseGeometry,
-    x: list[int],
-    y: list[int],
+    coordinates: Iterable[NDArray[np.int64]],
     downsample: float,
 ) -> Iterator[BaseGeometry]:
     """Yield annotated tiles from the annotation tree.
@@ -54,8 +54,7 @@ def tile_annotations(
     Args:
         annotations: The list of annotation geometries.
         roi: The region of interest geometry.
-        x: The x-coordinates of the tiles.
-        y: The y-coordinates of the tiles.
+        coordinates: The iterable of coordinates of the tiles.
         downsample: The downsampling factor.
 
     Yields:
@@ -65,7 +64,7 @@ def tile_annotations(
     # transform roi to level 0
     roi = transform(roi, lambda geom: geom * downsample)
 
-    for tile_x, tile_y in zip(x, y, strict=True):
-        shifted_roi = shift_roi(roi, tile_x, tile_y, downsample)
+    for coordinate in coordinates:
+        shifted_roi = shift_roi(roi, coordinate, downsample)
         intersection = annotations_intersection(tree, shifted_roi)
         yield transform(intersection, lambda geom: geom / downsample)
