@@ -34,11 +34,15 @@ def _read_tifffile_tiles(path: str, df: DataFrame) -> pd.Series:
     import zarr
 
     def get_tile(row: pd.Series, z: zarr.Array) -> np.ndarray:
+        arr = np.full(
+            (row["tile_extent_y"], row["tile_extent_x"], 3), 255, dtype=np.uint8
+        )
         tile_slice = z[
             row["tile_y"] : row["tile_y"] + row["tile_extent_y"],
             row["tile_x"] : row["tile_x"] + row["tile_extent_x"],
         ]
-        return np.asarray(tile_slice)
+        arr[: tile_slice.shape[0], : tile_slice.shape[1]] = tile_slice[..., :3]
+        return arr
 
     tiles = pd.Series(index=df.index, dtype=object)
     with tifffile.TiffFile(path) as tif:
