@@ -21,16 +21,22 @@ You can see what it will look like when you’re finished here:
 ```python
 from typing import Any
 
-import ray
-
-from ratiopath.ray.datasource import SlideMetaDatasource
-from ratiopath.tiling import grid_tiles, read_slide_tile
+from ratiopath.ray import read_slides
+from ratiopath.tiling import grid_tiles, read_slide_tiles
 from ratiopath.tiling.utils import row_hash
 
 
 def tiling(row: dict[str, Any]) -> list[dict[str, Any]]:
     return [
-        {"tile_x": x, "tile_y": y, **row}
+        {
+            "tile_x": x,
+            "tile_y": y,
+            "path": row["path"],
+            "slide_id": row["id"],
+            "level": row["level"],
+            "tile_extent_x": row["tile_extent_x"],
+            "tile_extent_y": row["tile_extent_y"],
+        }
         for x, y in grid_tiles(
             slide_extent=(row["extent_x"], row["extent_y"]),
             tile_extent=(row["tile_extent_x"], row["tile_extent_y"]),
@@ -40,36 +46,25 @@ def tiling(row: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
-def filter_tissue(row: dict[str, Any]) -> bool:
-    return row["tile"].std() > 8
-
-
-def write_schema(batch: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "slide_id": batch["id"],
-        "tile_x": batch["tile_x"],
-        "tile_y": batch["tile_y"],
-    }
-
-
 if __name__ == "__main__":
-    slides = ray.data.read_datasource(
-        SlideMetaDatasource("data", mpp=0.25, tile_extent=1024, stride=1024 - 64)
-    )
+    slides = read_slides("data", mpp=0.25, tile_extent=1024, stride=1024 - 64)
+
     slides = slides.map(row_hash, num_cpus=0.1, memory=128 * 1024**2)
     slides.write_parquet("slides")
 
     tiles = slides.flat_map(tiling, num_cpus=0.2, memory=128 * 1024**2).repartition(
-        target_num_rows_per_block=200
+        target_num_rows_per_block=128
     )
 
-    tissue_tiles = tiles.map(read_slide_tile, num_cpus=1, memory=3 * 1024**3).filter(
-        filter_tissue, memory=1.5 * 1024**3
+    tissue_tiles = tiles.map_batches(
+        read_slide_tiles, num_cpus=1, memory=4 * 1024**3
+    ).filter(lambda row: row["tile"].std() > 8)
+
+    tissue_tiles = tissue_tiles.drop_columns(
+        ["tile", "path", "level", "tile_extent_x", "tile_extent_y"]
     )
 
-    tissue_tiles.map_batches(
-        write_schema, num_cpus=0.1, memory=1 * 1024**3
-    ).write_parquet("tiles")
+    tissue_tiles.write_parquet("tiles")
 ```
 
 If the code doesn't make sense to you yet, don't worry!
@@ -121,17 +116,14 @@ This is where you'll spend the rest of the tutorial.
 
 First, you'll create a `Dataset` from your slides. A `Dataset` is just Ray's name for a table that can be processed in parallel. Each row in our `Dataset` will correspond to a single slide.
 
-`ratiopath` provides a custom `SlideMetaDatasource` that plugs directly into Ray. You tell it where your slides are (`"data"`), and what resolution you want to work with. Here, we're asking for a resolution where one pixel is about `0.25` micrometers (`mpp=0.25`). The datasource will automatically find the best magnification level in each slide file to match this.
+`ratiopath` provides a custom `read_slides` method that plugs directly into Ray. You tell it where your slides are (`"data"`), and what resolution you want to work with. Here, we're asking for a resolution where one pixel is about `0.25` micrometers (`mpp=0.25`). The datasource will automatically find the best magnification level in each slide file to match this.
 
 You also provide `tile_extent` (the size of your tiles, e.g., 1024x1024 pixels) and `stride` (how far to move before starting the next tile). These are added as metadata to each row, ready for the tiling step later.
 
 ```python
-import ray
-from ratiopath.ray.datasource import SlideMetaDatasource
+from ratiopath.ray import read_slides
 
-slides = ray.data.read_datasource(
-    SlideMetaDatasource("data", mpp=0.25, tile_extent=1024, stride=1024 - 64)
-)
+slides = read_slides("data", mpp=0.25, tile_extent=1024, stride=1024 - 64)
 ```
 
 This returns a `Dataset` where each row is a dictionary holding the metadata for one slide. It looks something like this:
@@ -174,7 +166,7 @@ slides.write_parquet("slides")
 
 Now it's time to generate the grid of tiles for each slide. You'll use `flat_map()` because each slide row will "explode" into many tile rows.
 
-First, define a `tiling` function. This function takes a slide row (which contains all the metadata) and uses `grid_tiles` to generate a list of `(x, y)` coordinates for the top-left corner of each tile. Each coordinate becomes a new row, and we use `**row` to copy all the parent slide's metadata into it.
+First, define a `tiling` function. This function takes a slide row (which contains all the metadata) and uses `grid_tiles` to generate a list of `(x, y)` coordinates for the top-left corner of each tile. Each coordinate becomes a new row, and we also copy relevant parent slide's metadata into it.
 
 ```python
 from typing import Any
@@ -182,7 +174,15 @@ from ratiopath.tiling import grid_tiles
 
 def tiling(row: dict[str, Any]) -> list[dict[str, Any]]:
     return [
-        {"tile_x": x, "tile_y": y, **row}
+        {
+            "tile_x": x,
+            "tile_y": y,
+            "path": row["path"],
+            "slide_id": row["id"],
+            "level": row["level"],
+            "tile_extent_x": row["tile_extent_x"],
+            "tile_extent_y": row["tile_extent_y"],
+        }
         for x, y in grid_tiles(
             slide_extent=(row["extent_x"], row["extent_y"]),
             tile_extent=(row["tile_extent_x"], row["tile_extent_y"]),
@@ -197,7 +197,7 @@ tiles = slides.flat_map(tiling, num_cpus=0.2, memory=128 * 1024**2)
 After `flat_map`, all tiles from a single slide are likely in the same data block. To get better parallelism for the next, more intensive step, you should `repartition` the dataset. This shuffles the rows (our tiles) so they are more evenly distributed across many smaller blocks, allowing Ray to spread the work across more CPU cores.
 
 ```python
-tiles = tiles.repartition(target_num_rows_per_block=200)
+tiles = tiles.repartition(target_num_rows_per_block=128)
 ```
 
 !!! question "Choosing target_num_rows_per_block"
@@ -210,26 +210,28 @@ tiles = tiles.repartition(target_num_rows_per_block=200)
 So far, you've only worked with coordinates.
 Now, you'll read the actual image data for each tile and filter out the ones that don't contain tissue.
 
-The `read_slide_tile` function, when mapped over the tile rows, reads the corresponding tile region from the original slide file and adds it to the row as a NumPy array.
+The `read_slide_tiles` function, when mapped over the tile rows, reads the corresponding tile regions from the original slide file and adds it to the row as a NumPy array.
 
 ```python
-from ratiopath.tiling import read_slide_tile
+from ratiopath.tiling import read_slide_tiles
 
-tiles_with_pixels = tiles.map(
-    read_slide_tile,
+tiles_with_pixels = tiles.map_batches(
+    read_slide_tiles,
     num_cpus=1,              # Reading and decoding images is CPU-heavy.
-    memory=3 * 1024**3       # Give Ray a hint about how much memory this task needs.
+    memory=4 * 1024**3       # Give Ray a hint about how much memory this task needs.
 )
 ```
+
+!!! note ""
+    This function is most efficient when the batch of tiles belongs to a single slide and the tiles are stored sequentially. This allows it to maximize cache usage and minimize repeated I/O operations.
+
+
 Next, you'll define a simple `filter_tissue` function. For this tutorial, we'll use a basic but effective heuristic: if the standard deviation of a tile's pixel values is above a certain threshold, we assume it contains tissue. Tiles that are mostly one color (like the white background) will have a very low standard deviation.
 
 You then use `.filter()` to apply this function and keep only the rows that return `True`.
 
 ```python
-def filter_tissue(row: dict[str, Any]) -> bool:
-    return row["tile"].std() > 8
-
-tissue_tiles = tiles_with_pixels.filter(filter_tissue, memory=1.5 * 1024**3)
+tissue_tiles = tiles_with_pixels.filter(lambda row: row["tile"].std() > 8)
 ```
 
 
@@ -237,21 +239,14 @@ tissue_tiles = tiles_with_pixels.filter(filter_tissue, memory=1.5 * 1024**3)
 
 You're almost there! The final step is to write the filtered tile information to disk. The image data itself (`row["tile"]`) can make the dataset very large, and you probably don't need to save the raw pixels. Additionally, you can omit redundant metadata (like `tile_extent`) that is already saved in the `slides` Parquet dataset.
 
-So, you'll define a `write_schema` function to select only the columns you care about: the unique slide ID and the tile's coordinates. Because this is a simple column selection, it's very fast. We can use `map_batches` to apply it to a whole batch of rows at once for maximum efficiency.
+So, you'll drop columns that are not needed for the final output.
 
 ```python
-def write_schema(batch: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "slide_id": batch["id"],
-        "tile_x": batch["tile_x"],
-        "tile_y": batch["tile_y"],
-    }
+tissue_tiles = tissue_tiles.drop_columns(
+    ["tile", "path", "level", "tile_extent_x", "tile_extent_y"]
+)
 
-tissue_tiles.map_batches(
-    write_schema,
-    num_cpus=0.1,
-    memory=1 * 1024**3
-).write_parquet("tiles")
+tissue_tiles.write_parquet("tiles")
 ```
 
 
