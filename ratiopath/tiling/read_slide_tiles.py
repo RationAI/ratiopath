@@ -32,6 +32,7 @@ def _read_tifffile_tiles(path: str, df: DataFrame) -> pd.Series:
     """Read batch of tiles from an OME-TIFF file using tifffile."""
     import tifffile
     import zarr
+    from zarr.core.buffer import NDArrayLike
 
     def get_tile(row: pd.Series, z: zarr.Array) -> np.ndarray:
         arr = np.full(
@@ -41,7 +42,8 @@ def _read_tifffile_tiles(path: str, df: DataFrame) -> pd.Series:
             row["tile_y"] : row["tile_y"] + row["tile_extent_y"],
             row["tile_x"] : row["tile_x"] + row["tile_extent_x"],
         ]
-        arr[: tile_slice.shape[0], : tile_slice.shape[1]] = tile_slice[..., :3]
+        assert isinstance(tile_slice, NDArrayLike)
+        arr[: tile_slice.shape[0], : tile_slice.shape[1]] = tile_slice[..., :3]  # type: ignore[index]
         return arr
 
     tiles = pd.Series(index=df.index, dtype=object)
