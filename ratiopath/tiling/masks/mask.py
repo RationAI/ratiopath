@@ -45,11 +45,7 @@ def tile_overlay(
             np.round(np.asarray(roi_extent) * resolution_factor).astype(int)
         )
 
-        overlay_region = overlay.read_region(
-            overlay.get_tile_dimensions(roi_coords, level),  # type: ignore[attr-defined]
-            level,
-            roi_extent,
-        )
+        overlay_region = overlay.read_region_relative(roi_coords, level, roi_extent)
 
         return np.asarray(overlay_region.convert("RGB"))
 
