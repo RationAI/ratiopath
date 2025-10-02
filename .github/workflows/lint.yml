@@ -14,19 +14,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version-file: pyproject.toml
-
-      - name: Install dependencies (ruff)
-        run: pip install ruff
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Run ruff check
-        run: ruff check --no-fix -n
+        run: uvx ruff check --no-fix -n
 
       - name: Run ruff format check
-        run: ruff format --check -n
+        run: uvx ruff format --check -n
 
   mypy:
     name: MyPy
@@ -38,7 +33,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
-        run: uv sync --dev
+        run: uv sync --locked
 
       - name: Run MyPy
         run: uv run mypy .

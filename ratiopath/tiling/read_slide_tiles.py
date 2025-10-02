@@ -32,6 +32,7 @@ def _read_tifffile_tiles(path: str, df: DataFrame) -> pd.Series:
     """Read batch of tiles from an OME-TIFF file using tifffile."""
     import tifffile
     import zarr
+    from zarr.core.buffer import NDArrayLike
 
     def get_tile(row: pd.Series, z: zarr.Array) -> np.ndarray:
         arr = np.full(
@@ -41,12 +42,14 @@ def _read_tifffile_tiles(path: str, df: DataFrame) -> pd.Series:
             row["tile_y"] : row["tile_y"] + row["tile_extent_y"],
             row["tile_x"] : row["tile_x"] + row["tile_extent_x"],
         ]
-        arr[: tile_slice.shape[0], : tile_slice.shape[1]] = tile_slice[..., :3]
+        assert isinstance(tile_slice, NDArrayLike)
+        arr[: tile_slice.shape[0], : tile_slice.shape[1]] = tile_slice[..., :3]  # type: ignore[index]
         return arr
 
     tiles = pd.Series(index=df.index, dtype=object)
     with tifffile.TiffFile(path) as tif:
         for level, group in df.groupby("level"):
+            assert isinstance(level, int)
             page = tif.series[0].pages[level]
             assert isinstance(page, tifffile.TiffPage)
 
@@ -75,7 +78,8 @@ def read_slide_tiles(batch: dict[str, Any]) -> dict[str, Any]:
     # Check if it's an OME-TIFF file
     df = pd.DataFrame(batch)
     for path, group in df.groupby("path"):
-        if str(path).lower().endswith((".ome.tiff", ".ome.tif")):
+        assert isinstance(path, str)
+        if path.lower().endswith((".ome.tiff", ".ome.tif")):
             df.loc[group.index, "tile"] = _read_tifffile_tiles(path, group)
         else:
             df.loc[group.index, "tile"] = _read_openslide_tiles(path, group)

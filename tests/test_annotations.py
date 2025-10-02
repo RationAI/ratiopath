@@ -4,6 +4,7 @@ import io
 import json
 from math import isclose
 
+import numpy as np
 import pytest
 from shapely import Polygon
 
@@ -44,8 +45,7 @@ class TestMapAnnotations:
         results = tile_annotations(
             annotations=list(GeoJSONParser(f).get_polygons()),
             roi=Polygon([(0, 0), (8, 0), (8, 8), (0, 8)]),
-            x=[0, 8, 0, 8],
-            y=[0, 0, 8, 8],
+            coordinates=np.array([[0, 0], [8, 0], [0, 8], [8, 8]]),
             downsample=1,
         )
 
@@ -60,8 +60,7 @@ class TestMapAnnotations:
         results = tile_annotations(
             annotations=list(GeoJSONParser(f).get_polygons()),
             roi=Polygon([(1, 1), (7, 1), (7, 7), (1, 7)]),
-            x=[0, 8, 0, 8],
-            y=[0, 0, 8, 8],
+            coordinates=np.array([[0, 0], [8, 0], [0, 8], [8, 8]]),
             downsample=1,
         )
 

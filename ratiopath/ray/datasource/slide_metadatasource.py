@@ -197,7 +197,7 @@ class SlideMetaDatasource(FileBasedDatasource):
 
 
 class SlideFileMetadataProvider(DefaultFileMetadataProvider):
-    def _get_block_metadata(
+    def _get_block_metadata(  # type: ignore[override]
         self,
         paths: list[str],
         *,
@@ -226,5 +226,7 @@ class SlideFileMetadataProvider(DefaultFileMetadataProvider):
         estimated_file_sizes = [base_row_size + getsizeof(p) for p in paths]
 
         return super()._get_block_metadata(
-            paths, rows_per_file=rows_per_file, file_sizes=estimated_file_sizes
+            paths,
+            rows_per_file=rows_per_file,
+            file_sizes=estimated_file_sizes,  # type: ignore[arg-type]
         )

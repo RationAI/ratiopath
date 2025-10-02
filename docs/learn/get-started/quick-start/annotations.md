@@ -89,8 +89,7 @@ def tiling_with_annotations(row: dict[str, Any]) -> list[dict[str, Any]]:
             tile_annotations(
                 annotations,
                 roi,
-                coordinates[:, 0],
-                coordinates[:, 1],
+                coordinates,
                 row["downsample"],
             )
         )
