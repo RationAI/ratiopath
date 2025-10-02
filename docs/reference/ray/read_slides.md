@@ -1,3 +1,3 @@
-# ratiopath.ray.read_slides
+# ray.ratiopath.read_slides
 
-::: ratiopath.ray.read_slides
+::: ray.ratiopath.read_slides

@@ -9,7 +9,7 @@ pip install "ratiopath"
 
 ## Minimal Pipeline
 ```python
-from ratiopath.ray import read_slides
+from ray.ratiopath import read_slides
 from ratiopath.tiling import grid_tiles
 
 slides = read_slides("data", mpp=0.25, tile_extent=1024, stride=960)

@@ -3,10 +3,6 @@ from typing import Any, Literal
 import pyarrow.fs
 
 import ray
-from ratiopath.ray.datasource.slide_metadatasource import (
-    SlideFileMetadataProvider,
-    SlideMetaDatasource,
-)
 from ray.data import Dataset
 from ray.data.datasource import BaseFileMetadataProvider, PathPartitionFilter
 from ray.data.datasource.file_based_datasource import (
@@ -14,6 +10,10 @@ from ray.data.datasource.file_based_datasource import (
     _validate_shuffle_arg,
 )
 from ray.data.datasource.partitioning import Partitioning
+from ray.ratiopath.datasource.slide_metadatasource import (
+    SlideFileMetadataProvider,
+    SlideMetaDatasource,
+)
 
 
 FILE_EXTENSIONS = [
@@ -68,7 +68,7 @@ def read_slides(
         Read a single slide and create a metadata dataset.
 
         >>> import ray
-        >>> from ratiopath.ray import read_slide
+        >>> from ray.ratiopath import read_slide
         >>> ds = read_slide(  # doctest: +SKIP
         ...     "path/to/slide.svs",
         ...     tile_extent=256,

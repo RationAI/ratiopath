@@ -21,7 +21,7 @@ You can see what it will look like when you’re finished here:
 ```python
 from typing import Any
 
-from ratiopath.ray import read_slides
+from ray.ratiopath import read_slides
 from ratiopath.tiling import grid_tiles, read_slide_tiles
 from ratiopath.tiling.utils import row_hash
 
@@ -121,7 +121,7 @@ First, you'll create a `Dataset` from your slides. A `Dataset` is just Ray's nam
 You also provide `tile_extent` (the size of your tiles, e.g., 1024x1024 pixels) and `stride` (how far to move before starting the next tile). These are added as metadata to each row, ready for the tiling step later.
 
 ```python
-from ratiopath.ray import read_slides
+from ray.ratiopath import read_slides
 
 slides = read_slides("data", mpp=0.25, tile_extent=1024, stride=1024 - 64)
 ```

@@ -1,3 +1,3 @@
-# ratiopath.ray.datasource.VipsTiffDatasink
+# ray.ratiopath.datasource.VipsTiffDatasink
 
-::: ratiopath.ray.datasource.VipsTiffDatasink
+::: ray.ratiopath.datasource.VipsTiffDatasink
