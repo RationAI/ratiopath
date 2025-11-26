@@ -1,3 +1,5 @@
+from typing import Self
+
 import numpy as np
 import tifffile
 
@@ -7,7 +9,7 @@ class TiffFile(tifffile.TiffFile):  # type: ignore [misc]
 
     def __enter__(self) -> Self:
         """Handles entering the context manager."""
-        super().__enter__(self)
+        super().__enter__()
         return self
 
     def levels(self) -> int:

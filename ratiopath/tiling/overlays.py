@@ -38,8 +38,12 @@ def _scale_overlay_args(df: pd.DataFrame, slide: OpenSlide | TiffFile) -> pd.Dat
     overlay_mpp = df.apply(lambda row: slide.slide_resolution(level[row.name]))
 
     # Compute scaling factors
-    scaling_factor_x = mpp.apply(lambda mpp: mpp[0]) / overlay_mpp.apply(lambda mpp: mpp[0])
-    scaling_factor_y = mpp.apply(lambda mpp: mpp[1]) / overlay_mpp.apply(lambda mpp: mpp[1])
+    scaling_factor_x = mpp.apply(lambda mpp: mpp[0]) / overlay_mpp.apply(
+        lambda mpp: mpp[0]
+    )
+    scaling_factor_y = mpp.apply(lambda mpp: mpp[1]) / overlay_mpp.apply(
+        lambda mpp: mpp[1]
+    )
 
     def scale(df: pd.Series, scale: pd.Series) -> pd.Series:
         return (df * scale).round(0).astype(int)
