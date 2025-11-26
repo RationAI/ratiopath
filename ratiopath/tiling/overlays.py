@@ -4,52 +4,66 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from ratiopath.openslide import OpenSlide
+from ratiopath.tifffile import TiffFile
 from ratiopath.tiling.utils import _read_openslide_tiles, _read_tifffile_tiles
 
 
-def _scale_overlay_args(
-    df: pd.DataFrame,
-    overlay_mpp: pd.DataFrame,  # It is indeed Series[tuple[float, float]], but it is not valid Series type annotation
-    levels: pd.Series,
-) -> pd.DataFrame:
-    """Adjust overlay tile arguments based on slide and overlay resolutions."""
+def _scale_overlay_args(df: pd.DataFrame, slide: OpenSlide | TiffFile) -> pd.DataFrame:
+    """Scale overlay tile arguments based on slide and overlay resolutions.
+
+    Args:
+        df: DataFrame containing tile arguments
+        slide: The whole-slide image (OpenSlide or TiffFile).
+
+    Returns:
+        - pd.DataFrame: Scaled overlay tile arguments
+
+    Raises:
+        - ValueError: If neither 'mpp_x' and 'mpp_y' nor 'level' are present in the DataFrame.
+    """
+    # Determine resolution of the underlying tile
+    if "mpp_x" not in df.columns or "mpp_y" not in df.columns:
+        if "level" not in df.columns:
+            raise ValueError(
+                "DataFrame must contain 'mpp_x' and 'mpp_y' columns or 'level' column."
+            )
+
+        mpp = df.apply(lambda row: slide.slide_resolution(row["level"]))
+    else:
+        mpp = df.apply(lambda row: (row["mpp_x"], row["mpp_y"]))
+
+    # Determine closest level and overlay resolution
+    level = mpp.apply(lambda res: slide.closest_level(res))
+    overlay_mpp = df.apply(lambda row: slide.slide_resolution(level[row.name]))
+
+    # Compute scaling factors
     scaling_factor_x: pd.Series = df["mpp_x"] / overlay_mpp.apply(lambda mpp: mpp[0])  # type: ignore[call-arg]
     scaling_factor_y: pd.Series = df["mpp_y"] / overlay_mpp.apply(lambda mpp: mpp[1])  # type: ignore[call-arg]
 
     def scale(df: pd.Series, scale: pd.Series) -> pd.Series:
         return (df * scale).round(0).astype(int)
 
+    # Scale tile coordinates and extents
     df["tile_x"] = scale(df["tile_x"], scaling_factor_x)
     df["tile_y"] = scale(df["tile_y"], scaling_factor_y)
     df["tile_extent_x"] = scale(df["tile_extent_x"], scaling_factor_x)
     df["tile_extent_y"] = scale(df["tile_extent_y"], scaling_factor_y)
-    df["level"] = levels
+    df["level"] = level
 
     return df
 
 
 def _read_openslide_overlay(path: str, df: pd.DataFrame) -> pd.Series:
     """Read batch of overlays from a whole-slide image using OpenSlide."""
-    from ratiopath.openslide import OpenSlide
-
     with OpenSlide(path) as slide:
-        levels = df.apply(lambda row: slide.closest_level((row["mpp_x"], row["mpp_y"])))
-        overlay_mpp = df.apply(lambda row: slide.slide_resolution(levels[row.name]))
-
-        return _read_openslide_tiles(
-            slide, _scale_overlay_args(df, overlay_mpp, levels)
-        )
+        return _read_openslide_tiles(slide, _scale_overlay_args(df, slide))
 
 
 def _read_tifffile_overlay(path: str, df: pd.DataFrame) -> pd.Series:
     """Read batch of overlays from an OME-TIFF file using tifffile."""
-    from ratiopath.tifffile import TiffFile
-
     with TiffFile(path) as slide:
-        levels = df.apply(lambda row: slide.closest_level((row["mpp_x"], row["mpp_y"])))
-        overlay_mpp = df.apply(lambda row: slide.slide_resolution(levels[row.name]))
-
-        return _read_tifffile_tiles(slide, _scale_overlay_args(df, overlay_mpp, levels))
+        return _read_tifffile_tiles(slide, _scale_overlay_args(df, slide))
 
 
 def _tile_overlay(batch: pd.DataFrame) -> pd.Series:
@@ -65,12 +79,16 @@ def _tile_overlay(batch: pd.DataFrame) -> pd.Series:
             - tile_y: Y coordinates of the underlying
             - tile_extent_x: Widths of the underlying tiles
             - tile_extent_y: Heights of the underlying tiles
-            - mpp_x: Physical resolution (µm/px) of the underlying slide in X direction
-            - mpp_y: Physical resolution (µm/px) of the underlying slide in Y direction
             - overlay_path: Path to the overlay whole-slide image
+            - level (Optional): Level of the underlying slide
+            - mpp_x (Optional): Physical resolution (µm/px) of the underlying slide in X direction
+            - mpp_y (Optional): Physical resolution (µm/px) of the underlying slide in Y direction
 
     Returns:
         A pandas Series containing the numpy array overlays.
+
+    Raises:
+        ValueError: If neither 'mpp_x' and 'mpp_y' nor 'level' are present in the DataFrame after applying the ROI function.
     """
     tiles = pd.Series(index=batch.index, dtype=object)
 
@@ -113,6 +131,7 @@ def overlay_roi(
                 - tile_y: Y coordinates of the underlying tiles
                 - tile_extent_x: Widths of the underlying tiles
                 - tile_extent_y: Heights of the underlying tiles
+
         Returns:
             The input batch with adjusted tile coordinates and extents.
         """
@@ -160,10 +179,15 @@ def tile_overlay(
                 - tile_y: Y coordinates of the underlying
                 - tile_extent_x: Widths of the underlying tiles
                 - tile_extent_y: Heights of the underlying tiles
-                - mpp_x: Physical resolution (µm/px) of the underlying slide in
-                - mpp_y: Physical resolution (µm/px) of the underlying slide in Y direction
+                - level (Optional): Level of the underlying slide
+                - mpp_x (Optional): Physical resolution (µm/px) of the underlying slide in X direction
+                - mpp_y (Optional): Physical resolution (µm/px) of the underlying slide in Y direction
+
         Returns:
             The input batch (dict) with a new key `{store_key}` containing the overlay tiles.
+
+        Raises:
+            ValueError: If neither 'mpp_x' and 'mpp_y' nor 'level' are present in the DataFrame after applying the ROI function.
         """
         df = roi(pd.DataFrame(batch)).rename(columns={overlay_path_key: "overlay_path"})
         batch[store_key] = _tile_overlay(df).tolist()
@@ -207,10 +231,15 @@ def tile_overlay_overlap(
                 - tile_y: Y coordinates of the underlying
                 - tile_extent_x: Widths of the underlying tiles
                 - tile_extent_y: Heights of the underlying tiles
-                - mpp_x: Physical resolution (µm/px) of the underlying slide in
-                - mpp_y: Physical resolution (µm/px) of the underlying slide in
+                - level (Optional): Level of the underlying slide
+                - mpp_x (Optional): Physical resolution (µm/px) of the underlying slide in X direction
+                - mpp_y (Optional): Physical resolution (µm/px) of the underlying slide in Y direction
+
         Returns:
             The input batch (dict) with a new key `{store_key}` containing the overlay overlaps.
+
+        Raises:
+            ValueError: If neither 'mpp_x' and 'mpp_y' nor 'level' are present in the DataFrame after applying the ROI function.
         """
         df = roi(pd.DataFrame(batch)).rename(columns={overlay_path_key: "overlay_path"})
 

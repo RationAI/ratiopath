@@ -16,7 +16,12 @@ To correctly locate, scale, and extract the corresponding overlay patch, the pro
 | :--- | :--- | :--- |
 | `tile_x`, `tile_y` | `int` | Top-left pixel coordinates of the tile **in the primary slide's coordinate system**. |
 | `tile_extent_x`, `tile_extent_y` | `int` | Width/Height of the tile **in the primary slide's coordinate system**. |
-| `mpp_x`, `mpp_y` | `float` | Physical resolution ($\mu m/px$) of the level used for the tile extraction. |
+| `mpp_x`, `mpp_y` | `float` | (Optional) Physical resolution ($\mu m/px$) of the level used for the tile extraction. |
+| `level` | `int` | (Optional) The pyramid level index used for the tile extraction. |
+| `overlay_path` | `str` | The name of the column containing the file path to the overlay WSI. |
+
+!!! Note
+    Either `mpp_x` and `mpp_y`, or `level` must be provided to determine the resolution of the tile. Otherwise, the functions will raise a `ValueError`.
 
 These columns must either be pre-computed and present in the tile dataset or generated dynamically using the `roi` function argument (see Step 5).
 
