@@ -3,7 +3,6 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from pandas import Series
 
 from ratiopath.tiling.utils import _read_openslide_tiles, _read_tifffile_tiles
 
@@ -11,17 +10,13 @@ from ratiopath.tiling.utils import _read_openslide_tiles, _read_tifffile_tiles
 def _scale_overlay_args(
     df: pd.DataFrame,
     overlay_mpp: pd.DataFrame,  # It is indeed Series[tuple[float, float]], but it is not valid Series type annotation
-    levels: pd.Series[int],
+    levels: pd.Series,
 ) -> pd.DataFrame:
     """Adjust overlay tile arguments based on slide and overlay resolutions."""
-    scaling_factor_x: Series[float] = df["mpp_x"] / overlay_mpp.apply(
-        lambda mpp: mpp[0]
-    )  # type: ignore[call-arg]
-    scaling_factor_y: Series[float] = df["mpp_y"] / overlay_mpp.apply(
-        lambda mpp: mpp[1]
-    )  # type: ignore[call-arg]
+    scaling_factor_x: pd.Series = df["mpp_x"] / overlay_mpp.apply(lambda mpp: mpp[0])  # type: ignore[call-arg]
+    scaling_factor_y: pd.Series = df["mpp_y"] / overlay_mpp.apply(lambda mpp: mpp[1])  # type: ignore[call-arg]
 
-    def scale(df: Series[int], scale: Series[float]) -> Series[int]:
+    def scale(df: pd.Series, scale: pd.Series) -> pd.Series:
         return (df * scale).round(0).astype(int)
 
     df["tile_x"] = scale(df["tile_x"], scaling_factor_x)
