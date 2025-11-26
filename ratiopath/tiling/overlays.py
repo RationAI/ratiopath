@@ -38,8 +38,8 @@ def _scale_overlay_args(df: pd.DataFrame, slide: OpenSlide | TiffFile) -> pd.Dat
     overlay_mpp = df.apply(lambda row: slide.slide_resolution(level[row.name]))
 
     # Compute scaling factors
-    scaling_factor_x: pd.Series = df["mpp_x"] / overlay_mpp.apply(lambda mpp: mpp[0])  # type: ignore[call-arg]
-    scaling_factor_y: pd.Series = df["mpp_y"] / overlay_mpp.apply(lambda mpp: mpp[1])  # type: ignore[call-arg]
+    scaling_factor_x = mpp.apply(lambda mpp: mpp[0]) / overlay_mpp.apply(lambda mpp: mpp[0])
+    scaling_factor_y = mpp.apply(lambda mpp: mpp[1]) / overlay_mpp.apply(lambda mpp: mpp[1])
 
     def scale(df: pd.Series, scale: pd.Series) -> pd.Series:
         return (df * scale).round(0).astype(int)
@@ -110,7 +110,7 @@ def overlay_roi(
 ) -> Callable[[pd.DataFrame], pd.DataFrame]:
     """Adjust tile coordinates and extents to account for a region of interest (ROI) within the overlay.
 
-    The ROI is cumputed as a fractional offset and extent relative to the tile_extent.
+    The ROI is computed as a fractional offset and extent relative to the tile_extent.
 
     Args:
         roi_offset_x: Fractional X offset of the ROI within the overlay. Default is 0.
@@ -135,8 +135,8 @@ def overlay_roi(
         Returns:
             The input batch with adjusted tile coordinates and extents.
         """
-        batch["tile_x"] = batch["tile_x"] - (roi_offset_x * batch["tile_extent_x"])
-        batch["tile_y"] = batch["tile_y"] - (roi_offset_y * batch["tile_extent_y"])
+        batch["tile_x"] = batch["tile_x"] + (roi_offset_x * batch["tile_extent_x"])
+        batch["tile_y"] = batch["tile_y"] + (roi_offset_y * batch["tile_extent_y"])
         batch["tile_extent_x"] = batch["tile_extent_x"] * roi_extent_x
         batch["tile_extent_y"] = batch["tile_extent_y"] * roi_extent_y
         return batch
@@ -149,7 +149,7 @@ def tile_overlay(
     store_key: str,
     roi: Callable[[pd.DataFrame], pd.DataFrame] = lambda df: df,
 ) -> Callable[[dict[str, Any]], dict[str, Any]]:
-    """Constructs a overaly function that reads overlay tiles for a batch of tiles and stores them in the batch under the given key.
+    """Constructs an overaly function that reads overlay tiles for a batch of tiles and stores them in the batch under the given key.
 
     The overlay function first applies the given ROI function to adjust tile coordinates and extents.
     Then, for each overlay path the corresponding whole-slide image is opened (OpenSlide or OME-TIFF).
@@ -247,7 +247,7 @@ def tile_overlay_overlap(
             _tile_overlay(df)
             .apply(
                 lambda overlay: {
-                    value.item(): count.item() / (overlay.shape[:2].prod())
+                    value.item(): count.item() / np.prod(overlay.shape[:2])
                     for value, count in zip(
                         *np.unique(overlay, return_counts=True), strict=True
                     )

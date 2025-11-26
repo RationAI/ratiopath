@@ -5,8 +5,9 @@ import tifffile
 class TiffFile(tifffile.TiffFile):  # type: ignore [misc]
     """A wrapper around the TiffFile library to provide additional functionality."""
 
-    def __enter__(self) -> "TiffFile":
+    def __enter__(self) -> Self:
         """Handles entering the context manager."""
+        super().__enter__(self)
         return self
 
     def levels(self) -> int:
@@ -39,13 +40,13 @@ class TiffFile(tifffile.TiffFile):  # type: ignore [misc]
         y_val = y_res[0] / y_res[1]
 
         match unit:
-            case 2:  # Inch
+            case tifffile.RESUNIT.INCH:  # Inch
                 return (25400 / x_val, 25400 / y_val)
-            case 3:  # Centimeter
+            case tifffile.RESUNIT.CENTIMETER:  # Centimeter
                 return (10000 / x_val, 10000 / y_val)
-            case 4:  # Milimeter
+            case tifffile.RESUNIT.MILLIMETER:  # Milimeter
                 return (1000 / x_val, 1000 / y_val)
-            case 5:  # Micrometer
+            case tifffile.RESUNIT.MICROMETER:  # Micrometer
                 return (x_val, y_val)
             case _:
                 raise ValueError(f"Unsupported ResolutionUnit: {unit}")
