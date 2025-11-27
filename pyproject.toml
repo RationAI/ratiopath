@@ -28,6 +28,7 @@ dependencies = [
     "torch>=2.6.0",
     "zarr>=3.1.1",
     "geopandas>=1.1.1",
+    "rasterio>=1.4.3",
 ]
 
 [dependency-groups]

@@ -20,7 +20,7 @@ def read_tifffile_tiles(path: str, df: DataFrame) -> pd.Series:
         return _read_tifffile_tiles(slide, df)
 
 
-def read_slide_tiles(batch: dict[str, Any]) -> dict[str, Any]:
+def read_slide_tiles(batch: dict[str, Any]) -> pd.Series:
     """Reads a batch of tiles from a whole-slide image using either OpenSlide or tifffile.
 
     Args:
@@ -34,14 +34,16 @@ def read_slide_tiles(batch: dict[str, Any]) -> dict[str, Any]:
     Returns:
         The input batch with an added `tile` key containing the list of numpy array tiles.
     """
-    # Check if it's an OME-TIFF file
     df = pd.DataFrame(batch)
+    tiles = pd.Series(index=df.index, dtype=object)
+
     for path, group in df.groupby("path"):
         assert isinstance(path, str)
-        if path.lower().endswith((".ome.tiff", ".ome.tif")):
-            df.loc[group.index, "tile"] = read_tifffile_tiles(path, group)
-        else:
-            df.loc[group.index, "tile"] = read_openslide_tiles(path, group)
 
-    batch["tile"] = df["tile"].tolist()
-    return batch
+        # Check if it's an OME-TIFF file
+        if path.lower().endswith((".ome.tiff", ".ome.tif")):
+            tiles.loc[group.index, "tile"] = read_tifffile_tiles(path, group)
+        else:
+            tiles.loc[group.index, "tile"] = read_openslide_tiles(path, group)
+
+    return tiles
