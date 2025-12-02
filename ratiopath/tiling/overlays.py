@@ -108,7 +108,7 @@ def _tile_overlay(
     level: pa.Array | None = None,
     mpp_x: pa.Array | None = None,
     mpp_y: pa.Array | None = None,
-) -> pa.Array:
+) -> np.ndarray:
     """Read overlay tiles for a batch of tiles.
 
     For each overlay path the corresponding whole-slide image is opened (OpenSlide or OME-TIFF).
@@ -186,7 +186,7 @@ def _tile_overlay(
             pc.take(kwargs["tile_extent_y"], group).to_numpy(),
         )
 
-    return pa.array(masked_tiles, type=np.ma.MaskedArray)
+    return masked_tiles
 
 
 @udf(return_dtype=DataType(np.ma.MaskedArray))
@@ -220,7 +220,9 @@ def tile_overlay(
     Raises:
         ValueError: If neither 'mpp_x' and 'mpp_y' nor 'level' are present.
     """
-    return _tile_overlay(roi, overlay_path, tile_x, tile_y, level, mpp_x, mpp_y)
+    overlays = _tile_overlay(roi, overlay_path, tile_x, tile_y, level, mpp_x, mpp_y)
+
+    return pa.array(overlays, type=pa.list_)
 
 
 @udf(return_dtype=DataType(object))

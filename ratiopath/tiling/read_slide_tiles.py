@@ -15,13 +15,13 @@ from ratiopath.tiling.utils import (
 def read_openslide_tiles(path: str, **kwargs) -> np.ndarray:
     """Read batch of tiles from a whole-slide image using OpenSlide."""
     with OpenSlide(path) as slide:
-        return _read_openslide_tiles(slide, *kwargs)
+        return _read_openslide_tiles(slide, **kwargs)
 
 
 def read_tifffile_tiles(path: str, **kwargs) -> np.ndarray:
     """Read batch of tiles from an OME-TIFF file using tifffile."""
     with TiffFile(path) as slide:
-        return _read_tifffile_tiles(slide, *kwargs)
+        return _read_tifffile_tiles(slide, **kwargs)
 
 
 @udf(return_dtype=DataType(np.ndarray))
@@ -63,8 +63,8 @@ def read_slide_tiles(
 
         # Check if it's an OME-TIFF file
         if p.lower().endswith((".ome.tiff", ".ome.tif")):
-            tiles[group] = read_tifffile_tiles(p, **kwargs)
+            tiles[group] = read_tifffile_tiles(p, **kwargs).tolist()
         else:
-            tiles[group] = read_openslide_tiles(p, **kwargs)
+            tiles[group] = read_openslide_tiles(p, **kwargs).tolist()
 
-    return pa.array(tiles, type=np.ndarray)
+    return pa.array(tiles)
