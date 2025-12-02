@@ -51,10 +51,9 @@ def read_slide_tiles(
     tiles = np.empty(len(tile_x), dtype=object)
 
     for p, group in _pyarrow_group(path).items():
-        assert isinstance(path, str)
+        assert isinstance(p, str)
 
         kwargs = {
-            "path": p,
             "tile_x": pc.take(tile_x, group),
             "tile_y": pc.take(tile_y, group),
             "tile_extent_x": pc.take(tile_extent_x, group),
@@ -63,9 +62,9 @@ def read_slide_tiles(
         }
 
         # Check if it's an OME-TIFF file
-        if path.lower().endswith((".ome.tiff", ".ome.tif")):
-            tiles[group] = _read_tifffile_tiles(**kwargs)
+        if p.lower().endswith((".ome.tiff", ".ome.tif")):
+            tiles[group] = read_tifffile_tiles(p, **kwargs)
         else:
-            tiles[group] = _read_openslide_tiles(**kwargs)
+            tiles[group] = read_openslide_tiles(p, **kwargs)
 
     return pa.array(tiles, type=np.ndarray)

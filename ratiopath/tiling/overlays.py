@@ -157,13 +157,13 @@ def _tile_overlay(
     for path, group in _pyarrow_group(overlay_path).items():
         assert isinstance(path, str)
 
-        x = pc.take(tile_x, group)
-        y = pc.take(tile_y, group)
+        xp = pc.take(x, group)
+        yp = pc.take(y, group)
 
         kwargs = {
             "path": path,
-            "tile_x": x,
-            "tile_y": y,
+            "tile_x": xp,
+            "tile_y": yp,
             "tile_extent_x": pa.repeat(w, len(group)),
             "tile_extent_y": pa.repeat(h, len(group)),
             "level": level and pc.take(level, group),
@@ -180,8 +180,8 @@ def _tile_overlay(
         masked_tiles[group] = create_masked_array(
             tiles,
             # Adjust coordinates for masking
-            pc.min_element_wise(-sx, pc.add(-sx, x)).to_numpy(),  # type: ignore []
-            pc.min_element_wise(-sy, pc.add(-sy, y)).to_numpy(),  # type: ignore []
+            pc.min_element_wise(-sx, pc.add(-sx, xp)).to_numpy(),  # type: ignore []
+            pc.min_element_wise(-sy, pc.add(-sy, yp)).to_numpy(),  # type: ignore []
             pc.take(kwargs["tile_extent_x"], group).to_numpy(),
             pc.take(kwargs["tile_extent_y"], group).to_numpy(),
         )
