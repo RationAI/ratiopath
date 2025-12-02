@@ -232,7 +232,7 @@ def tile_overlay_overlap(
     level: pa.Array | None = None,
     mpp_x: pa.Array | None = None,
     mpp_y: pa.Array | None = None,
-) -> pa.Array[dict[int, float]]:
+) -> pa.Array:
     """Calculate the overlap of each overlay tile with the region of interest (ROI).
 
     For each overlay path the corresponding whole-slide image is opened (OpenSlide or OME-TIFF).
