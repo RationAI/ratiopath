@@ -1,7 +1,9 @@
-from typing import Any
+import operator
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
+import pyarrow.compute as pc
 import rasterio
 import rasterio.features
 from rasterio.transform import Affine
@@ -9,73 +11,102 @@ from shapely.geometry.base import BaseGeometry
 
 from ratiopath.openslide import OpenSlide
 from ratiopath.tifffile import TiffFile
-from ratiopath.tiling.utils import _read_openslide_tiles, _read_tifffile_tiles
+from ratiopath.tiling.utils import (
+    _pyarrow_group,
+    _read_openslide_tiles,
+    _read_tifffile_tiles,
+)
 
 
-def _scale_overlay_args(df: pd.DataFrame, slide: OpenSlide | TiffFile) -> pd.DataFrame:
+def _scale_overlay(
+    slide: OpenSlide | TiffFile,
+    tile_x: pa.Array,
+    tile_y: pa.Array,
+    tile_extent_x: pa.Array,
+    tile_extent_y: pa.Array,
+    level: pa.Array | None = None,
+    mpp_x: pa.Array | None = None,
+    mpp_y: pa.Array | None = None,
+) -> dict[str, pa.Array]:
     """Scale overlay tile arguments based on slide and overlay resolutions.
 
     Args:
-        df: DataFrame containing tile arguments
-        slide: The whole-slide image (OpenSlide or TiffFile).
+        slide: The opened whole-slide image.
+        tile_x: X coordinates of the underlying tiles.
+        tile_y: Y coordinates of the underlying tiles.
+        tile_extent_x: Widths of the underlying tiles.
+        tile_extent_y: Heights of the underlying tiles.
+        level: (Optional) Level of the underlying slide.
+        mpp_x: (Optional) Physical resolution (µm/px) of the underlying slide in X direction.
+        mpp_y: (Optional) Physical resolution (µm/px) of the underlying slide in Y direction.
 
     Returns:
-        - pd.DataFrame: Scaled overlay tile arguments
+        A dictionary containing the scaled tile arguments.
 
     Raises:
-        - ValueError: If neither 'mpp_x' and 'mpp_y' nor 'level' are present in the DataFrame.
+        ValueError: If neither 'mpp_x' and 'mpp_y' nor 'level' are present.
     """
     # Determine resolution of the underlying tile
-    if "mpp_x" not in df.columns or "mpp_y" not in df.columns:
-        if "level" not in df.columns:
+    if mpp_x is None or mpp_y is None:
+        if level is None:
             raise ValueError(
                 "DataFrame must contain 'mpp_x' and 'mpp_y' columns or 'level' column."
             )
-
-        mpp = df.apply(lambda row: slide.slide_resolution(row["level"]))
+        mpp = level.to_pandas().apply(slide.slide_resolution)
+        level_pd = level.to_pandas()
     else:
-        mpp = df.apply(lambda row: (row["mpp_x"], row["mpp_y"]))
+        mpp = pd.Series(zip(mpp_x.tolist(), mpp_y.tolist(), strict=True))  # type: ignore [call-overload]
+        level_pd = mpp.apply(slide.closest_level)
 
-    # Determine closest level and overlay resolution
-    level = mpp.apply(lambda res: slide.closest_level(res))
-    overlay_mpp = df.apply(lambda row: slide.slide_resolution(level[row.name]))
+    # Determine the overlay resolution
+    overlay_mpp = level_pd.apply(slide.slide_resolution)
 
-    # Compute scaling factors
-    scaling_factor_x: pd.Series[float] = mpp.apply(
-        lambda mpp: mpp[0]
-    ) / overlay_mpp.apply(lambda mpp: mpp[0])  # type: ignore[return-value]
-    scaling_factor_y: pd.Series[float] = mpp.apply(
-        lambda mpp: mpp[1]
-    ) / overlay_mpp.apply(lambda mpp: mpp[1])  # type: ignore[return-value]
+    x_scaling = pa.array(
+        mpp.apply(operator.itemgetter(0)) / overlay_mpp.apply(operator.itemgetter(0))
+    )
+    y_scaling = pa.array(
+        mpp.apply(operator.itemgetter(1)) / overlay_mpp.apply(operator.itemgetter(1))
+    )
 
-    def scale(df: pd.Series, scale: pd.Series) -> pd.Series:
-        return (df * scale).round(0).astype(int)
+    def scale(x: pa.Array, scaling: pa.Array) -> pa.Array:
+        return pc.round(pc.multiply(x, scaling))  # type: ignore []
 
-    # Scale tile coordinates and extents
-    df["tile_x"] = scale(df["tile_x"], scaling_factor_x)
-    df["tile_y"] = scale(df["tile_y"], scaling_factor_y)
-    df["tile_extent_x"] = scale(df["tile_extent_x"], scaling_factor_x)
-    df["tile_extent_y"] = scale(df["tile_extent_y"], scaling_factor_y)
-    df["level"] = level
-
-    return df
+    return {
+        "tile_x": scale(tile_x, x_scaling),
+        "tile_y": scale(tile_y, y_scaling),
+        "tile_extent_x": scale(tile_extent_x, x_scaling),
+        "tile_extent_y": scale(tile_extent_y, y_scaling),
+        "level": pa.array(level_pd),
+    }
 
 
-def _read_openslide_overlay(path: str, df: pd.DataFrame) -> pd.Series:
+def _read_openslide_overlay(
+    path: str, kwargs: dict[str, pa.Array]
+) -> tuple[np.ndarray, dict[str, pa.Array]]:
     """Read batch of overlays from a whole-slide image using OpenSlide."""
     with OpenSlide(path) as slide:
-        return _read_openslide_tiles(slide, _scale_overlay_args(df, slide))
+        kwargs = _scale_overlay(slide, **kwargs)
+        return _read_openslide_tiles(slide, **kwargs), kwargs
 
 
-def _read_tifffile_overlay(path: str, df: pd.DataFrame) -> pd.Series:
+def _read_tifffile_overlay(
+    path: str, kwargs: dict[str, pa.Array]
+) -> tuple[np.ndarray, dict[str, pa.Array]]:
     """Read batch of overlays from an OME-TIFF file using tifffile."""
     with TiffFile(path) as slide:
-        return _read_tifffile_tiles(slide, _scale_overlay_args(df, slide))
+        kwargs = _scale_overlay(slide, **kwargs)
+        return _read_tifffile_tiles(slide, **kwargs), kwargs
 
 
 def tile_overlay(
-    batch: dict[str, Any], overlay_path_key: str, roi: BaseGeometry
-) -> pd.Series:
+    roi: BaseGeometry,
+    overlay_path: pa.Array,
+    tile_x: pa.Array,
+    tile_y: pa.Array,
+    level: pa.Array | None = None,
+    mpp_x: pa.Array | None = None,
+    mpp_y: pa.Array | None = None,
+) -> pa.Array[np.ma.MaskedArray]:
     """Read overlay tiles for a batch of tiles.
 
     For each overlay path the corresponding whole-slide image is opened (OpenSlide or OME-TIFF).
@@ -83,73 +114,88 @@ def tile_overlay(
     coordinates/extents are scaled to that level before reading.
 
     Args:
-        batch (dict[str, Any]):
-            - tile_x: X coordinates of the underlying tiles
-            - tile_y: Y coordinates of the underlying
-            - tile_extent_x: Widths of the underlying tiles
-            - tile_extent_y: Heights of the underlying tiles
-            - level (Optional): Level of the underlying slide
-            - mpp_x (Optional): Physical resolution (µm/px) of the underlying slide in X direction
-            - mpp_y (Optional): Physical resolution (µm/px) of the underlying slide in Y direction
-        overlay_path_key: Key in the batch dict that contains the path to the overlay whole-slide image
         roi: The region of interest geometry.
+        overlay_path: A pyarrow array of whole-slide image paths for the overlays.
+        tile_x: A pyarrow array of tile x-coordinates.
+        tile_y: A pyarrow array of tile y-coordinates.
+        level: (Optional) A pyarrow array of slide levels to read the tiles from.
+        mpp_x: (Optional) A pyarrow array of physical resolutions (µm/px) of the underlying slide in X direction.
+        mpp_y: (Optional) A pyarrow array of physical resolutions (µm/px) of the underlying slide in Y direction.
 
     Returns:
-        A pandas Series containing the overlay tiles as numpy masked arrays.
+        A pyarrow array of masked numpy arrays containing the read overlay tiles.
 
     Raises:
-        ValueError: If neither 'mpp_x' and 'mpp_y' nor 'level' are present in the batch.
+        ValueError: If neither 'mpp_x' and 'mpp_y' nor 'level' are present.
     """
-    # Convert batch to DataFrame and rename overlay path column
-    df = pd.DataFrame(batch).rename(columns={overlay_path_key: "overlay_path"})
-
     # Get ROI bounds
     sx, sy, ex, ey = map(round, roi.bounds)
 
     # Adjust tile coordinates and extents based on ROI
     w, h = ex - sx, ey - sy
-    x: pd.Series[int] = df["tile_x"] - sx
-    y: pd.Series[int] = df["tile_y"] - sy
+    x = pc.subtract(tile_x, sx)  # type: ignore []
+    y = pc.subtract(tile_y, sy)  # type: ignore []
 
-    df["tile_x"] = x
-    df["tile_y"] = y
-    df["tile_extent_x"] = w
-    df["tile_extent_y"] = h
+    masked_tiles = np.empty(len(tile_x), dtype=object)
 
-    # Read overlay tiles
-    tiles = pd.Series(index=df.index, dtype=object)
-
-    for path, group in df.groupby("overlay_path"):
-        assert isinstance(path, str)
-        if path.lower().endswith((".ome.tiff", ".ome.tif")):
-            tiles.loc[group.index] = _read_tifffile_overlay(path, group)
-        else:
-            tiles.loc[group.index] = _read_openslide_overlay(path, group)
-
-    # Adjust coordinates for masking
-    sx = x.apply(lambda v: min(-sx, -sx + v))  # type: ignore[call-arg]
-    sy = y.apply(lambda v: min(-sy, -sy + v))  # type: ignore[call-arg]
-
-    masks = tiles.apply(
-        lambda overlay: rasterio.features.geometry_mask(
+    def mask_tile(
+        overlay: np.ndarray, sx: int, sy: int, extent_x: int, extent_y: int
+    ) -> np.ma.MaskedArray:
+        mask = rasterio.features.geometry_mask(
             geometries=[roi],
             out_shape=overlay.shape[:2],
             # Scale and translate to tile coordinates - reflect ROI cropping
-            transform=Affine.translation(-sx[overlay.index], -sy[overlay.index])
-            * Affine.scale(df["tile_extent_x"] / w, df["tile_extent_y"] / h),
+            transform=Affine.translation(-sx, -sy)
+            * Affine.scale(extent_x / w, extent_y / h),
         )
-    )
+        return np.ma.masked_array(overlay, mask=mask)
 
-    # Create masked arrays for each overlay tile
-    return tiles.apply(
-        lambda overlay, mask: np.ma.masked_array(overlay, mask=mask),  # type: ignore[return-value, arg-type]
-        mask=masks,
-    )
+    create_masked_array = np.vectorize(mask_tile, otypes=[np.ma.MaskedArray])
+
+    for path, group in _pyarrow_group(overlay_path).items():
+        assert isinstance(path, str)
+
+        x = pc.take(tile_x, group)
+        y = pc.take(tile_y, group)
+
+        kwargs = {
+            "path": path,
+            "tile_x": x,
+            "tile_y": y,
+            "tile_extent_x": pa.repeat(w, len(group)),
+            "tile_extent_y": pa.repeat(h, len(group)),
+            "level": level and pc.take(level, group),
+            "mpp_x": mpp_x and pc.take(mpp_x, group),
+            "mpp_y": mpp_y and pc.take(mpp_y, group),
+        }
+
+        # Check if it's an OME-TIFF file
+        if path.lower().endswith((".ome.tiff", ".ome.tif")):
+            tiles, kwargs = _read_tifffile_overlay(path, kwargs)
+        else:
+            tiles, kwargs = _read_openslide_overlay(path, kwargs)
+
+        masked_tiles[group] = create_masked_array(
+            tiles,
+            # Adjust coordinates for masking
+            pc.min_element_wise(-sx, pc.add(-sx, x)).to_numpy(),  # type: ignore []
+            pc.min_element_wise(-sy, pc.add(-sy, y)).to_numpy(),  # type: ignore []
+            pc.take(kwargs["tile_extent_x"], group).to_numpy(),
+            pc.take(kwargs["tile_extent_y"], group).to_numpy(),
+        )
+
+    return pa.array(masked_tiles, type=np.ma.MaskedArray)
 
 
 def tile_overlay_overlap(
-    batch: dict[str, Any], overlay_path_key: str, roi: BaseGeometry
-) -> pd.Series:
+    roi: BaseGeometry,
+    overlay_path: pa.Array,
+    tile_x: pa.Array,
+    tile_y: pa.Array,
+    level: pa.Array | None = None,
+    mpp_x: pa.Array | None = None,
+    mpp_y: pa.Array | None = None,
+) -> pa.Array[dict[int, float]]:
     """Calculate the overlap of each overlay tile with the region of interest (ROI).
 
     For each overlay path the corresponding whole-slide image is opened (OpenSlide or OME-TIFF).
@@ -157,31 +203,32 @@ def tile_overlay_overlap(
     coordinates/extents are scaled to that level before reading.
 
     Args:
-        batch (dict[str, Any]):
-            - tile_x: X coordinates of the underlying tiles
-            - tile_y: Y coordinates of the underlying
-            - tile_extent_x: Widths of the underlying tiles
-            - tile_extent_y: Heights of the underlying tiles
-            - level (Optional): Level of the underlying slide
-            - mpp_x (Optional): Physical resolution (µm/px) of the underlying slide in X direction
-            - mpp_y (Optional): Physical resolution (µm/px) of the underlying
-        overlay_path_key: Key in the batch dict that contains the path to the overlay whole-slide image
         roi: The region of interest geometry.
+        overlay_path: A pyarrow array of whole-slide image paths for the overlays.
+        tile_x: A pyarrow array of tile x-coordinates.
+        tile_y: A pyarrow array of tile y-coordinates.
+        level: (Optional) A pyarrow array of slide levels to read the tiles from.
+        mpp_x: (Optional) A pyarrow array of physical resolutions (µm/px) of the underlying slide in X direction.
+        mpp_y: (Optional) A pyarrow array of physical resolutions (µm/px) of the underlying slide in Y direction.
 
     Returns:
-        A pandas Series containing the overlap ratio of each overlay tile with the ROI.
+        A pyarrow array of dictionaries mapping overlay values to their overlap fraction with the ROI.
 
     Raises:
-        ValueError: If neither 'mpp_x' and 'mpp_y' nor 'level' are present in the batch.
+        ValueError: If neither 'mpp_x' and 'mpp_y' nor 'level' are present.
     """
     # The overlay is a masked array where the mask is True for pixels outside the ROI.
-    overlay = tile_overlay(batch, overlay_path_key, roi)
+    overlay = tile_overlay(roi, overlay_path, tile_x, tile_y, level, mpp_x, mpp_y)
 
-    return overlay.apply(
-        lambda overlay: {
+    def overlap_fraction(overlay: np.ma.MaskedArray) -> dict[int, float]:
+        """Calculate the overlap fraction of each unique value in the overlay."""
+        return {
             value.item(): count.item() / overlay.count()
             for value, count in zip(
                 *np.unique(overlay.compressed(), return_counts=True), strict=True
             )
         }
-    )
+
+    overlap_vectorized = np.vectorize(overlap_fraction, otypes=[object])
+
+    return pa.array(overlap_vectorized(overlay))

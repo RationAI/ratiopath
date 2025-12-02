@@ -1,11 +1,10 @@
 import hashlib
 from collections.abc import Callable
-from functools import partial
 from typing import Any
 
 import numpy as np
-import pandas as pd
-from pandas import DataFrame
+import pyarrow as pa
+import pyarrow.compute as pc
 
 from ratiopath.openslide import OpenSlide
 from ratiopath.tifffile import TiffFile
@@ -30,51 +29,111 @@ def row_hash(
     return row
 
 
-def _read_openslide_tiles(slide: OpenSlide, df: DataFrame) -> pd.Series:
+def _read_openslide_tiles(
+    slide: OpenSlide,
+    tile_x: pa.Array,
+    tile_y: pa.Array,
+    tile_extent_x: pa.Array,
+    tile_extent_y: pa.Array,
+    level: pa.Array,
+) -> np.ndarray:
     """Read batch of tiles from a whole-slide image using OpenSlide."""
     from PIL import Image
 
-    def get_tile(row: pd.Series) -> np.ndarray:
+    def get_tile(
+        x: int, y: int, extent_x: int, extent_y: int, level: int
+    ) -> np.ndarray:
         rgba_region = slide.read_region_relative(
-            (row["tile_x"], row["tile_y"]),
-            row["level"],
-            (row["tile_extent_x"], row["tile_extent_y"]),
+            (x, y),
+            level,
+            (extent_x, extent_y),
         )
         rgb_region = Image.alpha_composite(
             Image.new("RGBA", rgba_region.size, (255, 255, 255)), rgba_region
         ).convert("RGB")
         return np.asarray(rgb_region)
 
-    return df.apply(get_tile, axis=1)
+    return np.array(
+        [
+            get_tile(*args)
+            for args in zip(
+                tile_x.to_numpy(),
+                tile_y.to_numpy(),
+                tile_extent_x.to_numpy(),
+                tile_extent_y.to_numpy(),
+                level.to_numpy(),
+                strict=True,
+            )
+        ]
+    )
 
 
-def _read_tifffile_tiles(slide: TiffFile, df: DataFrame) -> pd.Series:
+def _read_tifffile_tiles(
+    slide: TiffFile,
+    tile_x: pa.Array,
+    tile_y: pa.Array,
+    tile_extent_x: pa.Array,
+    tile_extent_y: pa.Array,
+    level: pa.Array,
+) -> np.ndarray:
     """Read batch of tiles from an OME-TIFF file using tifffile."""
     import tifffile
     import zarr
     from zarr.core.buffer import NDArrayLike
 
-    def get_tile(row: pd.Series, z: zarr.Array) -> np.ndarray:
-        arr = np.full(
-            (row["tile_extent_y"], row["tile_extent_x"], 3), 255, dtype=np.uint8
-        )
+    def get_tile(
+        z: zarr.Array, x: int, y: int, extent_x: int, extent_y: int
+    ) -> np.ndarray:
+        arr = np.full((extent_y, extent_x, 3), 255, dtype=np.uint8)
         tile_slice = z[
-            row["tile_y"] : row["tile_y"] + row["tile_extent_y"],
-            row["tile_x"] : row["tile_x"] + row["tile_extent_x"],
+            y : y + extent_y,
+            x : x + extent_x,
         ]
         assert isinstance(tile_slice, NDArrayLike)
         arr[: tile_slice.shape[0], : tile_slice.shape[1]] = tile_slice[..., :3]  # type: ignore[index]
         return arr
 
-    tiles = pd.Series(index=df.index, dtype=object)
-    for level, group in df.groupby("level"):
-        assert isinstance(level, int)
-        page = slide.series[0].pages[level]
+    # All the lists must have the same length
+    tiles = np.empty(len(tile_x), dtype=object)
+
+    for page, group in _pyarrow_group(level).items():
+        assert isinstance(page, int)
+        page = slide.series[0].pages[page]
         assert isinstance(page, tifffile.TiffPage)
 
         z = zarr.open(page.aszarr(), mode="r")
         assert isinstance(z, zarr.Array)
 
-        tiles.loc[group.index] = group.apply(partial(get_tile, z=z), axis=1)
+        tiles[group] = [
+            get_tile(z, *args)
+            for args in zip(
+                pc.take(tile_x, group).to_numpy(),
+                pc.take(tile_y, group).to_numpy(),
+                pc.take(tile_extent_x, group).to_numpy(),
+                pc.take(tile_extent_y, group).to_numpy(),
+                strict=True,
+            )
+        ]
 
     return tiles
+
+
+def _pyarrow_group(x: pa.Array) -> dict[Any, pa.Array]:
+    """Group indices of a PyArrow array by unique values.
+
+    Args:
+        x: A PyArrow array to group.
+
+    Returns:
+        A dictionary mapping unique values to arrays of indices where those values occur.
+    """
+    unique_values = pc.unique(x)  # type: ignore []
+    full_indices = pa.arange(0, len(x))
+
+    groups = {}
+
+    for value in unique_values:
+        mask = pc.equal(x, value)  # type: ignore []
+        groups[value.as_py()] = pc.filter(full_indices, mask)  # type: ignore []
+
+    return groups
