@@ -24,7 +24,7 @@ def read_tifffile_tiles(path: str, **kwargs) -> np.ndarray:
         return _read_tifffile_tiles(slide, *kwargs)
 
 
-@udf(return_type=DataType(np.ndarray))
+@udf(return_dtype=DataType(np.ndarray))
 def read_slide_tiles(
     path: pa.Array,
     tile_x: pa.Array,

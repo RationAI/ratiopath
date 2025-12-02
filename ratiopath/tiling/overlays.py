@@ -100,8 +100,7 @@ def _read_tifffile_overlay(
         return _read_tifffile_tiles(slide, **kwargs), kwargs
 
 
-@udf(return_type=DataType(np.ma.MaskedArray))
-def tile_overlay(
+def _tile_overlay(
     roi: BaseGeometry,
     overlay_path: pa.Array,
     tile_x: pa.Array,
@@ -190,7 +189,41 @@ def tile_overlay(
     return pa.array(masked_tiles, type=np.ma.MaskedArray)
 
 
-@udf(return_type=DataType(object))
+@udf(return_dtype=DataType(np.ma.MaskedArray))
+def tile_overlay(
+    roi: BaseGeometry,
+    overlay_path: pa.Array,
+    tile_x: pa.Array,
+    tile_y: pa.Array,
+    level: pa.Array | None = None,
+    mpp_x: pa.Array | None = None,
+    mpp_y: pa.Array | None = None,
+) -> pa.Array[np.ma.MaskedArray]:
+    """Read overlay tiles for a batch of tiles.
+
+    For each overlay path the corresponding whole-slide image is opened (OpenSlide or OME-TIFF).
+    The overlay is accessed at the slide level closest to each tile's mpp and the tile
+    coordinates/extents are scaled to that level before reading.
+
+    Args:
+        roi: The region of interest geometry.
+        overlay_path: A pyarrow array of whole-slide image paths for the overlays.
+        tile_x: A pyarrow array of tile x-coordinates.
+        tile_y: A pyarrow array of tile y-coordinates.
+        level: (Optional) A pyarrow array of slide levels to read the tiles from.
+        mpp_x: (Optional) A pyarrow array of physical resolutions (µm/px) of the underlying slide in X direction.
+        mpp_y: (Optional) A pyarrow array of physical resolutions (µm/px) of the underlying slide in Y direction.
+
+    Returns:
+        A pyarrow array of masked numpy arrays containing the read overlay tiles.
+
+    Raises:
+        ValueError: If neither 'mpp_x' and 'mpp_y' nor 'level' are present.
+    """
+    return _tile_overlay(roi, overlay_path, tile_x, tile_y, level, mpp_x, mpp_y)
+
+
+@udf(return_dtype=DataType(object))
 def tile_overlay_overlap(
     roi: BaseGeometry,
     overlay_path: pa.Array,
@@ -222,7 +255,7 @@ def tile_overlay_overlap(
         ValueError: If neither 'mpp_x' and 'mpp_y' nor 'level' are present.
     """
     # The overlay is a masked array where the mask is True for pixels outside the ROI.
-    overlay = tile_overlay(roi, overlay_path, tile_x, tile_y, level, mpp_x, mpp_y)
+    overlay = _tile_overlay(roi, overlay_path, tile_x, tile_y, level, mpp_x, mpp_y)
 
     def overlap_fraction(overlay: np.ma.MaskedArray) -> dict[int, float]:
         """Calculate the overlap fraction of each unique value in the overlay."""
