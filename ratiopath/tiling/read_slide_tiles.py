@@ -1,5 +1,7 @@
 import numpy as np
 import pyarrow as pa
+from ray.data.datatype import DataType
+from ray.data.expressions import udf
 
 from ratiopath.openslide import OpenSlide
 from ratiopath.tifffile import TiffFile
@@ -22,6 +24,7 @@ def read_tifffile_tiles(path: str, **kwargs) -> np.ndarray:
         return _read_tifffile_tiles(slide, *kwargs)
 
 
+@udf(return_type=DataType(np.ndarray))
 def read_slide_tiles(
     path: pa.Array,
     tile_x: pa.Array,

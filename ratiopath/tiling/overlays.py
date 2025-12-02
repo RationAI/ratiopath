@@ -7,6 +7,8 @@ import pyarrow.compute as pc
 import rasterio
 import rasterio.features
 from rasterio.transform import Affine
+from ray.data.datatype import DataType
+from ray.data.expressions import udf
 from shapely.geometry.base import BaseGeometry
 
 from ratiopath.openslide import OpenSlide
@@ -98,6 +100,7 @@ def _read_tifffile_overlay(
         return _read_tifffile_tiles(slide, **kwargs), kwargs
 
 
+@udf(return_type=DataType(np.ma.MaskedArray))
 def tile_overlay(
     roi: BaseGeometry,
     overlay_path: pa.Array,
@@ -187,6 +190,7 @@ def tile_overlay(
     return pa.array(masked_tiles, type=np.ma.MaskedArray)
 
 
+@udf(return_type=DataType(object))
 def tile_overlay_overlap(
     roi: BaseGeometry,
     overlay_path: pa.Array,
