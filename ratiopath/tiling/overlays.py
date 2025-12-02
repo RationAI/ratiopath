@@ -108,7 +108,7 @@ def _tile_overlay(
     level: pa.Array | None = None,
     mpp_x: pa.Array | None = None,
     mpp_y: pa.Array | None = None,
-) -> pa.Array[np.ma.MaskedArray]:
+) -> pa.Array:
     """Read overlay tiles for a batch of tiles.
 
     For each overlay path the corresponding whole-slide image is opened (OpenSlide or OME-TIFF).
@@ -198,7 +198,7 @@ def tile_overlay(
     level: pa.Array | None = None,
     mpp_x: pa.Array | None = None,
     mpp_y: pa.Array | None = None,
-) -> pa.Array[np.ma.MaskedArray]:
+) -> pa.Array:
     """Read overlay tiles for a batch of tiles.
 
     For each overlay path the corresponding whole-slide image is opened (OpenSlide or OME-TIFF).
