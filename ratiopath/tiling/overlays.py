@@ -9,6 +9,7 @@ import rasterio.features
 from rasterio.transform import Affine
 from ray.data.datatype import DataType
 from ray.data.expressions import udf
+from ray.data.extensions import TensorArray
 from shapely.geometry.base import BaseGeometry
 
 from ratiopath.openslide import OpenSlide
@@ -108,7 +109,7 @@ def _tile_overlay(
     level: pa.Array | None = None,
     mpp_x: pa.Array | None = None,
     mpp_y: pa.Array | None = None,
-) -> np.ndarray:
+) -> np.ma.MaskedArray:
     """Read overlay tiles for a batch of tiles.
 
     For each overlay path the corresponding whole-slide image is opened (OpenSlide or OME-TIFF).
@@ -189,7 +190,7 @@ def _tile_overlay(
     return masked_tiles
 
 
-@udf(return_dtype=DataType(np.ma.MaskedArray))
+@udf(return_dtype=DataType(np.ndarray))
 def tile_overlay(
     roi: BaseGeometry,
     overlay_path: pa.Array,
@@ -200,6 +201,9 @@ def tile_overlay(
     mpp_y: pa.Array | None = None,
 ) -> pa.Array:
     """Read overlay tiles for a batch of tiles.
+
+    Unfortunately, at the moment we cannot use masked arrays directly in Ray Dataset. So instead,
+    we wrap both data and mask into a TensorArray.
 
     For each overlay path the corresponding whole-slide image is opened (OpenSlide or OME-TIFF).
     The overlay is accessed at the slide level closest to each tile's mpp and the tile
@@ -216,16 +220,18 @@ def tile_overlay(
 
     Returns:
         A pyarrow array of masked numpy arrays containing the read overlay tiles.
+            - The first element is the tile data.
+            - The second element is the mask (True for pixels outside the ROI).
 
     Raises:
         ValueError: If neither 'mpp_x' and 'mpp_y' nor 'level' are present.
     """
     overlays = _tile_overlay(roi, overlay_path, tile_x, tile_y, level, mpp_x, mpp_y)
 
-    return pa.array(overlays, type=pa.list_)
+    return pa.array(TensorArray([[overlay.data, overlay.mask] for overlay in overlays]))
 
 
-@udf(return_dtype=DataType(object))
+@udf(return_dtype=DataType(dict))
 def tile_overlay_overlap(
     roi: BaseGeometry,
     overlay_path: pa.Array,

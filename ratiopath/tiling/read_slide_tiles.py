@@ -2,6 +2,7 @@ import numpy as np
 import pyarrow as pa
 from ray.data.datatype import DataType
 from ray.data.expressions import udf
+from ray.data.extensions import TensorArray
 
 from ratiopath.openslide import OpenSlide
 from ratiopath.tifffile import TiffFile
@@ -63,8 +64,8 @@ def read_slide_tiles(
 
         # Check if it's an OME-TIFF file
         if p.lower().endswith((".ome.tiff", ".ome.tif")):
-            tiles[group] = read_tifffile_tiles(p, **kwargs).tolist()
+            tiles[group] = list(read_tifffile_tiles(p, **kwargs))
         else:
-            tiles[group] = read_openslide_tiles(p, **kwargs).tolist()
+            tiles[group] = list(read_openslide_tiles(p, **kwargs))
 
-    return pa.array(tiles)
+    return pa.array(TensorArray(tiles))
