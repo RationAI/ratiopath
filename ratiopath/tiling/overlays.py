@@ -58,9 +58,9 @@ def _scale_overlay(
     )
 
     def scale(x: pa.Array, scaling: pa.Array) -> pa.Array:
-        return pc.max_element_wise(  # type: ignore []
+        return pc.max_element_wise(  # pyright: ignore[reportAttributeAccessIssue]
             0,
-            pc.round(pc.multiply(x, scaling)).cast(pa.int32()),  # type: ignore []
+            pc.round(pc.multiply(x, scaling)).cast(pa.int32()),  # pyright: ignore[reportAttributeAccessIssue]
         )
 
     return {
@@ -124,8 +124,8 @@ def _tile_overlay(
     roi_width = roi_max_x - roi_min_x
     roi_height = roi_max_y - roi_min_y
 
-    tile_x = pc.add(tile_x, roi_min_x)  # type: ignore []
-    tile_y = pc.add(tile_y, roi_min_y)  # type: ignore []
+    tile_x = pc.add(tile_x, roi_min_x)  # pyright: ignore[reportAttributeAccessIssue]
+    tile_y = pc.add(tile_y, roi_min_y)  # pyright: ignore[reportAttributeAccessIssue]
 
     # Pre-allocate output array (Object array to hold MaskedArrays)
     masked_tiles = np.empty(len(tile_x), dtype=object)
@@ -164,8 +164,8 @@ def _tile_overlay(
         else:
             tiles, kwargs = _read_openslide_overlay(path, kwargs)
 
-        batch_x = pc.min_element_wise(roi_min_x, batch_x)  # type: ignore []
-        batch_y = pc.min_element_wise(roi_min_y, batch_y)  # type: ignore []
+        batch_x = pc.min_element_wise(roi_min_x, batch_x)  # pyright: ignore[reportAttributeAccessIssue]
+        batch_y = pc.min_element_wise(roi_min_y, batch_y)  # pyright: ignore[reportAttributeAccessIssue]
         batch_extent_x = pc.take(kwargs["tile_extent_x"], group)
         batch_extent_y = pc.take(kwargs["tile_extent_y"], group)
 

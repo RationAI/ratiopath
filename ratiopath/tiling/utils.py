@@ -127,13 +127,13 @@ def _pyarrow_group_indices(x: pa.Array) -> dict[Any, pa.Array]:
     Returns:
         A dictionary mapping unique values to PyArrow arrays of integer indices where those values occur.
     """
-    unique_values = pc.unique(x)  # type: ignore []
+    unique_values = pc.unique(x)  # pyright: ignore[reportAttributeAccessIssue]
     full_indices = pa.arange(0, len(x))
 
     groups = {}
 
     for value in unique_values:
-        mask = pc.equal(x, value)  # type: ignore []
-        groups[value.as_py()] = pc.filter(full_indices, mask)  # type: ignore []
+        mask = pc.equal(x, value)  # pyright: ignore[reportAttributeAccessIssue]
+        groups[value.as_py()] = pc.filter(full_indices, mask)  # pyright: ignore[reportAttributeAccessIssue]
 
     return groups

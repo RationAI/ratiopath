@@ -10,7 +10,7 @@ Overlays (e.g., tissue masks) are often image files that are **aligned with the 
 
 ### **Essential Tile Overlay Metadata**
 
-Both presented functions, `tile_overlay` and `tile_overlay_overlap`, are Ray's User Defined Function Expressions (`UDFExpr`) that process batches of data provided as column expressions. Both functions further require a Region of Interest (ROI) which defines the area of interets relative to each provided underlaying tile. The ROI must be define in the underlying tile's space (physical resolution). There are no limits for the shape of the ROI it can be an arbitrary polygon, neither the size, it may exceed the underlying tile. The ROIs that may exceed beiond the overlay image bounds are automatically clipped to the overlay image bounds.
+Both presented functions, `tile_overlay` and `tile_overlay_overlap`, are Ray's User Defined Function Expressions (`UDFExpr`) that process batches of data provided as column expressions. Both functions further require a Region of Interest (ROI) which defines the area of interets relative to each provided underlaying tile. The ROI must be define in the underlying tile's space (physical resolution). There are no limits for the shape of the ROI it can be an arbitrary polygon, neither the size, it may exceed the underlying tile. The ROIs that may exceed beyond the overlay image bounds are automatically clipped to the overlay image bounds.
 
 To correctly locate, scale, and extract the corresponding overlay patch, the processing function require following metadata.
 
