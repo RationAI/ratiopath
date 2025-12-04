@@ -65,7 +65,7 @@ We can now use the `tile_overlay` function to extract the overlay patches corres
 from ratiopath.tiling import tile_overlay
 
 
-tile_with_overlay = tiles.add_column(
+tile_with_overlay = tiles.with_column(
     "tissue_overlay",  # New column name for the overlay patch
     tile_overlay(
         roi=roi,
@@ -92,7 +92,7 @@ Instead of retrieving the raw image patch, you can compute the **pixel ratio** f
 from ratiopath.tiling import tile_overlay_overlap
 
 
-tissue_tiles = tiles.add_column(
+tissue_tiles = tiles.with_column(
     "tissue_overlap",  # New column name for the overlay patch
     tile_overlay_overlap(
         roi=roi,
