@@ -243,7 +243,7 @@ def tile_overlay_overlap(
 
     The Pyarrow array that is used inside ray dataset stores data in array like dictionary.
     This results in all rows having same set of keys and missing keys are filled with Nones.
-    Fruthemore Pyarrow only support string keys in dictionaries. Therefore the keys in the
+    Furthermore Pyarrow only support string keys in dictionaries. Therefore the keys in the
     resulting dictionary are string representations of the overlay values.
 
     Args:
