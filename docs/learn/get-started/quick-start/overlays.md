@@ -10,20 +10,16 @@ Overlays (e.g., tissue masks) are often image files that are **aligned with the 
 
 ### **Essential Tile Overlay Metadata**
 
-To correctly locate, scale, and extract the corresponding overlay patch, the processing function requires specific metadata for each tile, which must be present in the tile dataset:
+Both presented functions, `tile_overlay` and `tile_overlay_overlap`, are Ray's User Defined Function Expressions (`UDFExpr`) that process batches of data provided as column expressions. Both functions fruther require a Region of Interest (ROI) which defines the area of interets relative to each provided underlaying tile. The ROI must be define in the underlying tile's space (physical resolution). There are no limits for the shape of the ROI it can be an arbitrary polygon, neither the size, it may exceed the underlying tile. The ROIs that may exceed beiond the overlay image bounds are automatically clipped to the overlay image bounds.
+
+To correctly locate, scale, and extract the corresponding overlay patch, the processing function require following metadata.
 
 | Column | Data Type | Description |
 | :--- | :--- | :--- |
 | `tile_x`, `tile_y` | `int` | Top-left pixel coordinates of the tile **in the primary slide's coordinate system**. |
 | `tile_extent_x`, `tile_extent_y` | `int` | Width/Height of the tile **in the primary slide's coordinate system**. |
-| `mpp_x`, `mpp_y` | `float` | (Optional) Physical resolution ($\mu m/px$) of the level used for the tile extraction. |
-| `level` | `int` | (Optional) The pyramid level index used for the tile extraction. |
-| `overlay_path` | `str` | The name of the column containing the file path to the overlay WSI. |
-
-!!! Note
-    Either `mpp_x` and `mpp_y`, or `level` must be provided to determine the resolution of the tile. Otherwise, the functions will raise a `ValueError`.
-
-These columns must either be pre-computed and present in the tile dataset or generated dynamically using the `roi` function argument (see Step 5).
+| `mpp_x`, `mpp_y` | `float` | Physical resolution ($\mu m/px$) of the level used for the tile extraction. |
+| `overlay_path` | `str` | File path to the overlay WSI. |
 
 -----
 
@@ -49,88 +45,84 @@ def add_overlay_path(batch: dict) -> dict:
 tiles = tiles.map_batches(add_overlay_path)
 ```
 
-### 2.2 Applying the `tile_overlay` Processor
+### 2.2 Define the Region of Interest (ROI)
 
-Instantiate `tile_overlay` to create a processor that reads the corresponding overlay patch (as a NumPy array) and attaches it to the input batch dictionary under the specified `store_key`.
+For this example, we will use a simple rectangular ROI that corresponds to the center view of each tile with half the width and height.
 
 ```python
-from ratiopath.tiling import tile_overlay
+from shapely.geometry import box
 
-add_tissue_mask = tile_overlay(
-    overlay_path_key="tissue_mask_path", # The column holding the overlay file path
-    store_key="tissue_mask",             # The new column for the extracted patch array
-)
 
-# Apply the function to the Ray Dataset using map_batches
-tiles_with_overlays = tiles.map_batches(add_tissue_mask)
+# Assuming the tile size is 512x512 pixels
+roi = box(128, 128, 384, 384) # A box from (128,128) to (384,384)
 ```
 
-The `tiles_with_overlays` dataset will now include a new column, `tissue_mask`, containing the raw overlay image patch (e.g., a NumPy array) corresponding to the tile.
+### 2.3 Extracting Overlay Patches
+
+We can now use the `tile_overlay` function to extract the overlay patches corresponding to each tile. We will store the extracted overlay patches in a new column called `tissue_overlay`.
+
+````python
+from ratiopath.tiling import tile_overlay
+
+
+tile_with_overlay = tiles.add_column(
+    "tissue_overlay",  # New column name for the overlay patch
+    tile_overlay(
+        roi=roi,
+        path=col("tissue_mask_path"),
+        tile_x=col("tile_x"),
+        tile_y=col("tile_y"),
+        mpp_x=col("mpp_x"),
+        mpp_y=col("mpp_y"),
+    ),
+    num_cpus=1,
+    memory=4 * 1024**3,
+)
+````
+
+The `tiles_with_overlays` dataset will now include a new column, `tissue_overlay`, containing the raw overlay image patches corresponding to each tile. For the optimization purposes, the overlay pathes are of the sape of the bounding box of the provided ROI. Unfortunately, at the moment we cannot use masked arrays directly in Ray Dataset. So instead of a numpy masked array, we provide the data and the mask as 2 separate arrays. The mask indicates which pixels are inside the ROI and which are outside.
 
 -----
 
 ## Step 3: Computing Overlay Overlap/Coverage (`tile_overlay_overlap`)
 
-Instead of retrieving the raw image patch, you can compute the **pixel count percentage** for every unique value in the resulting overlay patch, which is useful for filtering tiles based on content (e.g., how much tissue is present).
+Instead of retrieving the raw image patch, you can compute the **pixel ration** for every unique value in the resulting overlay patch, which is useful for filtering tiles based on content (e.g., how much tissue is present). The setup is similar to the previous step.
 
 ```python
 from ratiopath.tiling import tile_overlay_overlap
 
-add_tissue_mask_overlap = tile_overlay_overlap(
-    overlay_path_key="tissue_mask_path",
-    store_key="tissue_mask_overlap",
-)
 
-# Apply the function to the Ray Dataset using map_batches
-tiles_with_overlap = tiles.map_batches(add_tissue_mask_overlap)
+tissue_tiles = tiles.add_column(
+    "tissue_overlap",  # New column name for the overlay patch
+    tile_overlay_overlap(
+        roi=roi,
+        path=col("tissue_mask_path"),
+        tile_x=col("tile_x"),
+        tile_y=col("tile_y"),
+        mpp_x=col("mpp_x"),
+        mpp_y=col("mpp_y"),
+    ),
+    num_cpus=1,
+    memory=4 * 1024**3,
+)
 ```
 
 ### Post-Processing the Overlap Data
 
-The new column `tissue_mask_overlap` contains a dictionary for each tile, mapping **unique pixel values** (e.g., 0, 1, 255) in the overlay to their **area coverage** (as a fraction summing to 1).
-
+The new column `tissue_mask_overlap` contains a dictionary for each tile, mapping **unique pixel values** (e.g., 0, 1, 255) in the overlay to their **area coverage** (as a fraction summing to 1). Due to PyArrow's dictionary limitations, which is used by Ray for storing the data, the keys are strings and the keys are shared across all rows. Missing keys are filled with `None`.
 You can easily post-process this to extract coverage of a specific class (e.g., the foreground tissue, often value `255`):
 
 ```python
 def extract_foreground_coverage(tile: dict) -> dict:
     """Extracts the foreground coverage (value 255) from the overlap dictionary."""
     # Use .get(255, 0.0) to safely retrieve the value, defaulting to 0.0 if not present
-    tile["tissue_coverage"] = tile["tissue_mask_overlap"].get(255, 0.0)
+    tile["tissue_coverage"] = tile["tissue_mask_overlap"].get('255', 0.0)
     return tile
 
-tiles_with_tissue_coverage = tiles_with_overlap.map(extract_foreground_coverage)
-```
-
------
-
-## Step 4: Defining a Region of Interest (ROI)
-
-Both `tile_overlay` and `tile_overlay_overlap` accept an optional `roi` argument, which is a function that takes the tile's metadata and returns a modified set of coordinates and extents. This is crucial when the Region of Interest for the overlay is for instance a subregion **within the underlying tile's area**.
-
-The `overlay` module provides a convenient `overlay_roi` factory function that adjusts the tile's coordinates and extents to define a specific ROI using **fractional offsets** and **extents** relative to the tile's full size.
-
-### Example: Central 50% ROI
-
-Here is an example of defining an ROI that extracts only the **central 50%** region of each tile:
-
-```python
-from ratiopath.tiling import overlay_roi
-
-# Define an ROI that extracts the central 50% region of each tile
-centered_roi = overlay_roi(
-    offset_x_frac=0.25,  # Start reading at 25% of the tile width
-    offset_y_frac=0.25,  # Start reading at 25% of the tile height
-    extent_x_frac=0.5,   # Width of the ROI is 50% of the tile width
-    extent_y_frac=0.5,   # Height of the ROI is 50% of the tile height
+tiles_with_tissue_coverage = tiles_with_overlap.map(extract_foreground_coverage).filter(
+    lambda tile: tile["tissue_coverage"] >= 0.5  # Keep tiles with at least 50% tissue
 )
-
-# You would then pass this to the tiling function:
-# add_tissue_mask = tile_overlay(..., roi=centered_roi)
 ```
-
-If no `roi` function is explicitly passed, it defaults to an identity function, which selects the **full tile area**.
-
-> **Note:** The ROI is defined relative to the underlying tile in terms of fractional coordinates/extents. It is automatically scaled to the overlay's resolution when the patch is read.
 
 -----
 

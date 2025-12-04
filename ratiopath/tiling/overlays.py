@@ -104,6 +104,10 @@ def _tile_overlay(
     The overlay is accessed at the slide level closest to each tile's mpp and the tile
     coordinates/extents are scaled to that level before reading.
 
+    The region of interest (ROI) geometry is treated in the same image space (resolution) as the underlying slide tiles.
+    The region can be an arbitrary polygon. However, a bounding box of the region is used for reading overlay tiles
+    and then masked to respect the region defined by provided overlay.
+
     Args:
         roi: The region of interest geometry.
         overlay_path: A pyarrow array of whole-slide image paths for the overlays.
@@ -115,25 +119,26 @@ def _tile_overlay(
     Returns:
         A pyarrow array of masked numpy arrays containing the read overlay tiles.
     """
-    # Get ROI bounds
-    sx, sy, ex, ey = map(round, roi.bounds)
+    # Pre-calculate ROI constants
+    roi_min_x, roi_min_y, roi_max_x, roi_max_y = map(round, roi.bounds)
+    roi_width = roi_max_x - roi_min_x
+    roi_height = roi_max_y - roi_min_y
 
-    # Adjust tile coordinates and extents based on ROI
-    w, h = ex - sx, ey - sy
-    x = pc.add(tile_x, sx)  # type: ignore []
-    y = pc.add(tile_y, sy)  # type: ignore []
+    tile_x = pc.add(tile_x, roi_min_x)  # type: ignore []
+    tile_y = pc.add(tile_y, roi_min_y)  # type: ignore []
 
+    # Pre-allocate output array (Object array to hold MaskedArrays)
     masked_tiles = np.empty(len(tile_x), dtype=object)
 
     def mask_tile(
-        overlay: np.ndarray, sx: int, sy: int, extent_x: int, extent_y: int
+        overlay: np.ndarray, x: int, y: int, extent_x: int, extent_y: int
     ) -> np.ma.MaskedArray:
         mask = rasterio.features.geometry_mask(
             geometries=[roi],
             out_shape=overlay.shape[:2],
             # Scale and translate to tile coordinates
-            transform=Affine.translation(sx, sy)
-            * Affine.scale(extent_x / w, extent_y / h),
+            transform=Affine.translation(x, y)
+            * Affine.scale(extent_x / roi_width, extent_y / roi_height),
         )
 
         return np.ma.masked_array(overlay, mask=np.dstack([mask] * 3))
@@ -141,14 +146,14 @@ def _tile_overlay(
     for path, group in _pyarrow_group(overlay_path).items():
         assert isinstance(path, str)
 
-        xp = pc.take(x, group)
-        yp = pc.take(y, group)
+        batch_x = pc.take(tile_x, group)
+        batch_y = pc.take(tile_y, group)
 
         kwargs = {
-            "tile_x": xp,
-            "tile_y": yp,
-            "tile_extent_x": pa.repeat(w, len(group)),
-            "tile_extent_y": pa.repeat(h, len(group)),
+            "tile_x": batch_x,
+            "tile_y": batch_y,
+            "tile_extent_x": pa.repeat(roi_width, len(group)),
+            "tile_extent_y": pa.repeat(roi_height, len(group)),
             "mpp_x": pc.take(mpp_x, group),
             "mpp_y": pc.take(mpp_y, group),
         }
@@ -159,23 +164,23 @@ def _tile_overlay(
         else:
             tiles, kwargs = _read_openslide_overlay(path, kwargs)
 
-        xp = pc.min_element_wise(sx, xp)  # type: ignore []
-        yp = pc.min_element_wise(sy, yp)  # type: ignore []
-        extent_x_p = pc.take(kwargs["tile_extent_x"], group)
-        extent_y_p = pc.take(kwargs["tile_extent_y"], group)
+        batch_x = pc.min_element_wise(roi_min_x, batch_x)  # type: ignore []
+        batch_y = pc.min_element_wise(roi_min_y, batch_y)  # type: ignore []
+        batch_extent_x = pc.take(kwargs["tile_extent_x"], group)
+        batch_extent_y = pc.take(kwargs["tile_extent_y"], group)
 
         masked_tiles[group] = [
             mask_tile(
                 tile,
-                xp[i].as_py(),
-                yp[i].as_py(),
-                extent_x_p[i].as_py(),
-                extent_y_p[i].as_py(),
+                batch_x[i].as_py(),
+                batch_y[i].as_py(),
+                batch_extent_x[i].as_py(),
+                batch_extent_y[i].as_py(),
             )
             for i, tile in enumerate(tiles)
         ]
 
-    return masked_tiles
+    return masked_tiles  # type: ignore [return-value]
 
 
 @udf(return_dtype=DataType(np.ndarray))
@@ -189,12 +194,16 @@ def tile_overlay(
 ) -> pa.Array:
     """Read overlay tiles for a batch of tiles.
 
-    Unfortunately, at the moment we cannot use masked arrays directly in Ray Dataset. So instead,
-    we wrap both data and mask into a TensorArray.
-
     For each overlay path the corresponding whole-slide image is opened (OpenSlide or OME-TIFF).
     The overlay is accessed at the slide level closest to each tile's mpp and the tile
     coordinates/extents are scaled to that level before reading.
+
+    The region of interest (ROI) geometry is treated in the same image space (resolution) as the underlying slide tiles.
+    The region can be an arbitrary polygon. However, a bounding box of the region is used for reading overlay tiles
+    and then masked to respect the region defined by provided overlay.
+
+    Unfortunately, at the moment we cannot use masked arrays directly in Ray Dataset. So instead of a numpy masked array,
+    we provide the data and the mask as 2 separate arrays. The implementation is handled via TensorArray.
 
     Args:
         roi: The region of interest geometry.
@@ -228,6 +237,14 @@ def tile_overlay_overlap(
     For each overlay path the corresponding whole-slide image is opened (OpenSlide or OME-TIFF).
     The overlay is accessed at the slide level closest to each tile's mpp and the tile
     coordinates/extents are scaled to that level before reading.
+
+    The region of interest (ROI) geometry is treated in the same image space (resolution) as the underlying slide tiles.
+    The region can be an arbitrary polygon.
+
+    The Pyarrow array that is used inside ray dataset stores data in array like dictionary.
+    This results in all rows having same set of keys and missing keys are filled with Nones.
+    Fruthemore Pyarrow only support string keys in dictionaries. Therefore the keys in the
+    resulting dictionary are string representations of the overlay values.
 
     Args:
         roi: The region of interest geometry.
