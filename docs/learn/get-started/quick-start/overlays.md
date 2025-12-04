@@ -63,6 +63,7 @@ We can now use the `tile_overlay` function to extract the overlay patches corres
 
 ````python
 from ratiopath.tiling import tile_overlay
+from ray.data.expressions import col
 
 
 tile_with_overlay = tiles.with_column(
