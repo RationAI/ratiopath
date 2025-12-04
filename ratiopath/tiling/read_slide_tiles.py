@@ -1,88 +1,71 @@
-from functools import partial
-from typing import Any
-
 import numpy as np
-import pandas as pd
-from pandas import DataFrame
+import pyarrow as pa
+from ray.data.datatype import DataType
+from ray.data.expressions import udf
+from ray.data.extensions import TensorArray
+
+from ratiopath.openslide import OpenSlide
+from ratiopath.tifffile import TiffFile
+from ratiopath.tiling.utils import (
+    _pyarrow_group_indices,
+    _read_openslide_tiles,
+    _read_tifffile_tiles,
+)
 
 
-def _read_openslide_tiles(path: str, df: DataFrame) -> pd.Series:
+def read_openslide_tiles(path: str, **kwargs) -> np.ndarray:
     """Read batch of tiles from a whole-slide image using OpenSlide."""
-    from PIL import Image
-
-    from ratiopath.openslide import OpenSlide
-
     with OpenSlide(path) as slide:
-
-        def get_tile(row: pd.Series) -> np.ndarray:
-            rgba_region = slide.read_region_relative(
-                (row["tile_x"], row["tile_y"]),
-                row["level"],
-                (row["tile_extent_x"], row["tile_extent_y"]),
-            )
-            rgb_region = Image.alpha_composite(
-                Image.new("RGBA", rgba_region.size, (255, 255, 255)), rgba_region
-            ).convert("RGB")
-            return np.asarray(rgb_region)
-
-        return df.apply(get_tile, axis=1)
+        return _read_openslide_tiles(slide, **kwargs)
 
 
-def _read_tifffile_tiles(path: str, df: DataFrame) -> pd.Series:
+def read_tifffile_tiles(path: str, **kwargs) -> np.ndarray:
     """Read batch of tiles from an OME-TIFF file using tifffile."""
-    import tifffile
-    import zarr
-    from zarr.core.buffer import NDArrayLike
-
-    def get_tile(row: pd.Series, z: zarr.Array) -> np.ndarray:
-        arr = np.full(
-            (row["tile_extent_y"], row["tile_extent_x"], 3), 255, dtype=np.uint8
-        )
-        tile_slice = z[
-            row["tile_y"] : row["tile_y"] + row["tile_extent_y"],
-            row["tile_x"] : row["tile_x"] + row["tile_extent_x"],
-        ]
-        assert isinstance(tile_slice, NDArrayLike)
-        arr[: tile_slice.shape[0], : tile_slice.shape[1]] = tile_slice[..., :3]  # type: ignore[index]
-        return arr
-
-    tiles = pd.Series(index=df.index, dtype=object)
-    with tifffile.TiffFile(path) as tif:
-        for level, group in df.groupby("level"):
-            assert isinstance(level, int)
-            page = tif.series[0].pages[level]
-            assert isinstance(page, tifffile.TiffPage)
-
-            z = zarr.open(page.aszarr(), mode="r")
-            assert isinstance(z, zarr.Array)
-
-            tiles.loc[group.index] = group.apply(partial(get_tile, z=z), axis=1)
-
-    return tiles
+    with TiffFile(path) as slide:
+        return _read_tifffile_tiles(slide, **kwargs)
 
 
-def read_slide_tiles(batch: dict[str, Any]) -> dict[str, Any]:
+@udf(return_dtype=DataType(np.ndarray))
+def read_slide_tiles(
+    path: pa.Array,
+    tile_x: pa.Array,
+    tile_y: pa.Array,
+    tile_extent_x: pa.Array,
+    tile_extent_y: pa.Array,
+    level: pa.Array,
+) -> pa.Array:
     """Reads a batch of tiles from a whole-slide image using either OpenSlide or tifffile.
 
     Args:
-        batch:
-            - tile_x: X coordinates of tiles relative to the level
-            - tile_y: Y coordinates of tiles relative to the level
-            - level: Pyramid levels
-            - tile_extent_x: Widths of the tiles
-            - tile_extent_y: Heights of the tiles
+        path: A pyarrow array of whole-slide image paths.
+        tile_x: A pyarrow array of tile x-coordinates.
+        tile_y: A pyarrow array of tile y-coordinates.
+        tile_extent_x: A pyarrow array of tile extents in the x-dimension.
+        tile_extent_y: A pyarrow array of tile extents in the y-dimension.
+        level: A pyarrow array of slide levels to read the tiles from.
 
     Returns:
-        The input batch with an added `tile` key containing the list of numpy array tiles.
+        A pyarrow array of numpy arrays containing the read tiles.
     """
-    # Check if it's an OME-TIFF file
-    df = pd.DataFrame(batch)
-    for path, group in df.groupby("path"):
-        assert isinstance(path, str)
-        if path.lower().endswith((".ome.tiff", ".ome.tif")):
-            df.loc[group.index, "tile"] = _read_tifffile_tiles(path, group)
-        else:
-            df.loc[group.index, "tile"] = _read_openslide_tiles(path, group)
+    import pyarrow.compute as pc
 
-    batch["tile"] = df["tile"].tolist()
-    return batch
+    tiles = np.empty(len(tile_x), dtype=object)
+
+    for p, group in _pyarrow_group_indices(path).items():
+        assert isinstance(p, str)
+
+        kwargs = {
+            "tile_x": pc.take(tile_x, group),
+            "tile_y": pc.take(tile_y, group),
+            "tile_extent_x": pc.take(tile_extent_x, group),
+            "tile_extent_y": pc.take(tile_extent_y, group),
+            "level": pc.take(level, group),
+        }
+
+        # Check if it's an OME-TIFF file
+        if p.lower().endswith((".ome.tiff", ".ome.tif")):
+            tiles[group] = list(read_tifffile_tiles(p, **kwargs))
+        else:
+            tiles[group] = list(read_openslide_tiles(p, **kwargs))
+
+    return pa.array(TensorArray(tiles))

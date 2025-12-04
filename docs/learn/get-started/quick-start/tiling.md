@@ -21,6 +21,8 @@ You can see what it will look like when you’re finished here:
 ```python
 from typing import Any
 
+from ray.data.expressions import col
+
 from ratiopath.ray import read_slides
 from ratiopath.tiling import grid_tiles, read_slide_tiles
 from ratiopath.tiling.utils import row_hash
@@ -56,8 +58,18 @@ if __name__ == "__main__":
         target_num_rows_per_block=128
     )
 
-    tissue_tiles = tiles.map_batches(
-        read_slide_tiles, num_cpus=1, memory=4 * 1024**3
+    tissue_tiles = tiles.with_column(
+        "tile",
+        read_slide_tiles(
+            col("path"),
+            col("tile_x"),
+            col("tile_y"),
+            col("tile_extent_x"),
+            col("tile_extent_y"),
+            col("level"),
+        ),
+        num_cpus=1,
+        memory=4 * 1024**3,
     ).filter(lambda row: row["tile"].std() > 8)
 
     tissue_tiles = tissue_tiles.drop_columns(
@@ -101,6 +113,7 @@ You just need to define the work to be done on each row (or a batch of rows), an
 -   [`flat_map()`](https://docs.ray.io/en/latest/data/api/doc/ray.data.Dataset.flat_map.html): Apply a function that can return multiple output rows for each input row.
 -   [`filter()`](https://docs.ray.io/en/latest/data/api/doc/ray.data.Dataset.filter.html): Remove rows based on a condition.
 -   [`map_batches()`](https://docs.ray.io/en/latest/data/api/doc/ray.data.Dataset.map_batches.html): Apply a function to a batch of rows at once.
+-   [`with_column()`](https://docs.ray.io/en/latest/data/api/doc/ray.data.Dataset.with_column.html): Add a new column to the dataset.
 
 
 !!! note "Lazy Execution"
@@ -210,15 +223,26 @@ tiles = tiles.repartition(target_num_rows_per_block=128)
 So far, you've only worked with coordinates.
 Now, you'll read the actual image data for each tile and filter out the ones that don't contain tissue.
 
-The `read_slide_tiles` function, when mapped over the tile rows, reads the corresponding tile regions from the original slide file and adds it to the row as a NumPy array.
+The `read_slide_tiles` function reads the corresponding tile regions from the original slide file and adds it to the dataset as a NumPy array. The function is designed to work efficiently with batches of tiles. The inputs are columns from the `tiles` dataset, specified using Ray's column expressions ([`col("column_name")`](https://docs.ray.io/en/latest/data/api/doc/ray.data.expressions.col.html#ray.data.expressions.col)). 
 
 ```python
+from ray.data.expressions import col
+
 from ratiopath.tiling import read_slide_tiles
 
-tiles_with_pixels = tiles.map_batches(
-    read_slide_tiles,
-    num_cpus=1,              # Reading and decoding images is CPU-heavy.
-    memory=4 * 1024**3       # Give Ray a hint about how much memory this task needs.
+
+tiles_with_pixels = tiles.with_column(
+    "tile",  # Name of the new column to add.
+    read_slide_tiles(
+        col("path"),
+        col("tile_x"),
+        col("tile_y"),
+        col("tile_extent_x"),
+        col("tile_extent_y"),
+        col("level"),
+    ),
+    num_cpus=1,  # Reading and decoding images is CPU-heavy.
+    memory=4 * 1024**3,  # Give Ray a hint about how much memory this task needs.
 )
 ```
 

@@ -9,10 +9,12 @@ nav:
               - learn/get-started/quick-start/index.md
               - learn/get-started/quick-start/tiling.md
               - learn/get-started/quick-start/annotations.md
+              - learn/get-started/quick-start/overlays.md
           - learn/get-started/installation.md
   - Reference:
       - Tiling:
           - annotations: reference/tiling/annotations.md
+          - overlays: reference/tiling/overlays.md
           - read_slide_tile: reference/tiling/read_slide_tile.md
           - tilers: reference/tiling/tilers.md
           - utils: reference/tiling/utils.md

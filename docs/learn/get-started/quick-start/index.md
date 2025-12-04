@@ -38,6 +38,7 @@ tiles.show(5)
 ## Next Steps
 - Build the full tiling pipeline: [Tiling Tutorial](./tiling.md)
 - Add annotation coverage: [Annotation Coverage](./annotations.md)
+- Add overlays: [Overlay Coverage](./overlays.md)
 
 ## Tips
 - Use .stats() after an action to inspect performance.

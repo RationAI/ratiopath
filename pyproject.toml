@@ -10,7 +10,7 @@ authors = [
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "albumentations>=2.0.8",
     "imagecodecs>=2025.8.2",
@@ -21,13 +21,14 @@ dependencies = [
     "pandas-stubs>=2.2.3.250308",
     "pillow>=11.1.0",
     "pyvips>=2.2.3",
-    "ray[data]>=2.42.1",
+    "ray[data]>=2.50.0",
     "scikit-image>=0.25.2",
     "tifffile>=2024.5.22",
     "shapely>=2.0.0",
     "torch>=2.6.0",
     "zarr>=3.1.1",
     "geopandas>=1.1.1",
+    "rasterio>=1.4.3",
 ]
 
 [dependency-groups]
