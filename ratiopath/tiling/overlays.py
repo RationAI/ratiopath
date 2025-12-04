@@ -27,9 +27,8 @@ def _scale_overlay(
     tile_y: pa.Array,
     tile_extent_x: pa.Array,
     tile_extent_y: pa.Array,
-    level: pa.Array | None = None,
-    mpp_x: pa.Array | None = None,
-    mpp_y: pa.Array | None = None,
+    mpp_x: pa.Array,
+    mpp_y: pa.Array,
 ) -> dict[str, pa.Array]:
     """Scale overlay tile arguments based on slide and overlay resolutions.
 
@@ -39,30 +38,17 @@ def _scale_overlay(
         tile_y: Y coordinates of the underlying tiles.
         tile_extent_x: Widths of the underlying tiles.
         tile_extent_y: Heights of the underlying tiles.
-        level: (Optional) Level of the underlying slide.
-        mpp_x: (Optional) Physical resolution (µm/px) of the underlying slide in X direction.
-        mpp_y: (Optional) Physical resolution (µm/px) of the underlying slide in Y direction.
+        mpp_x: Physical resolution (µm/px) of the underlying slide in X direction.
+        mpp_y: Physical resolution (µm/px) of the underlying slide in Y direction.
 
     Returns:
         A dictionary containing the scaled tile arguments.
-
-    Raises:
-        ValueError: If neither 'mpp_x' and 'mpp_y' nor 'level' are present.
     """
-    # Determine resolution of the underlying tile
-    if mpp_x is None or mpp_y is None:
-        if level is None:
-            raise ValueError(
-                "DataFrame must contain 'mpp_x' and 'mpp_y' columns or 'level' column."
-            )
-        mpp = level.to_pandas().apply(slide.slide_resolution)
-        level_pd = level.to_pandas()
-    else:
-        mpp = pd.Series(zip(mpp_x.tolist(), mpp_y.tolist(), strict=True))  # type: ignore [call-overload]
-        level_pd = mpp.apply(slide.closest_level)
+    mpp = pd.Series(zip(mpp_x.to_numpy(), mpp_y.to_numpy(), strict=True))  # type: ignore [call-overload]
+    level = mpp.apply(slide.closest_level)
 
     # Determine the overlay resolution
-    overlay_mpp = level_pd.apply(slide.slide_resolution)
+    overlay_mpp = level.apply(slide.slide_resolution)
 
     x_scaling = pa.array(
         mpp.apply(operator.itemgetter(0)) / overlay_mpp.apply(operator.itemgetter(0))
@@ -72,14 +58,17 @@ def _scale_overlay(
     )
 
     def scale(x: pa.Array, scaling: pa.Array) -> pa.Array:
-        return pc.round(pc.multiply(x, scaling))  # type: ignore []
+        return pc.max_element_wise(  # type: ignore []
+            0,
+            pc.round(pc.multiply(x, scaling)).cast(pa.int32()),  # type: ignore []
+        )
 
     return {
         "tile_x": scale(tile_x, x_scaling),
         "tile_y": scale(tile_y, y_scaling),
         "tile_extent_x": scale(tile_extent_x, x_scaling),
         "tile_extent_y": scale(tile_extent_y, y_scaling),
-        "level": pa.array(level_pd),
+        "level": pa.array(level),
     }
 
 
@@ -106,9 +95,8 @@ def _tile_overlay(
     overlay_path: pa.Array,
     tile_x: pa.Array,
     tile_y: pa.Array,
-    level: pa.Array | None = None,
-    mpp_x: pa.Array | None = None,
-    mpp_y: pa.Array | None = None,
+    mpp_x: pa.Array,
+    mpp_y: pa.Array,
 ) -> np.ma.MaskedArray:
     """Read overlay tiles for a batch of tiles.
 
@@ -121,23 +109,19 @@ def _tile_overlay(
         overlay_path: A pyarrow array of whole-slide image paths for the overlays.
         tile_x: A pyarrow array of tile x-coordinates.
         tile_y: A pyarrow array of tile y-coordinates.
-        level: (Optional) A pyarrow array of slide levels to read the tiles from.
-        mpp_x: (Optional) A pyarrow array of physical resolutions (µm/px) of the underlying slide in X direction.
-        mpp_y: (Optional) A pyarrow array of physical resolutions (µm/px) of the underlying slide in Y direction.
+        mpp_x: A pyarrow array of physical resolutions (µm/px) of the underlying slide in X direction.
+        mpp_y: A pyarrow array of physical resolutions (µm/px) of the underlying slide in Y direction.
 
     Returns:
         A pyarrow array of masked numpy arrays containing the read overlay tiles.
-
-    Raises:
-        ValueError: If neither 'mpp_x' and 'mpp_y' nor 'level' are present.
     """
     # Get ROI bounds
     sx, sy, ex, ey = map(round, roi.bounds)
 
     # Adjust tile coordinates and extents based on ROI
     w, h = ex - sx, ey - sy
-    x = pc.subtract(tile_x, sx)  # type: ignore []
-    y = pc.subtract(tile_y, sy)  # type: ignore []
+    x = pc.add(tile_x, sx)  # type: ignore []
+    y = pc.add(tile_y, sy)  # type: ignore []
 
     masked_tiles = np.empty(len(tile_x), dtype=object)
 
@@ -151,7 +135,8 @@ def _tile_overlay(
             transform=Affine.translation(-sx, -sy)
             * Affine.scale(extent_x / w, extent_y / h),
         )
-        return np.ma.masked_array(overlay, mask=mask)
+
+        return np.ma.masked_array(overlay, mask=np.dstack([mask] * 3))
 
     create_masked_array = np.vectorize(mask_tile, otypes=[np.ma.MaskedArray])
 
@@ -162,14 +147,12 @@ def _tile_overlay(
         yp = pc.take(y, group)
 
         kwargs = {
-            "path": path,
             "tile_x": xp,
             "tile_y": yp,
             "tile_extent_x": pa.repeat(w, len(group)),
             "tile_extent_y": pa.repeat(h, len(group)),
-            "level": level and pc.take(level, group),
-            "mpp_x": mpp_x and pc.take(mpp_x, group),
-            "mpp_y": mpp_y and pc.take(mpp_y, group),
+            "mpp_x": pc.take(mpp_x, group),
+            "mpp_y": pc.take(mpp_y, group),
         }
 
         # Check if it's an OME-TIFF file
@@ -178,14 +161,25 @@ def _tile_overlay(
         else:
             tiles, kwargs = _read_openslide_overlay(path, kwargs)
 
-        masked_tiles[group] = create_masked_array(
-            tiles,
-            # Adjust coordinates for masking
-            pc.min_element_wise(-sx, pc.add(-sx, xp)).to_numpy(),  # type: ignore []
-            pc.min_element_wise(-sy, pc.add(-sy, yp)).to_numpy(),  # type: ignore []
-            pc.take(kwargs["tile_extent_x"], group).to_numpy(),
-            pc.take(kwargs["tile_extent_y"], group).to_numpy(),
-        )
+        masked_tiles[group] = [
+            mask_tile(
+                tile,
+                pc.min_element_wise(sx, pc.add(sx, xp)).to_numpy()[i],  # type: ignore []
+                pc.min_element_wise(sy, pc.add(sy, yp)).to_numpy()[i],  # type: ignore []
+                pc.take(kwargs["tile_extent_x"], group).to_numpy()[i],
+                pc.take(kwargs["tile_extent_y"], group).to_numpy()[i],
+            )
+            for i, tile in enumerate(tiles)
+        ]
+
+        # masked_tiles[group] = create_masked_array(
+        #     tiles,
+        #     # Adjust coordinates for masking
+        #     pc.min_element_wise(-sx, pc.add(-sx, xp)).to_numpy(),  # type: ignore []
+        #     pc.min_element_wise(-sy, pc.add(-sy, yp)).to_numpy(),  # type: ignore []
+        #     pc.take(kwargs["tile_extent_x"], group).to_numpy(),
+        #     pc.take(kwargs["tile_extent_y"], group).to_numpy(),
+        # )
 
     return masked_tiles
 
@@ -196,9 +190,8 @@ def tile_overlay(
     overlay_path: pa.Array,
     tile_x: pa.Array,
     tile_y: pa.Array,
-    level: pa.Array | None = None,
-    mpp_x: pa.Array | None = None,
-    mpp_y: pa.Array | None = None,
+    mpp_x: pa.Array,
+    mpp_y: pa.Array,
 ) -> pa.Array:
     """Read overlay tiles for a batch of tiles.
 
@@ -214,19 +207,15 @@ def tile_overlay(
         overlay_path: A pyarrow array of whole-slide image paths for the overlays.
         tile_x: A pyarrow array of tile x-coordinates.
         tile_y: A pyarrow array of tile y-coordinates.
-        level: (Optional) A pyarrow array of slide levels to read the tiles from.
-        mpp_x: (Optional) A pyarrow array of physical resolutions (µm/px) of the underlying slide in X direction.
-        mpp_y: (Optional) A pyarrow array of physical resolutions (µm/px) of the underlying slide in Y direction.
+        mpp_x: A pyarrow array of physical resolutions (µm/px) of the underlying slide in X direction.
+        mpp_y: A pyarrow array of physical resolutions (µm/px) of the underlying slide in Y direction.
 
     Returns:
         A pyarrow array of masked numpy arrays containing the read overlay tiles.
             - The first element is the tile data.
             - The second element is the mask (True for pixels outside the ROI).
-
-    Raises:
-        ValueError: If neither 'mpp_x' and 'mpp_y' nor 'level' are present.
     """
-    overlays = _tile_overlay(roi, overlay_path, tile_x, tile_y, level, mpp_x, mpp_y)
+    overlays = _tile_overlay(roi, overlay_path, tile_x, tile_y, mpp_x, mpp_y)
 
     return pa.array(TensorArray([[overlay.data, overlay.mask] for overlay in overlays]))
 
@@ -237,9 +226,8 @@ def tile_overlay_overlap(
     overlay_path: pa.Array,
     tile_x: pa.Array,
     tile_y: pa.Array,
-    level: pa.Array | None = None,
-    mpp_x: pa.Array | None = None,
-    mpp_y: pa.Array | None = None,
+    mpp_x: pa.Array,
+    mpp_y: pa.Array,
 ) -> pa.Array:
     """Calculate the overlap of each overlay tile with the region of interest (ROI).
 
@@ -252,23 +240,19 @@ def tile_overlay_overlap(
         overlay_path: A pyarrow array of whole-slide image paths for the overlays.
         tile_x: A pyarrow array of tile x-coordinates.
         tile_y: A pyarrow array of tile y-coordinates.
-        level: (Optional) A pyarrow array of slide levels to read the tiles from.
-        mpp_x: (Optional) A pyarrow array of physical resolutions (µm/px) of the underlying slide in X direction.
-        mpp_y: (Optional) A pyarrow array of physical resolutions (µm/px) of the underlying slide in Y direction.
+        mpp_x: A pyarrow array of physical resolutions (µm/px) of the underlying slide in X direction.
+        mpp_y: A pyarrow array of physical resolutions (µm/px) of the underlying slide in Y direction.
 
     Returns:
         A pyarrow array of dictionaries mapping overlay values to their overlap fraction with the ROI.
-
-    Raises:
-        ValueError: If neither 'mpp_x' and 'mpp_y' nor 'level' are present.
     """
     # The overlay is a masked array where the mask is True for pixels outside the ROI.
-    overlay = _tile_overlay(roi, overlay_path, tile_x, tile_y, level, mpp_x, mpp_y)
+    overlay = _tile_overlay(roi, overlay_path, tile_x, tile_y, mpp_x, mpp_y)
 
     def overlap_fraction(overlay: np.ma.MaskedArray) -> dict[int, float]:
         """Calculate the overlap fraction of each unique value in the overlay."""
         return {
-            value.item(): count.item() / overlay.count()
+            str(value.item()): count.item() / overlay.count()
             for value, count in zip(
                 *np.unique(overlay.compressed(), return_counts=True), strict=True
             )
