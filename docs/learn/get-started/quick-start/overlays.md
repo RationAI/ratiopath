@@ -69,7 +69,7 @@ tile_with_overlay = tiles.add_column(
     "tissue_overlay",  # New column name for the overlay patch
     tile_overlay(
         roi=roi,
-        path=col("tissue_mask_path"),
+        overlay_path=col("tissue_mask_path"),
         tile_x=col("tile_x"),
         tile_y=col("tile_y"),
         mpp_x=col("mpp_x"),
@@ -80,13 +80,13 @@ tile_with_overlay = tiles.add_column(
 )
 ````
 
-The `tiles_with_overlays` dataset will now include a new column, `tissue_overlay`, containing the raw overlay image patches corresponding to each tile. For the optimization purposes, the overlay pathes are of the sape of the bounding box of the provided ROI. Unfortunately, at the moment we cannot use masked arrays directly in Ray Dataset. So instead of a numpy masked array, we provide the data and the mask as 2 separate arrays. The mask indicates which pixels are inside the ROI and which are outside.
+The `tiles_with_overlays` dataset will now include a new column, `tissue_overlay`, containing the raw overlay image patches corresponding to each tile. For optimization purposes, the overlay patches are of the shape of the bounding box of the provided ROI. Unfortunately, at the moment we cannot use masked arrays directly in Ray Dataset. So instead of a numpy masked array, we provide the data and the mask as 2 separate arrays. The mask indicates which pixels are inside the ROI and which are outside.
 
 -----
 
 ## Step 3: Computing Overlay Overlap/Coverage (`tile_overlay_overlap`)
 
-Instead of retrieving the raw image patch, you can compute the **pixel ration** for every unique value in the resulting overlay patch, which is useful for filtering tiles based on content (e.g., how much tissue is present). The setup is similar to the previous step.
+Instead of retrieving the raw image patch, you can compute the **pixel ratio** for every unique value in the resulting overlay patch, which is useful for filtering tiles based on content (e.g., how much tissue is present). The setup is similar to the previous step.
 
 ```python
 from ratiopath.tiling import tile_overlay_overlap
@@ -96,7 +96,7 @@ tissue_tiles = tiles.add_column(
     "tissue_overlap",  # New column name for the overlay patch
     tile_overlay_overlap(
         roi=roi,
-        path=col("tissue_mask_path"),
+        overlay_path=col("tissue_mask_path"),
         tile_x=col("tile_x"),
         tile_y=col("tile_y"),
         mpp_x=col("mpp_x"),
