@@ -7,7 +7,7 @@ from ray.data.extensions import TensorArray
 from ratiopath.openslide import OpenSlide
 from ratiopath.tifffile import TiffFile
 from ratiopath.tiling.utils import (
-    _pyarrow_group,
+    _pyarrow_group_indices,
     _read_openslide_tiles,
     _read_tifffile_tiles,
 )
@@ -51,7 +51,7 @@ def read_slide_tiles(
 
     tiles = np.empty(len(tile_x), dtype=object)
 
-    for p, group in _pyarrow_group(path).items():
+    for p, group in _pyarrow_group_indices(path).items():
         assert isinstance(p, str)
 
         kwargs = {

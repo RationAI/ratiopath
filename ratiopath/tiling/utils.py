@@ -96,7 +96,7 @@ def _read_tifffile_tiles(
     # All the lists must have the same length
     tiles = np.empty(len(tile_x), dtype=object)
 
-    for page, group in _pyarrow_group(level).items():
+    for page, group in _pyarrow_group_indices(level).items():
         assert isinstance(page, int)
         page = slide.series[0].pages[page]
         assert isinstance(page, tifffile.TiffPage)
@@ -118,14 +118,14 @@ def _read_tifffile_tiles(
     return tiles
 
 
-def _pyarrow_group(x: pa.Array) -> dict[Any, pa.Array]:
+def _pyarrow_group_indices(x: pa.Array) -> dict[Any, pa.Array]:
     """Group indices of a PyArrow array by unique values.
 
     Args:
         x: A PyArrow array to group.
 
     Returns:
-        A dictionary mapping unique values to arrays of indices where those values occur.
+        A dictionary mapping unique values to PyArrow arrays of integer indices where those values occur.
     """
     unique_values = pc.unique(x)  # type: ignore []
     full_indices = pa.arange(0, len(x))

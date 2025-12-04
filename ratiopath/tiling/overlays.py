@@ -15,7 +15,7 @@ from shapely.geometry.base import BaseGeometry
 from ratiopath.openslide import OpenSlide
 from ratiopath.tifffile import TiffFile
 from ratiopath.tiling.utils import (
-    _pyarrow_group,
+    _pyarrow_group_indices,
     _read_openslide_tiles,
     _read_tifffile_tiles,
 )
@@ -141,9 +141,9 @@ def _tile_overlay(
             * Affine.scale(extent_x / roi_width, extent_y / roi_height),
         )
 
-        return np.ma.masked_array(overlay, mask=np.dstack([mask] * 3))
+        return np.ma.masked_array(overlay, mask=np.dstack([mask] * overlay.shape[2]))
 
-    for path, group in _pyarrow_group(overlay_path).items():
+    for path, group in _pyarrow_group_indices(overlay_path).items():
         assert isinstance(path, str)
 
         batch_x = pc.take(tile_x, group)
