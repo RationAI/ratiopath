@@ -131,14 +131,12 @@ def _tile_overlay(
         mask = rasterio.features.geometry_mask(
             geometries=[roi],
             out_shape=overlay.shape[:2],
-            # Scale and translate to tile coordinates - reflect ROI cropping
-            transform=Affine.translation(-sx, -sy)
+            # Scale and translate to tile coordinates
+            transform=Affine.translation(sx, sy)
             * Affine.scale(extent_x / w, extent_y / h),
         )
 
         return np.ma.masked_array(overlay, mask=np.dstack([mask] * 3))
-
-    create_masked_array = np.vectorize(mask_tile, otypes=[np.ma.MaskedArray])
 
     for path, group in _pyarrow_group(overlay_path).items():
         assert isinstance(path, str)
@@ -161,25 +159,21 @@ def _tile_overlay(
         else:
             tiles, kwargs = _read_openslide_overlay(path, kwargs)
 
+        xp = pc.min_element_wise(sx, xp)  # type: ignore []
+        yp = pc.min_element_wise(sy, yp)  # type: ignore []
+        extent_x_p = pc.take(kwargs["tile_extent_x"], group)
+        extent_y_p = pc.take(kwargs["tile_extent_y"], group)
+
         masked_tiles[group] = [
             mask_tile(
                 tile,
-                pc.min_element_wise(sx, pc.add(sx, xp)).to_numpy()[i],  # type: ignore []
-                pc.min_element_wise(sy, pc.add(sy, yp)).to_numpy()[i],  # type: ignore []
-                pc.take(kwargs["tile_extent_x"], group).to_numpy()[i],
-                pc.take(kwargs["tile_extent_y"], group).to_numpy()[i],
+                xp[i].as_py(),
+                yp[i].as_py(),
+                extent_x_p[i].as_py(),
+                extent_y_p[i].as_py(),
             )
             for i, tile in enumerate(tiles)
         ]
-
-        # masked_tiles[group] = create_masked_array(
-        #     tiles,
-        #     # Adjust coordinates for masking
-        #     pc.min_element_wise(-sx, pc.add(-sx, xp)).to_numpy(),  # type: ignore []
-        #     pc.min_element_wise(-sy, pc.add(-sy, yp)).to_numpy(),  # type: ignore []
-        #     pc.take(kwargs["tile_extent_x"], group).to_numpy(),
-        #     pc.take(kwargs["tile_extent_y"], group).to_numpy(),
-        # )
 
     return masked_tiles
 
@@ -249,9 +243,10 @@ def tile_overlay_overlap(
     # The overlay is a masked array where the mask is True for pixels outside the ROI.
     overlay = _tile_overlay(roi, overlay_path, tile_x, tile_y, mpp_x, mpp_y)
 
-    def overlap_fraction(overlay: np.ma.MaskedArray) -> dict[int, float]:
+    def overlap_fraction(overlay: np.ma.MaskedArray) -> dict[str, float]:
         """Calculate the overlap fraction of each unique value in the overlay."""
         return {
+            # Pyarrow requires string keys in dictionaries
             str(value.item()): count.item() / overlay.count()
             for value, count in zip(
                 *np.unique(overlay.compressed(), return_counts=True), strict=True
