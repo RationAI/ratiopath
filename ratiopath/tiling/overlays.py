@@ -52,11 +52,11 @@ def _scale_overlay(
 
     x_scaling = pa.array(
         mpp.apply(operator.itemgetter(0)) / overlay_mpp.apply(operator.itemgetter(0)),
-        pa.float16(),
+        pa.float32(),
     )
     y_scaling = pa.array(
         mpp.apply(operator.itemgetter(1)) / overlay_mpp.apply(operator.itemgetter(1)),
-        pa.float16(),
+        pa.float32(),
     )
 
     def scale(x: pa.IntegerArray, scaling: pa.HalfFloatArray) -> pa.IntegerArray:
