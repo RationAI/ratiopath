@@ -23,13 +23,13 @@ from ratiopath.tiling.utils import (
 
 def _scale_overlay(
     slide: OpenSlide | TiffFile,
-    tile_x: pa.Array,
-    tile_y: pa.Array,
-    tile_extent_x: pa.Array,
-    tile_extent_y: pa.Array,
-    mpp_x: pa.Array,
-    mpp_y: pa.Array,
-) -> dict[str, pa.Array]:
+    tile_x: pa.IntegerArray,
+    tile_y: pa.IntegerArray,
+    tile_extent_x: pa.IntegerArray,
+    tile_extent_y: pa.IntegerArray,
+    mpp_x: pa.FloatArray,
+    mpp_y: pa.FloatArray,
+) -> dict[str, pa.IntegerArray]:
     """Scale overlay tile arguments based on slide and overlay resolutions.
 
     Args:
@@ -51,52 +51,54 @@ def _scale_overlay(
     overlay_mpp = level.apply(slide.slide_resolution)
 
     x_scaling = pa.array(
-        mpp.apply(operator.itemgetter(0)) / overlay_mpp.apply(operator.itemgetter(0))
+        mpp.apply(operator.itemgetter(0)) / overlay_mpp.apply(operator.itemgetter(0)),
+        pa.float16(),
     )
     y_scaling = pa.array(
-        mpp.apply(operator.itemgetter(1)) / overlay_mpp.apply(operator.itemgetter(1))
+        mpp.apply(operator.itemgetter(1)) / overlay_mpp.apply(operator.itemgetter(1)),
+        pa.float16(),
     )
 
-    def scale(x: pa.Array, scaling: pa.Array) -> pa.Array:
-        return pc.max_element_wise(  # pyright: ignore[reportAttributeAccessIssue]
-            0,
-            pc.round(pc.multiply(x, scaling)).cast(pa.int32()),  # pyright: ignore[reportAttributeAccessIssue]
-        )
+    def scale(x: pa.IntegerArray, scaling: pa.HalfFloatArray) -> pa.IntegerArray:
+        return pc.max_element_wise(
+            pa.scalar(0),
+            pc.round(pc.multiply(x, scaling)).cast(pa.int32()),
+        )  # type: ignore [return-value]
 
     return {
         "tile_x": scale(tile_x, x_scaling),
         "tile_y": scale(tile_y, y_scaling),
         "tile_extent_x": scale(tile_extent_x, x_scaling),
         "tile_extent_y": scale(tile_extent_y, y_scaling),
-        "level": pa.array(level),
+        "level": pa.array(level, pa.int8()),
     }
 
 
 def _read_openslide_overlay(
-    path: str, kwargs: dict[str, pa.Array]
-) -> tuple[np.ndarray, dict[str, pa.Array]]:
+    path: str, kwargs: dict[str, pa.IntegerArray | pa.FloatArray]
+) -> tuple[np.ndarray, dict[str, pa.IntegerArray]]:
     """Read batch of overlays from a whole-slide image using OpenSlide."""
     with OpenSlide(path) as slide:
-        kwargs = _scale_overlay(slide, **kwargs)
-        return _read_openslide_tiles(slide, **kwargs), kwargs
+        new_kwargs = _scale_overlay(slide, **kwargs)
+        return _read_openslide_tiles(slide, **new_kwargs), new_kwargs
 
 
 def _read_tifffile_overlay(
-    path: str, kwargs: dict[str, pa.Array]
-) -> tuple[np.ndarray, dict[str, pa.Array]]:
+    path: str, kwargs: dict[str, pa.IntegerArray | pa.FloatArray]
+) -> tuple[np.ndarray, dict[str, pa.IntegerArray]]:
     """Read batch of overlays from an OME-TIFF file using tifffile."""
     with TiffFile(path) as slide:
-        kwargs = _scale_overlay(slide, **kwargs)
-        return _read_tifffile_tiles(slide, **kwargs), kwargs
+        new_kwargs = _scale_overlay(slide, **kwargs)
+        return _read_tifffile_tiles(slide, **new_kwargs), new_kwargs
 
 
 def _tile_overlay(
     roi: BaseGeometry,
-    overlay_path: pa.Array,
-    tile_x: pa.Array,
-    tile_y: pa.Array,
-    mpp_x: pa.Array,
-    mpp_y: pa.Array,
+    overlay_path: pa.StringArray,
+    tile_x: pa.IntegerArray,
+    tile_y: pa.IntegerArray,
+    mpp_x: pa.FloatArray,
+    mpp_y: pa.FloatArray,
 ) -> np.ma.MaskedArray:
     """Read overlay tiles for a batch of tiles.
 
@@ -124,8 +126,8 @@ def _tile_overlay(
     roi_width = roi_max_x - roi_min_x
     roi_height = roi_max_y - roi_min_y
 
-    tile_x = pc.add(tile_x, roi_min_x)  # pyright: ignore[reportAttributeAccessIssue]
-    tile_y = pc.add(tile_y, roi_min_y)  # pyright: ignore[reportAttributeAccessIssue]
+    tile_x = pc.add(tile_x, pa.scalar(roi_min_x))
+    tile_y = pc.add(tile_y, pa.scalar(roi_min_y))
 
     # Pre-allocate output array (Object array to hold MaskedArrays)
     masked_tiles = np.empty(len(tile_x), dtype=object)
@@ -164,18 +166,16 @@ def _tile_overlay(
         else:
             tiles, kwargs = _read_openslide_overlay(path, kwargs)
 
-        batch_x = pc.min_element_wise(roi_min_x, batch_x)  # pyright: ignore[reportAttributeAccessIssue]
-        batch_y = pc.min_element_wise(roi_min_y, batch_y)  # pyright: ignore[reportAttributeAccessIssue]
-        batch_extent_x = pc.take(kwargs["tile_extent_x"], group)
-        batch_extent_y = pc.take(kwargs["tile_extent_y"], group)
+        batch_x: pa.IntegerArray = pc.min_element_wise(pa.scalar(roi_min_x), batch_x)  # type: ignore [no-redef]
+        batch_y: pa.IntegerArray = pc.min_element_wise(pa.scalar(roi_min_y), batch_y)  # type: ignore [no-redef]
 
         masked_tiles[group] = [
             mask_tile(
                 tile,
                 batch_x[i].as_py(),
                 batch_y[i].as_py(),
-                batch_extent_x[i].as_py(),
-                batch_extent_y[i].as_py(),
+                kwargs["tile_extent_x"][i].as_py(),
+                kwargs["tile_extent_y"][i].as_py(),
             )
             for i, tile in enumerate(tiles)
         ]
@@ -186,11 +186,11 @@ def _tile_overlay(
 @udf(return_dtype=DataType(np.ndarray))
 def tile_overlay(
     roi: BaseGeometry,
-    overlay_path: pa.Array,
-    tile_x: pa.Array,
-    tile_y: pa.Array,
-    mpp_x: pa.Array,
-    mpp_y: pa.Array,
+    overlay_path: pa.StringArray,
+    tile_x: pa.IntegerArray,
+    tile_y: pa.IntegerArray,
+    mpp_x: pa.FloatArray,
+    mpp_y: pa.FloatArray,
 ) -> pa.Array:
     """Read overlay tiles for a batch of tiles.
 
@@ -226,12 +226,12 @@ def tile_overlay(
 @udf(return_dtype=DataType(dict))
 def tile_overlay_overlap(
     roi: BaseGeometry,
-    overlay_path: pa.Array,
-    tile_x: pa.Array,
-    tile_y: pa.Array,
-    mpp_x: pa.Array,
-    mpp_y: pa.Array,
-) -> pa.Array:
+    overlay_path: pa.StringArray,
+    tile_x: pa.IntegerArray,
+    tile_y: pa.IntegerArray,
+    mpp_x: pa.FloatArray,
+    mpp_y: pa.FloatArray,
+) -> pa.MapArray:
     """Calculate the overlap of each overlay tile with the region of interest (ROI).
 
     For each overlay path the corresponding whole-slide image is opened (OpenSlide or OME-TIFF).

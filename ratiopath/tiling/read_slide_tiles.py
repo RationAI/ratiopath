@@ -27,12 +27,12 @@ def read_tifffile_tiles(path: str, **kwargs) -> np.ndarray:
 
 @udf(return_dtype=DataType(np.ndarray))
 def read_slide_tiles(
-    path: pa.Array,
-    tile_x: pa.Array,
-    tile_y: pa.Array,
-    tile_extent_x: pa.Array,
-    tile_extent_y: pa.Array,
-    level: pa.Array,
+    path: pa.StringArray,
+    tile_x: pa.IntegerArray,
+    tile_y: pa.IntegerArray,
+    tile_extent_x: pa.IntegerArray,
+    tile_extent_y: pa.IntegerArray,
+    level: pa.IntegerArray,
 ) -> pa.Array:
     """Reads a batch of tiles from a whole-slide image using either OpenSlide or tifffile.
 

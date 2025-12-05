@@ -29,6 +29,7 @@ dependencies = [
     "zarr>=3.1.1",
     "geopandas>=1.1.1",
     "rasterio>=1.4.3",
+    "pyarrow-stubs>=20.0.0.20251107",
 ]
 
 [dependency-groups]
