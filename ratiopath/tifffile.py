@@ -1,4 +1,4 @@
-from typing import Self
+from typing import Self, cast
 
 import numpy as np
 import tifffile
@@ -29,13 +29,13 @@ class TiffFile(tifffile.TiffFile):  # type: ignore [misc]
         Returns:
             The (x, y) physical resolution of the OME-TIFF file in µm/px.
         """
-        page = self.series[0].pages[level]
+        page = cast("tifffile.TiffPage", self.series[0].pages[level])
 
         # Tag 282/283 are Rational (Num, Denom)
-        x_res: tuple[int, int] = page.tags["XResolution"].value  # type: ignore [union-attr]
-        y_res: tuple[int, int] = page.tags["YResolution"].value  # type: ignore [union-attr]
+        x_res: tuple[int, int] = page.tags["XResolution"].value
+        y_res: tuple[int, int] = page.tags["YResolution"].value
         # Tag 296 is ResolutionUnit
-        unit: tifffile.RESUNIT = page.tags["ResolutionUnit"].value  # type: ignore [union-attr]
+        unit: tifffile.RESUNIT = page.tags["ResolutionUnit"].value
 
         # Resolve value (numerator / denominator)
         x_val = x_res[0] / x_res[1]

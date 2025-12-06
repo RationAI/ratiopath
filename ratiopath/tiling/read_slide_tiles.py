@@ -1,3 +1,5 @@
+from typing import Unpack
+
 import numpy as np
 import pyarrow as pa
 from ray.data.datatype import DataType
@@ -6,6 +8,7 @@ from ray.data.extensions import TensorArray
 
 from ratiopath.openslide import OpenSlide
 from ratiopath.tifffile import TiffFile
+from ratiopath.tiling.types import ReadTilesArguments
 from ratiopath.tiling.utils import (
     _pyarrow_group_indices,
     _read_openslide_tiles,
@@ -13,13 +16,13 @@ from ratiopath.tiling.utils import (
 )
 
 
-def read_openslide_tiles(path: str, **kwargs) -> np.ndarray:
+def read_openslide_tiles(path: str, **kwargs: Unpack[ReadTilesArguments]) -> np.ndarray:
     """Read batch of tiles from a whole-slide image using OpenSlide."""
     with OpenSlide(path) as slide:
         return _read_openslide_tiles(slide, **kwargs)
 
 
-def read_tifffile_tiles(path: str, **kwargs) -> np.ndarray:
+def read_tifffile_tiles(path: str, **kwargs: Unpack[ReadTilesArguments]) -> np.ndarray:
     """Read batch of tiles from an OME-TIFF file using tifffile."""
     with TiffFile(path) as slide:
         return _read_tifffile_tiles(slide, **kwargs)

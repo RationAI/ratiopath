@@ -14,6 +14,7 @@ from shapely.geometry.base import BaseGeometry
 
 from ratiopath.openslide import OpenSlide
 from ratiopath.tifffile import TiffFile
+from ratiopath.tiling.types import ReadOverlaysArguments, ReadTilesArguments
 from ratiopath.tiling.utils import (
     _pyarrow_group_indices,
     _read_openslide_tiles,
@@ -29,7 +30,7 @@ def _scale_overlay(
     tile_extent_y: pa.IntegerArray,
     mpp_x: pa.FloatArray,
     mpp_y: pa.FloatArray,
-) -> dict[str, pa.IntegerArray]:
+) -> ReadTilesArguments:
     """Scale overlay tile arguments based on slide and overlay resolutions.
 
     Args:
@@ -59,7 +60,7 @@ def _scale_overlay(
         pa.float32(),
     )
 
-    def scale(x: pa.IntegerArray, scaling: pa.HalfFloatArray) -> pa.IntegerArray:
+    def scale(x: pa.IntegerArray, scaling: pa.FloatArray) -> pa.IntegerArray:
         return pc.max_element_wise(
             pa.scalar(0),
             pc.round(pc.multiply(x, scaling)).cast(pa.int32()),
@@ -75,8 +76,8 @@ def _scale_overlay(
 
 
 def _read_openslide_overlay(
-    path: str, kwargs: dict[str, pa.IntegerArray | pa.FloatArray]
-) -> tuple[np.ndarray, dict[str, pa.IntegerArray]]:
+    path: str, kwargs: ReadOverlaysArguments
+) -> tuple[np.ndarray, ReadTilesArguments]:
     """Read batch of overlays from a whole-slide image using OpenSlide."""
     with OpenSlide(path) as slide:
         new_kwargs = _scale_overlay(slide, **kwargs)
@@ -84,8 +85,8 @@ def _read_openslide_overlay(
 
 
 def _read_tifffile_overlay(
-    path: str, kwargs: dict[str, pa.IntegerArray | pa.FloatArray]
-) -> tuple[np.ndarray, dict[str, pa.IntegerArray]]:
+    path: str, kwargs: ReadOverlaysArguments
+) -> tuple[np.ndarray, ReadTilesArguments]:
     """Read batch of overlays from an OME-TIFF file using tifffile."""
     with TiffFile(path) as slide:
         new_kwargs = _scale_overlay(slide, **kwargs)
@@ -151,20 +152,20 @@ def _tile_overlay(
         batch_x = pc.take(tile_x, group)
         batch_y = pc.take(tile_y, group)
 
-        kwargs = {
-            "tile_x": batch_x,
-            "tile_y": batch_y,
-            "tile_extent_x": pa.repeat(roi_width, len(group)),
-            "tile_extent_y": pa.repeat(roi_height, len(group)),
-            "mpp_x": pc.take(mpp_x, group),
-            "mpp_y": pc.take(mpp_y, group),
-        }
+        overlay_kwargs = ReadOverlaysArguments(
+            tile_x=batch_x,
+            tile_y=batch_y,
+            tile_extent_x=pa.repeat(roi_width, len(group)),
+            tile_extent_y=pa.repeat(roi_height, len(group)),
+            mpp_x=pc.take(mpp_x, group),
+            mpp_y=pc.take(mpp_y, group),
+        )
 
         # Check if it's an OME-TIFF file
         if path.lower().endswith((".ome.tiff", ".ome.tif")):
-            tiles, kwargs = _read_tifffile_overlay(path, kwargs)
+            tiles, tile_kwargs = _read_tifffile_overlay(path, overlay_kwargs)
         else:
-            tiles, kwargs = _read_openslide_overlay(path, kwargs)
+            tiles, tile_kwargs = _read_openslide_overlay(path, overlay_kwargs)
 
         batch_x: pa.IntegerArray = pc.min_element_wise(pa.scalar(roi_min_x), batch_x)  # type: ignore [no-redef]
         batch_y: pa.IntegerArray = pc.min_element_wise(pa.scalar(roi_min_y), batch_y)  # type: ignore [no-redef]
@@ -174,8 +175,8 @@ def _tile_overlay(
                 tile,
                 batch_x[i].as_py(),
                 batch_y[i].as_py(),
-                kwargs["tile_extent_x"][i].as_py(),
-                kwargs["tile_extent_y"][i].as_py(),
+                tile_kwargs["tile_extent_x"][i].as_py(),
+                tile_kwargs["tile_extent_y"][i].as_py(),
             )
             for i, tile in enumerate(tiles)
         ]
