@@ -31,22 +31,26 @@ def row_hash(
 
 def _read_openslide_tiles(
     slide: OpenSlide,
-    tile_x: pa.Array,
-    tile_y: pa.Array,
-    tile_extent_x: pa.Array,
-    tile_extent_y: pa.Array,
-    level: pa.Array,
+    tile_x: pa.IntegerArray,
+    tile_y: pa.IntegerArray,
+    tile_extent_x: pa.IntegerArray,
+    tile_extent_y: pa.IntegerArray,
+    level: pa.IntegerArray,
 ) -> np.ndarray:
     """Read batch of tiles from a whole-slide image using OpenSlide."""
     from PIL import Image
 
     def get_tile(
-        x: int, y: int, extent_x: int, extent_y: int, level: int
+        x: pa.Scalar,
+        y: pa.Scalar,
+        extent_x: pa.Scalar,
+        extent_y: pa.Scalar,
+        level: pa.Scalar,
     ) -> np.ndarray:
         rgba_region = slide.read_region_relative(
-            (x, y),
-            level,
-            (extent_x, extent_y),
+            (x.as_py(), y.as_py()),
+            level.as_py(),
+            (extent_x.as_py(), extent_y.as_py()),
         )
         rgb_region = Image.alpha_composite(
             Image.new("RGBA", rgba_region.size, (255, 255, 255)), rgba_region
@@ -57,11 +61,11 @@ def _read_openslide_tiles(
         [
             get_tile(*args)
             for args in zip(
-                tile_x.to_numpy(),
-                tile_y.to_numpy(),
-                tile_extent_x.to_numpy(),
-                tile_extent_y.to_numpy(),
-                level.to_numpy(),
+                tile_x,
+                tile_y,
+                tile_extent_x,
+                tile_extent_y,
+                level,
                 strict=True,
             )
         ]
@@ -70,11 +74,11 @@ def _read_openslide_tiles(
 
 def _read_tifffile_tiles(
     slide: TiffFile,
-    tile_x: pa.Array,
-    tile_y: pa.Array,
-    tile_extent_x: pa.Array,
-    tile_extent_y: pa.Array,
-    level: pa.Array,
+    tile_x: pa.IntegerArray,
+    tile_y: pa.IntegerArray,
+    tile_extent_x: pa.IntegerArray,
+    tile_extent_y: pa.IntegerArray,
+    level: pa.IntegerArray,
 ) -> np.ndarray:
     """Read batch of tiles from an OME-TIFF file using tifffile."""
     import tifffile
@@ -82,12 +86,21 @@ def _read_tifffile_tiles(
     from zarr.core.buffer import NDArrayLike
 
     def get_tile(
-        z: zarr.Array, x: int, y: int, extent_x: int, extent_y: int
+        z: zarr.Array,
+        x: pa.Scalar,
+        y: pa.Scalar,
+        extent_x: pa.Scalar,
+        extent_y: pa.Scalar,
     ) -> np.ndarray:
-        arr = np.full((extent_y, extent_x, 3), 255, dtype=np.uint8)
+        x_py = x.as_py()
+        y_py = y.as_py()
+        extent_x_py: int = extent_x.as_py()
+        extent_y_py: int = extent_y.as_py()
+
+        arr = np.full((extent_y_py, extent_x_py, 3), 255, dtype=np.uint8)
         tile_slice = z[
-            y : y + extent_y,
-            x : x + extent_x,
+            y_py : y_py + extent_y_py,
+            x_py : x_py + extent_x_py,
         ]
         assert isinstance(tile_slice, NDArrayLike)
         arr[: tile_slice.shape[0], : tile_slice.shape[1]] = tile_slice[..., :3]  # type: ignore[index]
@@ -107,10 +120,10 @@ def _read_tifffile_tiles(
         tiles[group] = [
             get_tile(z, *args)
             for args in zip(
-                pc.take(tile_x, group).to_numpy(),
-                pc.take(tile_y, group).to_numpy(),
-                pc.take(tile_extent_x, group).to_numpy(),
-                pc.take(tile_extent_y, group).to_numpy(),
+                pc.take(tile_x, group),
+                pc.take(tile_y, group),
+                pc.take(tile_extent_x, group),
+                pc.take(tile_extent_y, group),
                 strict=True,
             )
         ]
@@ -118,7 +131,7 @@ def _read_tifffile_tiles(
     return tiles
 
 
-def _pyarrow_group_indices(x: pa.Array) -> dict[Any, pa.Array]:
+def _pyarrow_group_indices(x: pa.Array) -> dict[Any, pa.Int32Array]:
     """Group indices of a PyArrow array by unique values.
 
     Args:
@@ -127,13 +140,13 @@ def _pyarrow_group_indices(x: pa.Array) -> dict[Any, pa.Array]:
     Returns:
         A dictionary mapping unique values to PyArrow arrays of integer indices where those values occur.
     """
-    unique_values = pc.unique(x)  # pyright: ignore[reportAttributeAccessIssue]
-    full_indices = pa.arange(0, len(x))
+    unique_values = pc.unique(x)
+    full_indices = pa.arange(0, len(x))  # type: ignore [attr-defined]
 
     groups = {}
 
     for value in unique_values:
-        mask = pc.equal(x, value)  # pyright: ignore[reportAttributeAccessIssue]
-        groups[value.as_py()] = pc.filter(full_indices, mask)  # pyright: ignore[reportAttributeAccessIssue]
+        mask = pc.equal(x, value)
+        groups[value.as_py()] = pc.filter(full_indices, mask)
 
     return groups
