@@ -14,7 +14,7 @@ def grid_tiles(
     slide_extent: tuple[int, *Dims],
     tile_extent: tuple[int, *Dims],
     stride: tuple[int, *Dims],
-    last: Literal["shift", "drop", "keep"] = "drop",
+    last: Literal["shift", "drop", "keep"] = "keep",
 ) -> Iterator[NDArray[np.int64]]:
     """Generates tiles for the given slide based on its size, tile size, and stride.
 
