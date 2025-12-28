@@ -1,7 +1,7 @@
+import numpy as np
 import openslide
 from openslide import PROPERTY_NAME_MPP_X, PROPERTY_NAME_MPP_Y
 from PIL.Image import Image
-import numpy as np
 
 
 class OpenSlide(openslide.OpenSlide):
@@ -19,7 +19,6 @@ class OpenSlide(openslide.OpenSlide):
         Returns:
             The index of the level with the closest µm/px resolution to the desired value.
         """
-
         scale_factor = np.mean(
             np.asarray(mpp)
             / np.array(

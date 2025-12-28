@@ -20,6 +20,17 @@ class TiffFile(tifffile.TiffFile):  # type: ignore [misc]
         """
         return len(self.series[0].pages)
 
+    def get_main_page(self, level: int) -> "tifffile.TiffPage":
+        """Reads the deisred level (page) at the series of index 0. It usually refers to the main scene.
+
+        Args:
+            level: The level of the OME-TIFF file.
+
+        Returns:
+            The OME-TIF page of series at index 0 at desired level.
+        """
+        return cast("tifffile.TiffPage", self.series[0].pages[level])
+
     def slide_resolution(self, level: int) -> tuple[float, float]:
         """Returns the physical resolution (µm/px) of the OME-TIFF file at the given level.
 
@@ -29,7 +40,7 @@ class TiffFile(tifffile.TiffFile):  # type: ignore [misc]
         Returns:
             The (x, y) physical resolution of the OME-TIFF file in µm/px.
         """
-        page = cast("tifffile.TiffPage", self.series[0].pages[level])
+        page = self.get_main_page(level)
 
         # Tag 282/283 are Rational (Num, Denom)
         x_res: tuple[int, int] = page.tags["XResolution"].value

@@ -85,8 +85,6 @@ class SlideMetaDatasource(FileBasedDatasource):
         from ratiopath.tifffile import TiffFile
 
         with TiffFile(path) as tif:
-            assert hasattr(tif, "ome_metadata") and tif.ome_metadata
-
             if self.desired_level is not None:
                 level = self.desired_level
             else:
@@ -94,8 +92,9 @@ class SlideMetaDatasource(FileBasedDatasource):
                 level = tif.closest_level(self.desired_mpp)
 
             mpp = tif.slide_resolution(level)
-            extent_y, extent_x, *_ = tif.series[0].pages[level].shape
-            downsample = tif.series[0].pages[0].shape[0] / extent_y
+
+            extent_y, extent_x, *_ = tif.get_main_page(level).shape
+            downsample = tif.get_main_page(0).shape[0] / extent_y
 
         yield self._build_block(path, (extent_x, extent_y), mpp, level, downsample)
 
