@@ -94,7 +94,7 @@ class SlideMetaDatasource(FileBasedDatasource):
             mpp = tif.slide_resolution(level)
 
             extent_y, extent_x, *_ = tif.get_main_page(level).shape
-            downsample = tif.get_main_page(0).shape[0] / extent_y
+            downsample = tif.get_main_page(0).shape[1] / extent_x
 
         yield self._build_block(path, (extent_x, extent_y), mpp, level, downsample)
 

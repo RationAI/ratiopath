@@ -21,13 +21,13 @@ class TiffFile(tifffile.TiffFile):  # type: ignore [misc]
         return len(self.series[0].pages)
 
     def get_main_page(self, level: int) -> "tifffile.TiffPage":
-        """Reads the deisred level (page) at the series of index 0. It usually refers to the main scene.
+        """Reads the desired level (page) at the series of index 0. It usually refers to the main scene.
 
         Args:
             level: The level of the OME-TIFF file.
 
         Returns:
-            The OME-TIF page of series at index 0 at desired level.
+            The OME-TIFF page of series at index 0 at desired level.
         """
         return cast("tifffile.TiffPage", self.series[0].pages[level])
 
