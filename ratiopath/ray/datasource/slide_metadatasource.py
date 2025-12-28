@@ -82,7 +82,6 @@ class SlideMetaDatasource(FileBasedDatasource):
         return self._read_openslide_stream(f, path)
 
     def _read_ome_stream(self, f: pyarrow.NativeFile, path: str) -> Iterator[Block]:
-        from ome_types import from_xml
         from ratiopath.tifffile import TiffFile
 
         with TiffFile(path) as tif:
@@ -94,17 +93,11 @@ class SlideMetaDatasource(FileBasedDatasource):
                 assert self.desired_mpp is not None
                 level = tif.closest_level(self.desired_mpp)
 
-            mpp_x, mpp_y = tif.slide_resolution(level)
-            metadata = from_xml(tif.ome_metadata)
+            mpp = tif.slide_resolution(level)
+            extent_y, extent_x, *_ = tif.series[0].pages[level].shape
+            downsample = tif.series[0].pages[0].shape[0] / extent_y
 
-        px = metadata.images[level].pixels
-        extent = (px.size_x, px.size_y)
-        downsample = metadata.images[0].pixels.size_x / px.size_x
-
-        if mpp_x is None or mpp_y is None:
-            raise ValueError("Physical size (MPP) is not available in the metadata.")
-
-        yield self._build_block(path, extent, (mpp_x, mpp_y), level, downsample)
+        yield self._build_block(path, (extent_x, extent_y), mpp, level, downsample)
 
     def _read_openslide_stream(
         self, f: pyarrow.NativeFile, path: str

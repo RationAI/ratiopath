@@ -1,6 +1,7 @@
 import openslide
 from openslide import PROPERTY_NAME_MPP_X, PROPERTY_NAME_MPP_Y
 from PIL.Image import Image
+import numpy as np
 
 
 class OpenSlide(openslide.OpenSlide):
