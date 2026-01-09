@@ -1,5 +1,4 @@
 import logging
-import math
 from abc import ABC, abstractmethod
 from typing import Any, TypeVar
 
@@ -29,14 +28,17 @@ def compute_acc_slices(
         List of N lists, each containing B slice objects for indexing into accumulator.
     """
     acc_ends = coords_batch + mask_tile_extents[:, np.newaxis]  # shape (N, B)
-    
+
     acc_slices_batch_per_dim = []
     for dimension in range(coords_batch.shape[0]):
-        acc_slices_batch_per_dim.append([
-            slice(start, end) 
-            for start, end 
-            in zip(coords_batch[dimension], acc_ends[dimension], strict=True)
-        ])
+        acc_slices_batch_per_dim.append(
+            [
+                slice(start, end)
+                for start, end in zip(
+                    coords_batch[dimension], acc_ends[dimension], strict=True
+                )
+            ]
+        )
     return acc_slices_batch_per_dim
 
 
@@ -83,17 +85,15 @@ class MaskBuilder(ABC):
 
     def setup_memory(self, mask_extents, channels, **kwargs) -> None:
         """This method sets up memory structures needed for mask building.
-        
+
         This methods can be overridden by mixins or concrete builders to set up any necessary memory structures.
-        
+
         Some builders may require additional accumulators or data structures beyond the main accumulator.
         Some mixins may require temporary files for memory-mapped storage.
         All such setup should be defined in an overridden version of this method, which will be called by the base constructor
         after the initialisation parameters are set by all classes/mixins in the MRO chain.
         """
-        self.accumulator = self.allocate_accumulator(
-            mask_extents, channels, **kwargs
-        )
+        self.accumulator = self.allocate_accumulator(mask_extents, channels, **kwargs)
 
     def update_batch(
         self,
@@ -156,5 +156,3 @@ class MaskBuilder(ABC):
             Additional elements may include auxiliary data like overlap counters.
         """
         ...
-
-

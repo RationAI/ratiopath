@@ -1,9 +1,13 @@
-from ratiopath.masks.mask_builders.mask_builder import AccumulatorType, MaskBuilder, compute_acc_slices
+from typing import Any
 
 import numpy as np
-import numpy.typing as npt
-from typing import Any
-from jaxtyping import Shaped, Int64
+from jaxtyping import Int64, Shaped
+
+from ratiopath.masks.mask_builders.mask_builder import (
+    AccumulatorType,
+    MaskBuilder,
+    compute_acc_slices,
+)
 
 
 class AveragingMaskBuilderMixin(MaskBuilder):
@@ -80,7 +84,9 @@ class MaxMaskBuilderMixin(MaskBuilder):
         data_batch: Shaped[AccumulatorType, "B C *SpatialDims"],
         coords_batch: Shaped[AccumulatorType, "N B"],
     ) -> None:
-        mask_tile_extents = np.asarray(data_batch.shape[2:], dtype=np.int64)  # H, W, ...
+        mask_tile_extents = np.asarray(
+            data_batch.shape[2:], dtype=np.int64
+        )  # H, W, ...
         acc_slices_all_dims = compute_acc_slices(
             coords_batch=coords_batch,
             mask_tile_extents=mask_tile_extents,  # H, W, ...
@@ -100,7 +106,6 @@ class MaxMaskBuilderMixin(MaskBuilder):
                 ],
                 data,
             )
-
 
     def finalize(self) -> tuple[AccumulatorType]:
         return (self.accumulator,)

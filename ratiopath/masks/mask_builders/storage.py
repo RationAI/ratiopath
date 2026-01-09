@@ -1,10 +1,12 @@
-from ratiopath.masks.mask_builders.mask_builder import AccumulatorType, MaskBuilder
-import numpy as np
-import numpy.typing as npt
 import tempfile
 from pathlib import Path
 from typing import Any
+
+import numpy as np
+import numpy.typing as npt
 from jaxtyping import Int64
+
+from ratiopath.masks.mask_builders.mask_builder import AccumulatorType, MaskBuilder
 
 
 class NumpyMemMapMaskBuilderAllocatorMixin(MaskBuilder):
