@@ -314,7 +314,7 @@ def test_numpy_memmap_persistent_file(tmp_path):
         clip=1,
         channels=1,
         accumulator_filepath=filepath,
-        overlap_counter_filepath=filepath.with_suffix(".overlap"+filepath.suffix),
+        overlap_counter_filepath=filepath.with_suffix(".overlaps"+filepath.suffix),
     )
 
     tile_batch = np.ones((1, 1, *mask_tile_extents), dtype=np.float32)
