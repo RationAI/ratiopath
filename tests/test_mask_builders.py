@@ -4,10 +4,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from ratiopath.masks.mask_builders import AveragingScalarUniformTiledNumpyMaskBuilder, MaxScalarUniformTiledNumpyMaskBuilder
-from ratiopath.masks.mask_builders import AutoScalingScalarUniformValueConstantStrideMaskBuilder
 from ratiopath.masks.mask_builders import (
     AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D,
+    AutoScalingScalarUniformValueConstantStrideMaskBuilder,
+    AveragingScalarUniformTiledNumpyMaskBuilder,
+    MaxScalarUniformTiledNumpyMaskBuilder,
 )
 
 
@@ -40,7 +41,9 @@ def test_scalar_uniform_averaging_2d(
 
     for i in range(num_batches):
         coords_batch = np.random.rand(len(mask_extents), batch_size)
-        coords_batch *= (np.array(mask_extents) - np.array(mask_tile_extents))[:, np.newaxis]
+        coords_batch *= (np.array(mask_extents) - np.array(mask_tile_extents))[
+            :, np.newaxis
+        ]
         # force alignment to gcds
         coords_batch = (coords_batch.astype(np.int64) // gcds[:, np.newaxis]) * gcds[
             :, np.newaxis
@@ -78,8 +81,9 @@ def test_scalar_uniform_averaging_2d(
 @pytest.mark.parametrize("channels", [1, 3, 8])
 @pytest.mark.parametrize("mask_tile_extents", [(4, 4), (4, 8), (8, 4), (3, 6), (9, 6)])
 @pytest.mark.parametrize("mask_tile_strides", [(2, 2), (3, 3), (3, 2), (2, 3)])
-def test_scalar_uniform_max_2d(mask_extents, channels, mask_tile_extents, mask_tile_strides):
-
+def test_scalar_uniform_max_2d(
+    mask_extents, channels, mask_tile_extents, mask_tile_strides
+):
     mask_extents = np.asarray(mask_extents)
     mask_tile_extents = np.asarray(mask_tile_extents)
     mask_tile_strides = np.asarray(mask_tile_strides)
@@ -139,14 +143,22 @@ def test_scalar_uniform_max_2d(mask_extents, channels, mask_tile_extents, mask_t
 @pytest.mark.parametrize("acc_filepath", [None, "test_heatamp.npy"])
 @pytest.mark.parametrize("overlap_counter_filepath", [None, "test_overlap.counter.npy"])
 def test_edge_clipping_heatmap_assembler(
-    clip, tile_extents, channels, mask_extents, acc_filepath, overlap_counter_filepath, tmp_path
+    clip,
+    tile_extents,
+    channels,
+    mask_extents,
+    acc_filepath,
+    overlap_counter_filepath,
+    tmp_path,
 ):
     # no mismatch in source and mask extents here
     mask_extents = np.asarray(mask_extents)
     tile_extents = np.asarray(tile_extents)
     tile_strides = np.asarray((4, 4), dtype=np.int64)
 
-    total_strides = np.ceil((mask_extents - tile_extents) / tile_strides).astype(np.int64)
+    total_strides = np.ceil((mask_extents - tile_extents) / tile_strides).astype(
+        np.int64
+    )
     expected_mask_extents = total_strides * tile_strides + tile_extents
 
     num_batches = 4
@@ -189,9 +201,9 @@ def test_edge_clipping_heatmap_assembler(
     # add the tiles randomly to cover the heatmap
     for i in range(num_batches):
         coords_batch = np.random.rand(len(mask_extents), batch_size)
-        coords_batch *= (
-            np.asarray(mask_extents) - (np.asarray(tile_extents) - clip)
-        )[:, np.newaxis]
+        coords_batch *= (np.asarray(mask_extents) - (np.asarray(tile_extents) - clip))[
+            :, np.newaxis
+        ]
         coords_batch = coords_batch.astype(np.int64)
         assembler.update_batch(example_tile_batch, coords_batch)
         # plt.imshow((assembler.accumulator.transpose(1, 2, 0)*32).astype(np.uint8))
@@ -314,20 +326,20 @@ def test_numpy_memmap_persistent_file(tmp_path):
         clip=1,
         channels=1,
         accumulator_filepath=filepath,
-        overlap_counter_filepath=filepath.with_suffix(".overlaps"+filepath.suffix),
+        overlap_counter_filepath=filepath.with_suffix(".overlaps" + filepath.suffix),
     )
 
     tile_batch = np.ones((1, 1, *mask_tile_extents), dtype=np.float32)
     assembler.update_batch(tile_batch, coords_batch=np.asarray([[0], [0]]))
-    
+
     del assembler
 
     assert filepath.exists(), (
         f"Persistent file {filepath} should exist after finalization"
     )
 
-    assert filepath.with_suffix(".overlap"+filepath.suffix).exists(), (
-        f"Persistent overlap file {filepath.with_suffix('.overlap'+filepath.suffix)} should exist after finalization"
+    assert filepath.with_suffix(".overlap" + filepath.suffix).exists(), (
+        f"Persistent overlap file {filepath.with_suffix('.overlap' + filepath.suffix)} should exist after finalization"
     )
 
     # Clean up
@@ -344,14 +356,12 @@ def test_autoscaling_scalar_uniform_value_constant_stride(
     """Test AutoScalingScalarUniformValueConstantStrideMaskBuilder with autoscaling and scalar tiling."""
     batch_size = 4
     num_batches = 8
-    
+
     source_extents = np.asarray(source_extents)
     source_tile_extents = np.asarray(source_tile_extents)
     source_tile_strides = source_tile_extents // 2  # 50% overlap
     mask_tile_extents = np.asarray(mask_tile_extents)
 
-
-    
     builder = AutoScalingScalarUniformValueConstantStrideMaskBuilder(
         source_extents=source_extents,
         channels=channels,
@@ -359,42 +369,48 @@ def test_autoscaling_scalar_uniform_value_constant_stride(
         source_tile_strides=source_tile_strides,
         mask_tile_extents=mask_tile_extents,
     )
-    
+
     mask_tile_strides = (source_tile_strides * mask_tile_extents) // source_tile_extents
-    total_strides = np.ceil((source_extents - source_tile_extents) / source_tile_strides).astype(np.int64)
+    total_strides = np.ceil(
+        (source_extents - source_tile_extents) / source_tile_strides
+    ).astype(np.int64)
     expected_mask_extents = total_strides * mask_tile_strides + mask_tile_extents
-    
+
     gcds = np.gcd(mask_tile_extents, mask_tile_strides)
     adjusted_mask_tile_extents = mask_tile_extents // gcds
     compressed_mask_extents = expected_mask_extents // gcds
-    
+
     # Verify accumulator shape matches adjusted dimensions
     assert builder.accumulator.shape == (channels, *compressed_mask_extents), (
         f"Accumulator shape mismatch: {builder.accumulator.shape} vs expected {(channels, *compressed_mask_extents)}"
     )
-    
+
     # Create scalar batch data (B, C)
     scalar_data = np.ones((batch_size, channels), dtype=np.float32)
-    
+
     for i in range(num_batches):
         # Generate coordinates in SOURCE space
         coords_batch = np.random.rand(len(source_extents), batch_size)
         coords_batch *= (source_extents - source_tile_extents)[:, np.newaxis]
-        
+
         # Align to source tile strides
-        coords_batch = (coords_batch // source_tile_strides[:, np.newaxis]) * source_tile_strides[:, np.newaxis]
+        coords_batch = (
+            coords_batch // source_tile_strides[:, np.newaxis]
+        ) * source_tile_strides[:, np.newaxis]
         coords_batch = coords_batch.astype(np.int64)
-        
+
         builder.update_batch(scalar_data, coords_batch)
-        
+
         # Verify accumulator sum increases
-        expected_increment = (i + 1) * batch_size * channels * np.prod(adjusted_mask_tile_extents)
+        expected_increment = (
+            (i + 1) * batch_size * channels * np.prod(adjusted_mask_tile_extents)
+        )
         assert np.isclose(builder.accumulator.sum(), expected_increment, atol=1e-5), (
             f"Accumulator sum after batch {i + 1}: {builder.accumulator.sum()} vs expected {expected_increment}"
         )
-    
+
     assembled, overlap = builder.finalize()
-    
+
     # Verify output shapes
     assert assembled.shape == (channels, *compressed_mask_extents), (
         f"Assembled mask shape mismatch: {assembled.shape} vs {(channels, *compressed_mask_extents)}"
@@ -402,11 +418,13 @@ def test_autoscaling_scalar_uniform_value_constant_stride(
     assert overlap.shape == (1, *compressed_mask_extents), (
         f"Overlap counter shape mismatch: {overlap.shape} vs {(1, *compressed_mask_extents)}"
     )
-    
+
     # Verify values are averaged correctly
     assert np.isclose(assembled.max(), 1.0, atol=1e-5), (
         f"Max value should be ~1.0 after averaging: {assembled.max()}"
     )
-    assert overlap.sum() == num_batches * batch_size * np.prod(adjusted_mask_tile_extents), (
+    assert overlap.sum() == num_batches * batch_size * np.prod(
+        adjusted_mask_tile_extents
+    ), (
         f"Overlap sum mismatch: {overlap.sum()} vs expected {num_batches * batch_size * np.prod(adjusted_mask_tile_extents)}"
     )

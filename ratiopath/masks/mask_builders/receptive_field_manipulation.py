@@ -1,9 +1,10 @@
+from typing import Any
+
+import numpy as np
+from jaxtyping import Int64, Shaped
+
 from ratiopath.masks.mask_builders.mask_builder import AccumulatorType, MaskBuilder
 
-
-from typing import Any
-from jaxtyping import Shaped, Int64
-import numpy as np
 
 class EdgeClippingMaskBuilderMixin(MaskBuilder):
     """Mixin that clips edge pixels from tiles before accumulation.
@@ -135,7 +136,7 @@ class AutoScalingConstantStrideMixin(MaskBuilder):
 
     This mixin addresses this by calculating the scale factors from the input tile extents and output mask tile extents,
     adjusting the input coordinates accordingly before passing them to the next handler in the chain.
-    This mixin also automatically computes the built mask spatial dimensions based on the tiled input total 
+    This mixin also automatically computes the built mask spatial dimensions based on the tiled input total
     extent and the computed scale factors.
 
     Furthermore, this mixin readjusts the mask extent to cover for potential partial tiles at the edges.
@@ -173,7 +174,7 @@ class AutoScalingConstantStrideMixin(MaskBuilder):
         self.source_tile_extents = source_tile_extents
         self.mask_tile_extents = mask_tile_extents
 
-        multiplied_ = (source_tile_strides * self.mask_tile_extents)
+        multiplied_ = source_tile_strides * self.mask_tile_extents
         # Ensure source_tile_strides * self.mask_tile_extents is divisible by self.source_tile_extents to avoid fractional strides
         if not np.all(multiplied_ % self.source_tile_extents == 0):
             raise ValueError(
@@ -185,10 +186,13 @@ class AutoScalingConstantStrideMixin(MaskBuilder):
         # adjusted_mask_extents = (source_extents // self.source_tile_extents) * self.mask_tile_extents
         total_strides = (source_extents - source_tile_extents) / source_tile_strides
         total_strides = np.ceil(total_strides).astype(np.int64)
-          # without the initial tile step, including partial tile at the edge
-        self.overflow_buffered_source_extents = (total_strides * source_tile_strides) + source_tile_extents
-        overflow_buffered_mask_extents = (total_strides * adjusted_mask_tile_strides) + self.mask_tile_extents
-
+        # without the initial tile step, including partial tile at the edge
+        self.overflow_buffered_source_extents = (
+            total_strides * source_tile_strides
+        ) + source_tile_extents
+        overflow_buffered_mask_extents = (
+            total_strides * adjusted_mask_tile_strides
+        ) + self.mask_tile_extents
 
         # Call next in MRO with computed parameters
         super().__init__(
@@ -204,10 +208,10 @@ class AutoScalingConstantStrideMixin(MaskBuilder):
         data_batch: Shaped[AccumulatorType, "B C *SpatialDims"],
         coords_batch: Shaped[AccumulatorType, "N B"],
     ) -> None:
-        adjusted_coords_batch = ((coords_batch * self.mask_tile_extents[:, np.newaxis]) // self.source_tile_extents[:, np.newaxis])
-        super().update_batch(
-            data_batch=data_batch, coords_batch=adjusted_coords_batch
-        )
+        adjusted_coords_batch = (
+            coords_batch * self.mask_tile_extents[:, np.newaxis]
+        ) // self.source_tile_extents[:, np.newaxis]
+        super().update_batch(data_batch=data_batch, coords_batch=adjusted_coords_batch)
 
 
 class ScalarUniformTiledMaskBuilder(MaskBuilder):

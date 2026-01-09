@@ -1,20 +1,33 @@
 from pathlib import Path
-from ratiopath.masks.mask_builders.aggregation import AveragingMaskBuilderMixin, MaxMaskBuilderMixin
 from typing import Any
+
+from jaxtyping import Int64
+
+from ratiopath.masks.mask_builders.aggregation import (
+    AveragingMaskBuilderMixin,
+    MaxMaskBuilderMixin,
+)
 from ratiopath.masks.mask_builders.mask_builder import (
     AccumulatorType,
 )
-from ratiopath.masks.mask_builders.receptive_field_manipulation import AutoScalingConstantStrideMixin, EdgeClippingMaskBuilder2DMixin, ScalarUniformTiledMaskBuilder
-from ratiopath.masks.mask_builders.storage import NumpyArrayMaskBuilderAllocatorMixin, NumpyMemMapMaskBuilderAllocatorMixin
-from jaxtyping import Int64
+from ratiopath.masks.mask_builders.receptive_field_manipulation import (
+    AutoScalingConstantStrideMixin,
+    EdgeClippingMaskBuilder2DMixin,
+    ScalarUniformTiledMaskBuilder,
+)
+from ratiopath.masks.mask_builders.storage import (
+    NumpyArrayMaskBuilderAllocatorMixin,
+    NumpyMemMapMaskBuilderAllocatorMixin,
+)
 
 
 __all__ = [
     "AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D",
+    "AutoScalingScalarUniformValueConstantStrideMaskBuilder",
     "AveragingScalarUniformTiledNumpyMaskBuilder",
     "MaxScalarUniformTiledNumpyMaskBuilder",
-    "AutoScalingScalarUniformValueConstantStrideMaskBuilder",
 ]
+
 
 class AveragingScalarUniformTiledNumpyMaskBuilder(
     NumpyArrayMaskBuilderAllocatorMixin,
@@ -236,7 +249,14 @@ class AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D(
             overlap_counter_filepath=overlap_counter_filepath,
         )
 
-    def setup_memory(self, mask_extents, channels, accumulator_filepath=None, overlap_counter_filepath=None, **kwargs) -> None:
+    def setup_memory(
+        self,
+        mask_extents,
+        channels,
+        accumulator_filepath=None,
+        overlap_counter_filepath=None,
+        **kwargs,
+    ) -> None:
         self.accumulator = self.allocate_accumulator(
             mask_extents=mask_extents, channels=channels, filepath=accumulator_filepath
         )
@@ -254,22 +274,23 @@ class AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D(
     def get_vips_scale_factors(self) -> tuple[float, float]:
         """Get the scaling factors to convert the built mask back to the original source resolution.
 
-        The ideas is to obtain coefficients for the pyvips.affine() function to rescale the assembled mask 
-        back to the original source resolution after assembly and finalization. 
+        The ideas is to obtain coefficients for the pyvips.affine() function to rescale the assembled mask
+        back to the original source resolution after assembly and finalization.
+
         Returns:
             tuple[float, float]: Scaling factors for height and width dimensions.
         """
-        scale_factors = self.overflow_buffered_source_extents / self.accumulator.shape[1:]  # H, W
+        scale_factors = (
+            self.overflow_buffered_source_extents / self.accumulator.shape[1:]
+        )  # H, W
         return tuple(scale_factors)  # TODO: add tests for this method
-
-
 
 
 class AutoScalingScalarUniformValueConstantStrideMaskBuilder(
     NumpyArrayMaskBuilderAllocatorMixin,
     AutoScalingConstantStrideMixin,
     ScalarUniformTiledMaskBuilder,
-    AveragingMaskBuilderMixin
+    AveragingMaskBuilderMixin,
 ):
     """Mask builder combining auto-scaling with scalar uniform tiling.
 
@@ -324,5 +345,3 @@ class AutoScalingScalarUniformValueConstantStrideMaskBuilder(
             channels=channels,
             **kwargs,
         )
-
-
