@@ -36,12 +36,6 @@ def write_big_tiff(
         tile_height: The height of each tile in pixels. Default is 512.
             Must match with other masks used in xOpath.
     """
-    if mpp_x > 100 or mpp_y > 100:
-        # This warning is necessary because we change the units of mpp_x and mpp_y
-        warnings.warn(
-            "Make sure the resolution is in µm/pixel not in pixels/mm.", stacklevel=1
-        )
-
     xres = 1000 / mpp_x
     yres = 1000 / mpp_y
 
