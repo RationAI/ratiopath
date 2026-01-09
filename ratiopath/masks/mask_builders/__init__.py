@@ -1,8 +1,258 @@
+from pathlib import Path
+from ratiopath.masks.mask_builders.aggregation import AveragingMaskBuilderMixin, MaxMaskBuilderMixin
+from typing import Any
 from ratiopath.masks.mask_builders.mask_builder import (
-    AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D,
-    AveragingScalarUniformTiledNumpyMaskBuilder,
-    MaxScalarUniformTiledNumpyMaskBuilder,
+    AccumulatorType,
 )
+from ratiopath.masks.mask_builders.receptive_field_manipulation import AutoScalingConstantStrideMixin, EdgeClippingMaskBuilder2DMixin, ScalarUniformTiledMaskBuilder
+from ratiopath.masks.mask_builders.storage import NumpyArrayMaskBuilderAllocatorMixin, NumpyMemMapMaskBuilderAllocatorMixin
+
+
+class AveragingScalarUniformTiledNumpyMaskBuilder(
+    NumpyArrayMaskBuilderAllocatorMixin,
+    ScalarUniformTiledMaskBuilder,
+    AveragingMaskBuilderMixin,
+):
+    """Averaging scalar uniform tiled mask builder using numpy arrays as accumulators.
+
+    The tiles are uniformly expanded from scalar/vector values before being assembled into the mask.
+    The overlaps are averaged during finalization.
+    The tiles are expected to have constant extents and strides.
+    These can vary across dimensions (e.g. different width and height), but must not change across tiles.
+    See `ScalarUniformTiledMaskBuilder` for details.
+
+    Args:
+        mask_extents (tuple[int, int]): Spatial dimensions of the mask to build.
+        channels (int): Number of channels in the scalar values to be assembled into the mask.
+        mask_tile_extents (tuple[int, int]): Extents of the tiles in mask space for each spatial dimension (height, width).
+        mask_tile_strides (tuple[int, int]): Strides of the tiles in mask space for each spatial dimension (height, width).
+
+    Example:
+        ```python
+        import openslide
+        from rationai.masks.mask_builders import (
+            AveragingScalarUniformTiledNumpyMaskBuilder,
+        )
+        import matplotlib.pyplot as plt
+
+        LEVEL = 3
+        tile_extents = (512, 512)
+        tile_strides = (256, 256)
+        slide = openslide.OpenSlide("path/to/slide.mrxs")
+        slide_extent_x, slide_extent_y = slide.dimensions[LEVEL]
+        vgg16_model = load_rationai_vgg16_model(...)  # load your pretrained model here
+        mask_builder = AveragingScalarUniformTiledNumpyMaskBuilder(
+            mask_extents=(slide_extent_y, slide_extent_x),
+            channels=1,  # for binary classification
+            mask_tile_extents=tile_extents,
+            mask_tile_strides=tile_strides,
+        )
+        for tiles, xs, ys in generate_tiles_from_slide(
+            slide, LEVEL, tile_extents, tile_strides, batch_size=32
+        ):
+            # tiles has shape (B, C, H, W)
+            features = vgg16_model.predict(tiles)  # features has shape (B, channels)
+            mask_builder.update_batch(features, xs, ys)
+        assembled_mask, overlap = mask_builder.finalize()
+        plt.imshow(assembled_mask[0], cmap="gray", interpolation="nearest")
+        plt.axis("off")
+        plt.show()
+        ```
+    """
+
+    def __init__(
+        self,
+        mask_extents: Int64[AccumulatorType, " N"],
+        channels: int,
+        mask_tile_extents: Int64[AccumulatorType, " N"],
+        mask_tile_strides: Int64[AccumulatorType, " N"],
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(
+            mask_extents=mask_extents,
+            channels=channels,
+            mask_tile_extents=mask_tile_extents,
+            mask_tile_strides=mask_tile_strides,
+            **kwargs,
+        )
+
+
+class MaxScalarUniformTiledNumpyMaskBuilder(
+    NumpyArrayMaskBuilderAllocatorMixin,
+    ScalarUniformTiledMaskBuilder,
+    MaxMaskBuilderMixin,
+):
+    """Max scalar uniform tiled mask builder using numpy arrays as accumulators.
+
+    The tiles are uniformly expanded from scalar/vector values before being assembled into the mask.
+    The maximum value is taken at each pixel position during updates, no finalisation is required.
+    The tiles are expected to have constant extents and strides.
+    These can vary across dimensions (e.g. different width and height), but must not change across tiles.
+    See `ScalarUniformTiledMaskBuilder` for details.
+
+    Args:
+        mask_extents (tuple[int, int]): Spatial dimensions of the mask to build.
+        channels (int): Number of channels in the scalar values to be assembled into the mask.
+        mask_tile_extents (tuple[int, int]): Extents of the tiles in mask space for each spatial dimension (height, width).
+        mask_tile_strides (tuple[int, int]): Strides of the tiles in mask space for each spatial dimension (height, width).
+
+    Example:
+        ```python
+        import openslide
+        from rationai.masks.mask_builders import MaxScalarUniformTiledNumpyMaskBuilder
+        import matplotlib.pyplot as plt
+
+        LEVEL = 3
+        tile_extents = (512, 512)
+        tile_strides = (256, 256)
+        slide = openslide.OpenSlide("path/to/slide.mrxs")
+        slide_extent_x, slide_extent_y = slide.dimensions[LEVEL]
+        vgg16_model = load_rationai_vgg16_model(...)  # load your pretrained model here
+        mask_builder = MaxScalarUniformTiledNumpyMaskBuilder(
+            mask_extents=(slide_extent_y, slide_extent_x),
+            channels=1,  # for binary classification
+            mask_tile_extents=tile_extents,
+            mask_tile_strides=tile_strides,
+        )
+        for tiles, xs, ys in generate_tiles_from_slide(
+            slide, LEVEL, tile_extents, tile_strides, batch_size=32
+        ):
+            # tiles has shape (B, C, H, W)
+            features = vgg16_model.predict(tiles)  # features has shape (B, channels)
+            mask_builder.update_batch(features, xs, ys)
+        (assembled_mask,) = mask_builder.finalize()
+        plt.imshow(assembled_mask[0], cmap="gray", interpolation="nearest")
+        plt.axis("off")
+        plt.show()
+        ```
+
+    """
+
+    def __init__(
+        self,
+        mask_extents: Int64[AccumulatorType, " N"],
+        channels: int,
+        mask_tile_extents: Int64[AccumulatorType, " N"],
+        mask_tile_strides: Int64[AccumulatorType, " N"],
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(
+            mask_extents=mask_extents,
+            channels=channels,
+            mask_tile_extents=mask_tile_extents,
+            mask_tile_strides=mask_tile_strides,
+            **kwargs,
+        )
+
+
+class AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D(
+    NumpyMemMapMaskBuilderAllocatorMixin,
+    AutoScalingConstantStrideMixin,
+    EdgeClippingMaskBuilder2DMixin,
+    AveragingMaskBuilderMixin,
+):
+    """Averaging mask builder with edge clipping using numpy memmaps as accumulators.
+
+    This concrete builder combines three features:
+    1. **Memory-mapped storage:** Handles large masks that exceed RAM capacity
+    2. **Edge clipping:** Removes boundary artifacts from tiles
+    3. **Averaging:** Smoothly blends overlapping tiles by computing pixel-wise averages
+
+    The builder allocates two memmaps:
+    - Main accumulator for tile data
+    - Overlap counter (auto-suffixed with `.overlaps` if filepath is provided)
+
+    Args:
+        mask_extents: Spatial dimensions of the full-resolution mask (height, width).
+        channels: Number of channels in the tiles/mask.
+        clip: Edge clipping specification. Accepts:
+            - int: same clipping on all edges
+            - (clip_y, clip_x): same for top/bottom and left/right
+            - (clip_top, clip_bottom, clip_left, clip_right): individual edge control
+        filepath: Optional path for the main accumulator memmap. If None, uses temporary file.
+            The overlap counter will use the same path with `.overlaps` suffix inserted before extension.
+
+    Example:
+        ```python
+        import openslide
+        from rationai.masks.mask_builders import AveragingClippingNumpyMemMapMaskBuilder
+        import matplotlib.pyplot as plt
+
+        LEVEL = 3
+        tile_extents = (512, 512)
+        tile_strides = (256, 256)
+        slide = openslide.OpenSlide("path/to/slide.mrxs")
+        slide_extent_x, slide_extent_y = slide.dimensions[LEVEL]
+        vgg16_model = load_rationai_vgg16_model(...)  # load your pretrained model here
+        mask_builder = AveragingClippingNumpyMemMapMaskBuilder(
+            mask_extents=(slide_extent_y, slide_extent_x),
+            channels=3,  # for RGB masks
+            clip_top=4,
+            clip_bottom=4,
+            clip_left=4,
+            clip_right=4,
+        )
+        for tiles, xs, ys in generate_tiles_from_slide(
+            slide, LEVEL, tile_extents, tile_strides, batch_size=32
+        ):
+            # tiles has shape (B, C, H, W)
+            features = vgg16_model.predict(tiles)  # features has shape (B, channels)
+            mask_builder.update_batch(features, xs, ys)
+        (assembled_mask,) = mask_builder.finalize()
+        plt.imshow(assembled_mask[0], cmap="gray", interpolation="nearest")
+        plt.axis("off")
+        plt.show()
+        ```
+
+    """
+
+    def __init__(
+        self,
+        source_extents: Int64[AccumulatorType, " N"],
+        source_tile_extents: Int64[AccumulatorType, " N"],
+        source_tile_strides: Int64[AccumulatorType, " N"],
+        mask_tile_extents: Int64[AccumulatorType, " N"],
+        channels: int,
+        clip: int | tuple[int, int] | tuple[int, int, int, int],
+        accumulator_filepath: Path | None = None,
+        overlap_counter_filepath: Path | None = None,
+    ) -> None:
+        super().__init__(
+            source_extents=source_extents,
+            source_tile_extents=source_tile_extents,
+            source_tile_strides=source_tile_strides,
+            mask_tile_extents=mask_tile_extents,
+            channels=channels,
+            clip=clip,
+            accumulator_filepath=accumulator_filepath,
+            overlap_counter_filepath=overlap_counter_filepath,
+        )
+
+    def setup_memory(self, mask_extents, channels, accumulator_filepath=None, overlap_counter_filepath=None, **kwargs) -> None:
+        self.accumulator = self.allocate_accumulator(
+            mask_extents=mask_extents, channels=channels, filepath=accumulator_filepath
+        )
+        if overlap_counter_filepath is not None:
+            counter_filepath = overlap_counter_filepath
+        elif accumulator_filepath is not None:
+            suffix = accumulator_filepath.suffix
+            counter_filepath = accumulator_filepath.with_suffix(f".overlaps{suffix}")
+        else:
+            counter_filepath = None
+        self.overlap_counter = self.allocate_accumulator(
+            mask_extents=mask_extents, channels=1, filepath=counter_filepath
+        )
+
+    def get_vips_scale_factors(self) -> tuple[float, float]:
+        """Get the scaling factors to convert the built mask back to the original source resolution.
+
+        The ideas is to obtain coefficients for the pyvips.affine() function to rescale the assembled mask 
+        back to the original source resolution after assembly and finalization. 
+        Returns:
+            tuple[float, float]: Scaling factors for height and width dimensions.
+        """
+        scale_factors = self.overflow_buffered_source_extents / self.accumulator.shape[1:]  # H, W
+        return tuple(scale_factors)  # TODO: add tests for this method
 
 
 __all__ = [
@@ -10,3 +260,66 @@ __all__ = [
     "AveragingScalarUniformTiledNumpyMaskBuilder",
     "MaxScalarUniformTiledNumpyMaskBuilder",
 ]
+
+
+class AutoScalingScalarUniformValueConstantStrideMaskBuilder(
+    NumpyArrayMaskBuilderAllocatorMixin,
+    AutoScalingConstantStrideMixin,
+    ScalarUniformTiledMaskBuilder,
+    AveragingMaskBuilderMixin
+):
+    """Mask builder combining auto-scaling with scalar uniform tiling.
+
+    This builder automatically handles the complete pipeline for building masks from scalar/vector
+    values when the network output resolution differs from input resolution:
+    1. Computes output mask dimensions from source image and tile sizes
+    2. Scales coordinates from input space to output space
+    3. Compresses representation using GCD of tile extent/stride
+    4. Expands scalar values into uniform tiles
+
+    Typical use case: Neural network produces scalar predictions per input tile, and you want
+    to create a coverage mask at a different resolution.
+
+    Args:
+        source_extents: Spatial dimensions of the source image (e.g., (10000, 10000)).
+        channels: Number of channels in scalar predictions.
+        source_tile_extents: Size of input tiles extracted from source (e.g., (512, 512)).
+        source_tile_strides: Stride between input tiles in source space (e.g., (256, 256)).
+        mask_tile_extents: Size you want each scalar to represent in output mask (e.g., (64, 64)).
+
+    Example:
+        ```python
+        # Source image: 10000x10000
+        # Input tiles: 512x512 at stride 256x256
+        # Want each scalar to cover 64x64 in output
+        builder = AutoScalingScalarUniformTiledMaskBuilder(
+            source_extents=(10000, 10000),
+            channels=3,
+            source_tile_extents=(512, 512),
+            source_tile_strides=(256, 256),
+            mask_tile_extents=(64, 64),
+        )
+        # Output mask will be: (10000/512)*64 x (10000/512)*64 = 1250x1250
+        # Coordinates should be provided in input space (0, 256, 512, ...)
+        ```
+    """
+
+    def __init__(
+        self,
+        source_extents: Int64[AccumulatorType, " N"],
+        source_tile_extents: Int64[AccumulatorType, " N"],
+        source_tile_strides: Int64[AccumulatorType, " N"],
+        mask_tile_extents: Int64[AccumulatorType, " N"],
+        channels: int,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(
+            source_extents=source_extents,
+            source_tile_extents=source_tile_extents,
+            source_tile_strides=source_tile_strides,
+            mask_tile_extents=mask_tile_extents,
+            channels=channels,
+            **kwargs,
+        )
+
+
