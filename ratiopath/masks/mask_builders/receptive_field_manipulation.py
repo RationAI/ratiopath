@@ -59,7 +59,6 @@ class EdgeClippingMaskBuilderMixin(MaskBuilder):
             data_batch=data_batch[..., *slices],  # type: ignore[arg-type]
             coords_batch=adjusted_coords_batch,
         )
-        )
 
 
 class EdgeClippingMaskBuilder2DMixin(EdgeClippingMaskBuilderMixin):
