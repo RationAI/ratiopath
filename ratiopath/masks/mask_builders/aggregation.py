@@ -1,7 +1,9 @@
 from ratiopath.masks.mask_builders.mask_builder import AccumulatorType, MaskBuilder, compute_acc_slices
 
-
+import numpy as np
+import numpy.typing as npt
 from typing import Any
+from jaxtyping import Shaped, Int64
 
 
 class AveragingMaskBuilderMixin(MaskBuilder):

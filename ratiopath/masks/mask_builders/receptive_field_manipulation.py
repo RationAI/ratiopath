@@ -2,7 +2,8 @@ from ratiopath.masks.mask_builders.mask_builder import AccumulatorType, MaskBuil
 
 
 from typing import Any
-
+from jaxtyping import Shaped, Int64
+import numpy as np
 
 class EdgeClippingMaskBuilderMixin(MaskBuilder):
     """Mixin that clips edge pixels from tiles before accumulation.

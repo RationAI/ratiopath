@@ -6,7 +6,7 @@ from ratiopath.masks.mask_builders.mask_builder import (
 )
 from ratiopath.masks.mask_builders.receptive_field_manipulation import AutoScalingConstantStrideMixin, EdgeClippingMaskBuilder2DMixin, ScalarUniformTiledMaskBuilder
 from ratiopath.masks.mask_builders.storage import NumpyArrayMaskBuilderAllocatorMixin, NumpyMemMapMaskBuilderAllocatorMixin
-
+from jaxtyping import Int64
 
 class AveragingScalarUniformTiledNumpyMaskBuilder(
     NumpyArrayMaskBuilderAllocatorMixin,
