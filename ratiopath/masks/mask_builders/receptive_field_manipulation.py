@@ -54,10 +54,11 @@ class EdgeClippingMaskBuilderMixin(MaskBuilder):
                 strict=True,
             )
         )
-        adjusterd_coords_batch = coords_batch + self.clip_start_indices[:, np.newaxis]
+        adjusted_coords_batch = coords_batch + self.clip_start_indices[:, np.newaxis]
         super().update_batch(
             data_batch=data_batch[..., *slices],  # type: ignore[arg-type]
-            coords_batch=adjusterd_coords_batch,
+            coords_batch=adjusted_coords_batch,
+        )
         )
 
 
