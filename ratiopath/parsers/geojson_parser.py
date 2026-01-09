@@ -93,6 +93,7 @@ class GeoJSONParser:
                 return self.gdf.iloc[0:0]
 
             series = filtered_gdf[subkeys[0]]
+
             for subkey in subkeys[1:]:
                 series = series.apply(safe_to_dict)
                 mask = series.apply(
