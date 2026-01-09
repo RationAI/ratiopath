@@ -8,6 +8,14 @@ from ratiopath.masks.mask_builders.receptive_field_manipulation import AutoScali
 from ratiopath.masks.mask_builders.storage import NumpyArrayMaskBuilderAllocatorMixin, NumpyMemMapMaskBuilderAllocatorMixin
 from jaxtyping import Int64
 
+
+__all__ = [
+    "AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D",
+    "AveragingScalarUniformTiledNumpyMaskBuilder",
+    "MaxScalarUniformTiledNumpyMaskBuilder",
+    "AutoScalingScalarUniformValueConstantStrideMaskBuilder",
+]
+
 class AveragingScalarUniformTiledNumpyMaskBuilder(
     NumpyArrayMaskBuilderAllocatorMixin,
     ScalarUniformTiledMaskBuilder,
@@ -255,12 +263,6 @@ class AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D(
         return tuple(scale_factors)  # TODO: add tests for this method
 
 
-__all__ = [
-    "AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D",
-    "AveragingScalarUniformTiledNumpyMaskBuilder",
-    "MaxScalarUniformTiledNumpyMaskBuilder",
-    "AutoScalingScalarUniformValueConstantStrideMaskBuilder",
-]
 
 
 class AutoScalingScalarUniformValueConstantStrideMaskBuilder(
