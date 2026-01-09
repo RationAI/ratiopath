@@ -931,20 +931,6 @@ wheels = [
 ]
 
 [[package]]
-name = "ome-types"
-version = "0.6.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pydantic" },
-    { name = "pydantic-extra-types" },
-    { name = "xsdata" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/cb/49/f9d313e03eefb4a7f81d1edba8493a4a40ef622bb48bab2f03600ee1ad86/ome_types-0.6.1.tar.gz", hash = "sha256:49e7a79ac90f8e4c33392f285491cb2577d41f2583bb879307c4f5ba9436e721", size = 121623, upload-time = "2025-04-16T20:36:41.701Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/93/c7/5d63372b13bfe9eaff26d540e7a1d2da5f0b4d82a5cbe634b638f1df61a3/ome_types-0.6.1-py3-none-any.whl", hash = "sha256:128f9bd5f52212cf37dad087ee4a7df939ccbf40a328d986e0bf9ac564abd4e9", size = 245142, upload-time = "2025-04-16T20:36:39.637Z" },
-]
-
-[[package]]
 name = "opencv-python-headless"
 version = "4.11.0.86"
 source = { registry = "https://pypi.org/simple" }
@@ -1268,19 +1254,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pydantic-extra-types"
-version = "2.10.5"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pydantic" },
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/7e/ba/4178111ec4116c54e1dc7ecd2a1ff8f54256cdbd250e576882911e8f710a/pydantic_extra_types-2.10.5.tar.gz", hash = "sha256:1dcfa2c0cf741a422f088e0dbb4690e7bfadaaf050da3d6f80d6c3cf58a2bad8", size = 138429, upload-time = "2025-06-02T09:31:52.713Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/70/1a/5f4fd9e7285f10c44095a4f9fe17d0f358d1702a7c74a9278c794e8a7537/pydantic_extra_types-2.10.5-py3-none-any.whl", hash = "sha256:b60c4e23d573a69a4f1a16dd92888ecc0ef34fb0e655b4f305530377fa70e7a8", size = 38315, upload-time = "2025-06-02T09:31:51.229Z" },
-]
-
-[[package]]
 name = "pygments"
 version = "2.19.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1511,7 +1484,6 @@ dependencies = [
     { name = "geopandas" },
     { name = "imagecodecs" },
     { name = "numpy" },
-    { name = "ome-types" },
     { name = "openslide-python" },
     { name = "pandas" },
     { name = "pillow" },
@@ -1551,7 +1523,6 @@ requires-dist = [
     { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.6.18" },
     { name = "mkdocstrings", extras = ["python"], marker = "extra == 'docs'", specifier = ">=0.30.0" },
     { name = "numpy", specifier = ">=2.2.2" },
-    { name = "ome-types", specifier = ">=0.6.1" },
     { name = "openslide-bin", marker = "extra == 'tests'", specifier = ">=4.0.0.8" },
     { name = "openslide-python", specifier = ">=1.4.1" },
     { name = "pandas", specifier = ">=2.2.3" },
@@ -2124,18 +2095,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/07/f6/d0e5b343768e8bcb4cda79f0f2f55051bf26177ecd5651f84c07567461cf/watchdog-6.0.0-py3-none-win32.whl", hash = "sha256:07df1fdd701c5d4c8e55ef6cf55b8f0120fe1aef7ef39a1c6fc6bc2e606d517a", size = 79065, upload-time = "2024-11-01T14:07:09.525Z" },
     { url = "https://files.pythonhosted.org/packages/db/d9/c495884c6e548fce18a8f40568ff120bc3a4b7b99813081c8ac0c936fa64/watchdog-6.0.0-py3-none-win_amd64.whl", hash = "sha256:cbafb470cf848d93b5d013e2ecb245d4aa1c8fd0504e863ccefa32445359d680", size = 79070, upload-time = "2024-11-01T14:07:10.686Z" },
     { url = "https://files.pythonhosted.org/packages/33/e8/e40370e6d74ddba47f002a32919d91310d6074130fe4e17dabcafc15cbf1/watchdog-6.0.0-py3-none-win_ia64.whl", hash = "sha256:a1914259fa9e1454315171103c6a30961236f508b9b623eae470268bbcc6a22f", size = 79067, upload-time = "2024-11-01T14:07:11.845Z" },
-]
-
-[[package]]
-name = "xsdata"
-version = "24.3.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/af/da/bce6f30a2b85bb258bd3c282258c3cec294ef6c3214397ca22349bcb515b/xsdata-24.3.1.tar.gz", hash = "sha256:cf6c6895616260cbe2a4eff6f8f906cd16f9c1dba8fd8561e500b91269b86616", size = 330034, upload-time = "2024-03-10T15:16:25.059Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e9/ac/27a6fcf61c64549a17b9eaa087ae7876417b5ed9efb6efdec8b52289cae4/xsdata-24.3.1-py3-none-any.whl", hash = "sha256:2f4a00ec33fb6ff41fca95f3fac826b83fc34d8644e2f3da830ad393defb5705", size = 224141, upload-time = "2024-03-10T15:16:22.652Z" },
 ]
 
 [[package]]

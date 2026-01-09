@@ -15,7 +15,6 @@ dependencies = [
     "albumentations>=2.0.8",
     "imagecodecs>=2025.8.2",
     "numpy>=2.2.2",
-    "ome-types>=0.6.1",
     "openslide-python>=1.4.1",
     "pandas>=2.2.3",
     "pillow>=11.1.0",

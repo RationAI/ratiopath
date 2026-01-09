@@ -5,7 +5,6 @@ from typing import Any
 import numpy as np
 import pyarrow
 
-from ratiopath.utils.closest_level import closest_level
 from ray.data.block import Block, BlockMetadata
 from ray.data.datasource import FileBasedDatasource
 from ray.data.datasource.file_meta_provider import DefaultFileMetadataProvider
@@ -83,37 +82,21 @@ class SlideMetaDatasource(FileBasedDatasource):
         return self._read_openslide_stream(f, path)
 
     def _read_ome_stream(self, f: pyarrow.NativeFile, path: str) -> Iterator[Block]:
-        from ome_types import from_xml
-        from tifffile import TiffFile
+        from ratiopath.tifffile import TiffFile
 
         with TiffFile(path) as tif:
-            assert hasattr(tif, "ome_metadata") and tif.ome_metadata
-            metadata = from_xml(tif.ome_metadata)
+            if self.desired_level is not None:
+                level = self.desired_level
+            else:
+                assert self.desired_mpp is not None
+                level = tif.closest_level(self.desired_mpp)
 
-        base_px = metadata.images[0].pixels
-        if base_px.physical_size_x is None or base_px.physical_size_y is None:
-            raise ValueError("Physical size (MPP) is not available in the metadata.")
+            mpp = tif.slide_resolution(level)
 
-        if self.desired_level is not None:
-            level = self.desired_level
-        else:
-            assert self.desired_mpp is not None
-            level = closest_level(
-                self.desired_mpp,
-                (base_px.physical_size_x, base_px.physical_size_y),
-                [base_px.size_x / img.pixels.size_x for img in metadata.images],
-            )
+            extent_y, extent_x, *_ = tif.get_main_page(level).shape
+            downsample = tif.get_main_page(0).shape[1] / extent_x
 
-        px = metadata.images[level].pixels
-        mpp_x = px.physical_size_x
-        mpp_y = px.physical_size_y
-        extent = (px.size_x, px.size_y)
-        downsample = metadata.images[0].pixels.size_x / px.size_x
-
-        if mpp_x is None or mpp_y is None:
-            raise ValueError("Physical size (MPP) is not available in the metadata.")
-
-        yield self._build_block(path, extent, (mpp_x, mpp_y), level, downsample)
+        yield self._build_block(path, (extent_x, extent_y), mpp, level, downsample)
 
     def _read_openslide_stream(
         self, f: pyarrow.NativeFile, path: str
