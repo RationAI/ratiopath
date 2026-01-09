@@ -4,11 +4,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from ratiopath.masks.mask_builders.mask_builder import (
+from ratiopath.masks.mask_builders import AveragingScalarUniformTiledNumpyMaskBuilder, MaxScalarUniformTiledNumpyMaskBuilder
+from ratiopath.masks.mask_builders import AutoScalingScalarUniformValueConstantStrideMaskBuilder
+from ratiopath.masks.mask_builders import (
     AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D,
-    AveragingScalarUniformTiledNumpyMaskBuilder,
-    AutoScalingScalarUniformValueConstantStrideMaskBuilder,
-    MaxScalarUniformTiledNumpyMaskBuilder,
 )
 
 
