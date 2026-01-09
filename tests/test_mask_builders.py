@@ -338,8 +338,8 @@ def test_numpy_memmap_persistent_file(tmp_path):
         f"Persistent file {filepath} should exist after finalization"
     )
 
-    assert filepath.with_suffix(".overlap" + filepath.suffix).exists(), (
-        f"Persistent overlap file {filepath.with_suffix('.overlap' + filepath.suffix)} should exist after finalization"
+    assert filepath.with_suffix(".overlaps" + filepath.suffix).exists(), (
+        f"Persistent overlap file {filepath.with_suffix('.overlaps' + filepath.suffix)} should exist after finalization"
     )
 
     # Clean up
