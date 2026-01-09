@@ -43,11 +43,7 @@ class GeoJSONParser:
                 # If the first part of the key doesn't exist, return an empty frame
                 return self.gdf.iloc[0:0]
 
-            series = filtered_gdf[subkeys[0]].astype(str)
-            if len(subkeys) > 1:
-                mask = series.apply(is_json_dict)
-                series = series[mask].apply(lambda x: json.loads(x))
-                filtered_gdf = filtered_gdf[mask]
+            series = filtered_gdf[subkeys[0]]
 
             for subkey in subkeys[1:]:
                 mask = series.apply(
