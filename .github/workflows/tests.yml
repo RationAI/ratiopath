@@ -14,6 +14,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Install Openslide dependencies
+      - name: Install Openslide dependencies
+        run: |
+          sudo apt update
+          sudo apt install python3-openslide
+      
+      - name: Setup LibVips
+        run: sudo apt install -y libvips-dev
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
