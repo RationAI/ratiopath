@@ -259,6 +259,7 @@ __all__ = [
     "AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D",
     "AveragingScalarUniformTiledNumpyMaskBuilder",
     "MaxScalarUniformTiledNumpyMaskBuilder",
+    "AutoScalingScalarUniformValueConstantStrideMaskBuilder",
 ]
 
 
