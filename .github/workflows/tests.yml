@@ -19,7 +19,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install python3-openslide
-      
+
       - name: Setup LibVips
         run: sudo apt install -y libvips-dev
 
@@ -27,7 +27,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
-        run: uv sync --dev --extra tests
+        run: uv sync --frozen --dev --extra tests
 
       - name: Run Pytest
         run: uv run pytest
