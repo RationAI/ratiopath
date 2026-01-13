@@ -344,6 +344,7 @@ def test_numpy_memmap_persistent_file(tmp_path):
 
     # Clean up
     filepath.unlink()
+    filepath.with_suffix(".overlaps" + filepath.suffix).unlink()
 
 
 @pytest.mark.parametrize("source_extents", [(32, 32), (64, 96)])
