@@ -196,7 +196,7 @@ class AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D(
     Example:
         ```python
         import openslide
-        from rationai.masks.mask_builders import AveragingClippingNumpyMemMapMaskBuilder
+        from ratiopath.masks.mask_builders import AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D
         import matplotlib.pyplot as plt
 
         LEVEL = 3
@@ -205,13 +205,13 @@ class AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D(
         slide = openslide.OpenSlide("path/to/slide.mrxs")
         slide_extent_x, slide_extent_y = slide.dimensions[LEVEL]
         vgg16_model = load_rationai_vgg16_model(...)  # load your pretrained model here
-        mask_builder = AveragingClippingNumpyMemMapMaskBuilder(
-            mask_extents=(slide_extent_y, slide_extent_x),
+        mask_builder = AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D(
+            source_extents=(slide_extent_y, slide_extent_x),
+            source_tile_extents=tile_extents,
+            source_tile_strides=tile_strides,
+            mask_tile_extents=tile_extents,
             channels=3,  # for RGB masks
-            clip_top=4,
-            clip_bottom=4,
-            clip_left=4,
-            clip_right=4,
+            clip=(4, 4, 4, 4),  # (clip_top, clip_bottom, clip_left, clip_right)
         )
         for tiles, xs, ys in generate_tiles_from_slide(
             slide, LEVEL, tile_extents, tile_strides, batch_size=32
