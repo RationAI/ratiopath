@@ -199,7 +199,9 @@ class AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D(
     Example:
         ```python
         import openslide
-        from ratiopath.masks.mask_builders import AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D
+        from ratiopath.masks.mask_builders import (
+            AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D,
+        )
         import matplotlib.pyplot as plt
 
         LEVEL = 3
