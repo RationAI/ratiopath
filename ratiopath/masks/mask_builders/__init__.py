@@ -120,7 +120,7 @@ class MaxScalarUniformTiledNumpyMaskBuilder(
     Example:
         ```python
         import openslide
-        from rationai.masks.mask_builders import MaxScalarUniformTiledNumpyMaskBuilder
+        from ratiopath.masks.mask_builders import MaxScalarUniformTiledNumpyMaskBuilder
         import matplotlib.pyplot as plt
 
         LEVEL = 3
