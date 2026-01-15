@@ -243,7 +243,7 @@ def test_edge_clipping_heatmap_assembler(
 
 
 def test_edge_clipping_clips_edges():
-    """SImple test that ensures, that a tile put at [0,0], if clipped, does not write to the [0,0] corner of the heatmap."""
+    """Simple test that ensures, that a tile put at [0,0], if clipped, does not write to the [0,0] corner of the heatmap."""
     clip = 1
     mask_extents = np.asarray((16, 16))
     mask_tile_extents = np.asarray((8, 8))
