@@ -164,7 +164,6 @@ def test_edge_clipping_heatmap_assembler(
     num_batches = 4
     batch_size = 8
 
-    np.random.seed(0)
     if acc_filepath is not None:
         tmp_path.mkdir(parents=True, exist_ok=True)
         acc_filepath = Path((tmp_path / acc_filepath).as_posix())
