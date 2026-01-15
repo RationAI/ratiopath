@@ -181,17 +181,20 @@ class AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D(
 
     The builder allocates two memmaps:
     - Main accumulator for tile data
-    - Overlap counter (auto-suffixed with `.overlaps` if filepath is provided)
+    - Overlap counter (can be specified via overlap_counter_filepath, or auto-derived with `.overlaps` suffix if accumulator_filepath is provided)
 
     Args:
-        mask_extents: Spatial dimensions of the full-resolution mask (height, width).
+        source_extents: Spatial dimensions of the source space (height, width).
+        source_tile_extents: Extents of tiles in the source space (height, width).
+        source_tile_strides: Strides between tiles in the source space (height, width).
+        mask_tile_extents: Extents of tiles in the mask space (height, width).
         channels: Number of channels in the tiles/mask.
         clip: Edge clipping specification. Accepts:
             - int: same clipping on all edges
             - (clip_y, clip_x): same for top/bottom and left/right
             - (clip_top, clip_bottom, clip_left, clip_right): individual edge control
-        filepath: Optional path for the main accumulator memmap. If None, uses temporary file.
-            The overlap counter will use the same path with `.overlaps` suffix inserted before extension.
+        accumulator_filepath: Optional path for the main accumulator memmap. If None, uses temporary file.
+        overlap_counter_filepath: Optional path for the overlap counter memmap. If None, derives from accumulator_filepath with `.overlaps` suffix.
 
     Example:
         ```python
