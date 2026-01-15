@@ -51,7 +51,7 @@ class AveragingScalarUniformTiledNumpyMaskBuilder(
     Example:
         ```python
         import openslide
-        from rationai.masks.mask_builders import (
+        from ratiopath.masks.mask_builders import (
             AveragingScalarUniformTiledNumpyMaskBuilder,
         )
         import matplotlib.pyplot as plt
@@ -277,7 +277,7 @@ class AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D(
     def get_vips_scale_factors(self) -> tuple[float, float]:
         """Get the scaling factors to convert the built mask back to the original source resolution.
 
-        The ideas is to obtain coefficients for the pyvips.affine() function to rescale the assembled mask
+        The idea is to obtain coefficients for the pyvips.affine() function to rescale the assembled mask
         back to the original source resolution after assembly and finalization.
 
         Returns:
