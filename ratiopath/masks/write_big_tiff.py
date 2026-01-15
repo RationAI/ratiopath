@@ -31,9 +31,9 @@ def write_big_tiff(
         mpp_x: The horizontal resolution of the image in µm/pixel.
         mpp_y: The vertical resolution of the image in µm/pixel.
         tile_width: The width of each tile in pixels. Default is 512.
-            Must match with other masks used in xOpath.
+            Must match with other masks used in xOpat.
         tile_height: The height of each tile in pixels. Default is 512.
-            Must match with other masks used in xOpath.
+            Must match with other masks used in xOpat.
     """
     xres = 1000 / mpp_x
     yres = 1000 / mpp_y
