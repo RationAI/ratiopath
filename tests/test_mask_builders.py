@@ -140,7 +140,7 @@ def test_scalar_uniform_max_2d(
 @pytest.mark.parametrize("tile_extents", [(8, 8), (12, 9)])
 @pytest.mark.parametrize("channels", [1, 5])
 @pytest.mark.parametrize("mask_extents", [(32, 64), (64, 32), (100, 101)])
-@pytest.mark.parametrize("acc_filepath", [None, "test_heatamp.npy"])
+@pytest.mark.parametrize("acc_filepath", [None, "test_heatmap.npy"])
 @pytest.mark.parametrize("overlap_counter_filepath", [None, "test_overlap.counter.npy"])
 def test_edge_clipping_heatmap_assembler(
     clip,
