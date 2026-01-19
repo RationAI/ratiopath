@@ -157,7 +157,6 @@ class AutoScalingConstantStrideMixin(MaskBuilder):
 
     # source_extents: Int64[AccumulatorType, " N"]
     overflow_buffered_source_extents: Int64[AccumulatorType, " N"]
-    mask_extents: Int64[AccumulatorType, " N"]
     mask_tile_extents: Int64[AccumulatorType, " N"]
     source_tile_extents: Int64[AccumulatorType, " N"]
 
