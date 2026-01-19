@@ -133,6 +133,8 @@ class MaskBuilder(ABC):
         - Other aggregation operations
 
         This method is called by `update_batch()` after any mixin preprocessing has occurred.
+        For example, one mixin may clip tile edges and another may adjust coordinates before
+        passing the data here.
 
         Args:
             data_batch: Array of shape (B, C, *SpatialDims) containing B tiles with C channels.
