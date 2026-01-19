@@ -52,6 +52,7 @@ class AveragingScalarUniformTiledNumpyMaskBuilder(
         ```python
         import openslide
         from ratiopath.masks.mask_builders import (
+        from ratiopath.masks.mask_builders import (
             AveragingScalarUniformTiledNumpyMaskBuilder,
         )
         import matplotlib.pyplot as plt
@@ -61,7 +62,7 @@ class AveragingScalarUniformTiledNumpyMaskBuilder(
         tile_strides = (256, 256)
         slide = openslide.OpenSlide("path/to/slide.mrxs")
         slide_extent_x, slide_extent_y = slide.dimensions[LEVEL]
-        vgg16_model = load_rationai_vgg16_model(...)  # load your pretrained model here
+        vgg16_model = load_vgg16_model(...)  # load your pretrained model here
         mask_builder = AveragingScalarUniformTiledNumpyMaskBuilder(
             mask_extents=(slide_extent_y, slide_extent_x),
             channels=1,  # for binary classification
@@ -121,14 +122,17 @@ class MaxScalarUniformTiledNumpyMaskBuilder(
         ```python
         import openslide
         from ratiopath.masks.mask_builders import MaxScalarUniformTiledNumpyMaskBuilder
+        from ratiopath.masks.mask_builders import MaxScalarUniformTiledNumpyMaskBuilder
         import matplotlib.pyplot as plt
+        from rationai.explainability.model_probing import HookedModule
 
         LEVEL = 3
         tile_extents = (512, 512)
         tile_strides = (256, 256)
         slide = openslide.OpenSlide("path/to/slide.mrxs")
         slide_extent_x, slide_extent_y = slide.dimensions[LEVEL]
-        vgg16_model = load_rationai_vgg16_model(...)  # load your pretrained model here
+        vgg16_model = load_vgg16_model(...)  # load your pretrained model here
+        hooked_model = HookedModule(vgg16_model, layer_name="backbone.9")  # example layer
         mask_builder = MaxScalarUniformTiledNumpyMaskBuilder(
             mask_extents=(slide_extent_y, slide_extent_x),
             channels=1,  # for binary classification
@@ -139,7 +143,8 @@ class MaxScalarUniformTiledNumpyMaskBuilder(
             slide, LEVEL, tile_extents, tile_strides, batch_size=32
         ):
             # tiles has shape (B, C, H, W)
-            features = vgg16_model.predict(tiles)  # features has shape (B, channels)
+            outputs = hooked_model.predict(tiles)  # outputs are not used directly
+            features = hooked_model.get_activations("backbone.9") # shape (B, C, H, W)
             mask_builder.update_batch(features, xs, ys)
         (assembled_mask,) = mask_builder.finalize()
         plt.imshow(assembled_mask[0], cmap="gray", interpolation="nearest")
@@ -202,29 +207,32 @@ class AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D(
         from ratiopath.masks.mask_builders import (
             AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D,
         )
+        from rationai.explainability.model_probing import HookedModule
         import matplotlib.pyplot as plt
 
         LEVEL = 3
         tile_extents = (512, 512)
         tile_strides = (256, 256)
         slide = openslide.OpenSlide("path/to/slide.mrxs")
-        slide_extent_x, slide_extent_y = slide.dimensions[LEVEL]
-        vgg16_model = load_rationai_vgg16_model(...)  # load your pretrained model here
+        slide_extent_x, slide_extent_y = slide.level_dimensions[LEVEL]
+        vgg16_model = load_vgg16_model(...)  # load your pretrained model here
+        hooked_model = HookedModule(vgg16_model, layer_name="backbone.9")  # example layer
         mask_builder = AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D(
             source_extents=(slide_extent_y, slide_extent_x),
             source_tile_extents=tile_extents,
             source_tile_strides=tile_strides,
-            mask_tile_extents=tile_extents,
+            mask_tile_extents=(64, 64),  # output resolution per tile
             channels=3,  # for RGB masks
-            clip=(4, 4, 4, 4),  # (clip_top, clip_bottom, clip_left, clip_right)
+            clip=(4, 4, 4, 4),  # clip 4 pixels from each edge
         )
         for tiles, xs, ys in generate_tiles_from_slide(
             slide, LEVEL, tile_extents, tile_strides, batch_size=32
         ):
             # tiles has shape (B, C, H, W)
-            features = vgg16_model.predict(tiles)  # features has shape (B, channels)
+            output = vgg16_model.predict(tiles) # outputs are not used directly
+            features = hooked_model.get_activations("backbone.9")  # shape (B, C, H, W)
             mask_builder.update_batch(features, xs, ys)
-        (assembled_mask,) = mask_builder.finalize()
+        assembled_mask, overlap = mask_builder.finalize()
         plt.imshow(assembled_mask[0], cmap="gray", interpolation="nearest")
         plt.axis("off")
         plt.show()
@@ -318,18 +326,39 @@ class AutoScalingScalarUniformValueConstantStrideMaskBuilder(
 
     Example:
         ```python
-        # Source image: 10000x10000
-        # Input tiles: 512x512 at stride 256x256
-        # Want each scalar to cover 64x64 in output
-        builder = AutoScalingScalarUniformTiledMaskBuilder(
-            source_extents=(10000, 10000),
-            channels=3,
-            source_tile_extents=(512, 512),
-            source_tile_strides=(256, 256),
-            mask_tile_extents=(64, 64),
+        import openslide
+        from ratiopath.masks.mask_builders import (
+            AutoScalingScalarUniformValueConstantStrideMaskBuilder,
         )
-        # Output mask will be: (10000/512)*64 x (10000/512)*64 = 1250x1250
-        # Coordinates should be provided in input space (0, 256, 512, ...)
+        import matplotlib.pyplot as plt
+
+        LEVEL = 3
+        tile_extents = (512, 512)
+        tile_strides = (256, 256)
+        slide = openslide.OpenSlide("path/to/slide.mrxs")
+        slide_extent_x, slide_extent_y = slide.level_dimensions[LEVEL]
+        classifier_model = load_classifier_model(...)  # load your pretrained model here
+        
+        # Build a mask where each scalar prediction covers 64x64 pixels in output
+        mask_builder = AutoScalingScalarUniformValueConstantStrideMaskBuilder(
+            source_extents=(slide_extent_y, slide_extent_x),
+            source_tile_extents=tile_extents,
+            source_tile_strides=tile_strides,
+            mask_tile_extents=(64, 64),  # each scalar value expands to 64x64
+            channels=3,  # for multi-class predictions
+        )
+        
+        for tiles, xs, ys in generate_tiles_from_slide(
+            slide, LEVEL, tile_extents, tile_strides, batch_size=32
+        ):
+            # tiles has shape (B, C, H, W)
+            predictions = hooked_model.predict(tiles)  # predictions has shape (B, channels)
+            mask_builder.update_batch(predictions, xs, ys)
+        
+        assembled_mask, overlap = mask_builder.finalize()
+        plt.imshow(assembled_mask[0], cmap="viridis", interpolation="nearest")
+        plt.axis("off")
+        plt.show()
         ```
     """
 
