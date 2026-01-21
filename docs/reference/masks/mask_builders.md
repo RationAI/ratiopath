@@ -54,6 +54,7 @@ mask_builder = AveragingScalarUniformTiledNumpyMaskBuilder(
 )
 
 # Process tiles
+# Note: generate_tiles_from_slide is a placeholder - you must implement your own tile extraction logic
 for tiles, xs, ys in generate_tiles_from_slide(
     slide, LEVEL, tile_extents, tile_strides, batch_size=32
 ):
@@ -104,6 +105,7 @@ mask_builder = MaxScalarUniformTiledNumpyMaskBuilder(
     mask_tile_strides=tile_strides,
 )
 
+# Note: generate_tiles_from_slide is a placeholder - you must implement your own tile extraction logic
 for tiles, xs, ys in generate_tiles_from_slide(
     slide, LEVEL, tile_extents, tile_strides, batch_size=32
 ):
@@ -161,6 +163,7 @@ mask_builder = AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D(
     clip=(4, 4, 4, 4),  # clip 4 pixels from each edge
 )
 
+# Note: generate_tiles_from_slide is a placeholder - you must implement your own tile extraction logic
 for tiles, xs, ys in generate_tiles_from_slide(
     slide, LEVEL, tile_extents, tile_strides, batch_size=32
 ):
@@ -211,6 +214,7 @@ mask_builder = AutoScalingScalarUniformValueConstantStrideMaskBuilder(
     channels=3,  # for multi-class predictions
 )
 
+# Note: generate_tiles_from_slide is a placeholder - you must implement your own tile extraction logic
 for tiles, xs, ys in generate_tiles_from_slide(
     slide, LEVEL, tile_extents, tile_strides, batch_size=32
 ):
@@ -241,7 +245,7 @@ All mask builders expect coordinates in the format `(N, B)` where:
 - `N` is the number of spatial dimensions (typically 2 for height and width)
 - `B` is the batch size
 
-When using `generate_tiles_from_slide()`, you'll receive `xs` and `ys` arrays. Stack them as:
+When implementing your own tile extraction logic (such as the `generate_tiles_from_slide` placeholder shown in examples), you should provide `xs` and `ys` arrays representing tile coordinates. Stack them as:
 
 ```python
 coords_batch = np.stack([ys, xs], axis=0)  # Shape: (2, B)
