@@ -122,8 +122,8 @@ class MaxScalarUniformTiledNumpyMaskBuilder(
 
     Example:
         ```python
+        import numpy as np
         import openslide
-        from ratiopath.masks.mask_builders import MaxScalarUniformTiledNumpyMaskBuilder
         from ratiopath.masks.mask_builders import MaxScalarUniformTiledNumpyMaskBuilder
         import matplotlib.pyplot as plt
         from rationai.explainability.model_probing import HookedModule
@@ -147,7 +147,9 @@ class MaxScalarUniformTiledNumpyMaskBuilder(
             # tiles has shape (B, C, H, W)
             outputs = hooked_model.predict(tiles)  # outputs are not used directly
             features = hooked_model.get_activations("backbone.9") # shape (B, C, H, W)
-            mask_builder.update_batch(features, xs, ys)
+            # Stack ys and xs into coords_batch with shape (N, B) where N=2 (y, x dimensions)
+            coords_batch = np.stack([ys, xs], axis=0)
+            mask_builder.update_batch(features, coords_batch)
         (assembled_mask,) = mask_builder.finalize()
         plt.imshow(assembled_mask[0], cmap="gray", interpolation="nearest")
         plt.axis("off")
@@ -205,6 +207,7 @@ class AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D(
 
     Example:
         ```python
+        import numpy as np
         import openslide
         from ratiopath.masks.mask_builders import (
             AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D,
@@ -233,7 +236,9 @@ class AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D(
             # tiles has shape (B, C, H, W)
             output = vgg16_model.predict(tiles) # outputs are not used directly
             features = hooked_model.get_activations("backbone.9")  # shape (B, C, H, W)
-            mask_builder.update_batch(features, xs, ys)
+            # Stack ys and xs into coords_batch with shape (N, B) where N=2 (y, x dimensions)
+            coords_batch = np.stack([ys, xs], axis=0)
+            mask_builder.update_batch(features, coords_batch)
         assembled_mask, overlap = mask_builder.finalize()
         plt.imshow(assembled_mask[0], cmap="gray", interpolation="nearest")
         plt.axis("off")
@@ -328,6 +333,7 @@ class AutoScalingScalarUniformValueConstantStrideMaskBuilder(
 
     Example:
         ```python
+        import numpy as np
         import openslide
         from ratiopath.masks.mask_builders import (
             AutoScalingScalarUniformValueConstantStrideMaskBuilder,
@@ -354,8 +360,10 @@ class AutoScalingScalarUniformValueConstantStrideMaskBuilder(
             slide, LEVEL, tile_extents, tile_strides, batch_size=32
         ):
             # tiles has shape (B, C, H, W)
-            predictions = hooked_model.predict(tiles)  # predictions has shape (B, channels)
-            mask_builder.update_batch(predictions, xs, ys)
+            predictions = classifier_model.predict(tiles)  # predictions has shape (B, channels)
+            # Stack ys and xs into coords_batch with shape (N, B) where N=2 (y, x dimensions)
+            coords_batch = np.stack([ys, xs], axis=0)
+            mask_builder.update_batch(predictions, coords_batch)
         
         assembled_mask, overlap = mask_builder.finalize()
         plt.imshow(assembled_mask[0], cmap="viridis", interpolation="nearest")
