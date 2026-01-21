@@ -141,7 +141,7 @@ class MaskBuilder(ABC):
             coords_batch: Array of shape (N, B) containing the top-left corner coordinates
                 for each of the B tiles in N spatial dimensions.
         """
-        ...
+        pass
 
     @abstractmethod
     def finalize(self) -> tuple[AccumulatorType, ...] | AccumulatorType:
@@ -157,4 +157,4 @@ class MaskBuilder(ABC):
             Tuple of arrays where the first element is always the finalized mask.
             Additional elements may include auxiliary data like overlap counters.
         """
-        ...
+        pass
