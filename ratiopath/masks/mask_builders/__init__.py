@@ -69,6 +69,7 @@ class AveragingScalarUniformTiledNumpyMaskBuilder(
             mask_tile_extents=tile_extents,
             mask_tile_strides=tile_strides,
         )
+        # Note: generate_tiles_from_slide is a placeholder - you must implement your own tile extraction logic
         for tiles, xs, ys in generate_tiles_from_slide(
             slide, LEVEL, tile_extents, tile_strides, batch_size=32
         ):
@@ -143,6 +144,7 @@ class MaxScalarUniformTiledNumpyMaskBuilder(
             mask_tile_extents=tile_extents,
             mask_tile_strides=tile_strides,
         )
+        # Note: generate_tiles_from_slide is a placeholder - you must implement your own tile extraction logic
         for tiles, xs, ys in generate_tiles_from_slide(
             slide, LEVEL, tile_extents, tile_strides, batch_size=32
         ):
@@ -234,6 +236,7 @@ class AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D(
             channels=3,  # for RGB masks
             clip=(4, 4, 4, 4),  # clip 4 pixels from each edge
         )
+        # Note: generate_tiles_from_slide is a placeholder - you must implement your own tile extraction logic
         for tiles, xs, ys in generate_tiles_from_slide(
             slide, LEVEL, tile_extents, tile_strides, batch_size=32
         ):
@@ -360,6 +363,7 @@ class AutoScalingScalarUniformValueConstantStrideMaskBuilder(
             channels=3,  # for multi-class predictions
         )
 
+        # Note: generate_tiles_from_slide is a placeholder - you must implement your own tile extraction logic
         for tiles, xs, ys in generate_tiles_from_slide(
             slide, LEVEL, tile_extents, tile_strides, batch_size=32
         ):
