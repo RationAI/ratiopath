@@ -50,8 +50,8 @@ class AveragingScalarUniformTiledNumpyMaskBuilder(
 
     Example:
         ```python
+        import numpy as np
         import openslide
-        from ratiopath.masks.mask_builders import (
         from ratiopath.masks.mask_builders import (
             AveragingScalarUniformTiledNumpyMaskBuilder,
         )
@@ -74,7 +74,9 @@ class AveragingScalarUniformTiledNumpyMaskBuilder(
         ):
             # tiles has shape (B, C, H, W)
             features = vgg16_model.predict(tiles)  # features has shape (B, channels)
-            mask_builder.update_batch(features, xs, ys)
+            # Stack ys and xs into coords_batch with shape (N, B) where N=2 (y, x dimensions)
+            coords_batch = np.stack([ys, xs], axis=0)
+            mask_builder.update_batch(features, coords_batch)
         assembled_mask, overlap = mask_builder.finalize()
         plt.imshow(assembled_mask[0], cmap="gray", interpolation="nearest")
         plt.axis("off")
