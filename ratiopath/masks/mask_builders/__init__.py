@@ -1,9 +1,9 @@
 from pathlib import Path
 from typing import Any
 
-from jaxtyping import Int64
-import numpy.typing as npt
 import numpy as np
+import numpy.typing as npt
+from jaxtyping import Int64
 
 from ratiopath.masks.mask_builders.aggregation import (
     AveragingMaskBuilderMixin,

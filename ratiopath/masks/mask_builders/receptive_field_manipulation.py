@@ -46,6 +46,7 @@ class EdgeClippingMaskBuilderMixin(MaskBuilder):
             clip_start_indices: Array of shape (N,) specifying pixels to clip from the start of each dimension.
             clip_end_indices: Array of shape (N,) specifying pixels to clip from the end of each dimension.
             dtype: Data type for the accumulator.
+            kwargs: Additional keyword arguments passed to the parent class.
         """
         super().__init__(mask_extents, channels, dtype=dtype, **kwargs)
         self.clip_start_indices = np.asarray(clip_start_indices, dtype=np.int64)
@@ -120,6 +121,7 @@ class EdgeClippingMaskBuilder2DMixin(EdgeClippingMaskBuilderMixin):
                 - Tuple of 2 ints: (top/bottom, left/right)
                 - Tuple of 4 ints: (top, bottom, left, right)
             dtype: Data type for the accumulator.
+            kwargs: Additional keyword arguments passed to the parent class.
         """
         if isinstance(clip, int):
             clip_start_indices = clip_end_indices = (clip,) * len(mask_extents)
@@ -205,6 +207,7 @@ class AutoScalingConstantStrideMixin(MaskBuilder):
             mask_tile_extents: Spatial dimensions of the output tiles/mask.
             source_tile_strides: Stride between input/source tiles (optional, defaults to source_tile_extents).
             dtype: Data type for the accumulator.
+            kwargs: Additional keyword arguments passed to the next class in MRO.
         """
         # self.source_extents = source_extents
         self.source_tile_extents = source_tile_extents
@@ -292,6 +295,7 @@ class ScalarUniformTiledMaskBuilder(MaskBuilder):
             mask_tile_extents: Size of tiles in each dimension in mask space at the original resolution.
             mask_tile_strides: Stride between tile positions in mask space for each dimension.
             dtype: Data type for the accumulator.
+            kwargs: Additional keyword arguments passed to the parent class.
         """
         self.compression_factors = np.gcd(mask_tile_strides, mask_tile_extents)
         adjusted_mask_extents = mask_extents // self.compression_factors
