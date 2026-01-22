@@ -87,7 +87,7 @@ class MaskBuilder(ABC):
         **kwargs: Any,
     ) -> AccumulatorType:
         """Allocates the necessary accumulators for assembling the mask.
-        
+
         This abstract method must be implemented by mixins or concrete builders to define
         how the accumulator(s) are allocated and stored (e.g., in-memory numpy arrays,
         memory-mapped files, etc.).

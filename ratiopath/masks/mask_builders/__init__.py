@@ -2,6 +2,8 @@ from pathlib import Path
 from typing import Any
 
 from jaxtyping import Int64
+import numpy.typing as npt
+import numpy as np
 
 from ratiopath.masks.mask_builders.aggregation import (
     AveragingMaskBuilderMixin,
@@ -91,6 +93,7 @@ class AveragingScalarUniformTiledNumpyMaskBuilder(
         channels: int,
         mask_tile_extents: Int64[AccumulatorType, " N"],
         mask_tile_strides: Int64[AccumulatorType, " N"],
+        dtype: npt.DTypeLike = np.float32,
         **kwargs: Any,
     ) -> None:
         super().__init__(
@@ -98,6 +101,7 @@ class AveragingScalarUniformTiledNumpyMaskBuilder(
             channels=channels,
             mask_tile_extents=mask_tile_extents,
             mask_tile_strides=mask_tile_strides,
+            dtype=dtype,
             **kwargs,
         )
 
@@ -168,6 +172,7 @@ class MaxScalarUniformTiledNumpyMaskBuilder(
         channels: int,
         mask_tile_extents: Int64[AccumulatorType, " N"],
         mask_tile_strides: Int64[AccumulatorType, " N"],
+        dtype: npt.DTypeLike = np.float32,
         **kwargs: Any,
     ) -> None:
         super().__init__(
@@ -175,6 +180,7 @@ class MaxScalarUniformTiledNumpyMaskBuilder(
             channels=channels,
             mask_tile_extents=mask_tile_extents,
             mask_tile_strides=mask_tile_strides,
+            dtype=dtype,
             **kwargs,
         )
 
@@ -264,6 +270,8 @@ class AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D(
         clip: int | tuple[int, int] | tuple[int, int, int, int],
         accumulator_filepath: Path | None = None,
         overlap_counter_filepath: Path | None = None,
+        dtype: npt.DTypeLike = np.float32,
+        **kwargs: Any,
     ) -> None:
         super().__init__(
             source_extents=source_extents,
@@ -274,15 +282,18 @@ class AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D(
             clip=clip,
             accumulator_filepath=accumulator_filepath,
             overlap_counter_filepath=overlap_counter_filepath,
+            dtype=dtype,
+            **kwargs,
         )
 
     def setup_memory(
         self,
-        mask_extents,
-        channels,
-        accumulator_filepath=None,
-        overlap_counter_filepath=None,
-        **kwargs,
+        mask_extents: Int64[AccumulatorType, " N"],
+        channels: int,
+        dtype: npt.DTypeLike = np.float32,
+        accumulator_filepath: Path | None = None,
+        overlap_counter_filepath: Path | None = None,
+        **kwargs: Any,
     ) -> None:
         self.accumulator = self.allocate_accumulator(
             mask_extents=mask_extents, channels=channels, filepath=accumulator_filepath
@@ -389,6 +400,7 @@ class AutoScalingScalarUniformValueConstantStrideMaskBuilder(
         source_tile_strides: Int64[AccumulatorType, " N"],
         mask_tile_extents: Int64[AccumulatorType, " N"],
         channels: int,
+        dtype: npt.DTypeLike = np.float32,
         **kwargs: Any,
     ) -> None:
         super().__init__(
@@ -397,5 +409,6 @@ class AutoScalingScalarUniformValueConstantStrideMaskBuilder(
             source_tile_strides=source_tile_strides,
             mask_tile_extents=mask_tile_extents,
             channels=channels,
+            dtype=dtype,
             **kwargs,
         )

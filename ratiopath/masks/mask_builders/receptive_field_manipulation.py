@@ -35,9 +35,19 @@ class EdgeClippingMaskBuilderMixin(MaskBuilder):
         channels: int,
         clip_start_indices: Int64[AccumulatorType, " N"],
         clip_end_indices: Int64[AccumulatorType, " N"],
+        dtype: npt.DTypeLike,
         **kwargs: Any,
     ) -> None:
-        super().__init__(mask_extents, channels, **kwargs)
+        """Initialize the edge clipping mixin.
+
+        Args:
+            mask_extents: Array of shape (N,) specifying the spatial dimensions of the mask to build.
+            channels: Number of channels in the mask (e.g., 1 for grayscale, 3 for RGB, more for gathering intermediate CNN features).
+            clip_start_indices: Array of shape (N,) specifying pixels to clip from the start of each dimension.
+            clip_end_indices: Array of shape (N,) specifying pixels to clip from the end of each dimension.
+            dtype: Data type for the accumulator.
+        """
+        super().__init__(mask_extents, channels, dtype=dtype, **kwargs)
         self.clip_start_indices = np.asarray(clip_start_indices, dtype=np.int64)
         self.clip_end_indices = np.asarray(clip_end_indices, dtype=np.int64)
 
@@ -93,9 +103,24 @@ class EdgeClippingMaskBuilder2DMixin(EdgeClippingMaskBuilderMixin):
         self,
         mask_extents: Int64[AccumulatorType, " N"],
         channels: int,
+        dtype: npt.DTypeLike,
         clip: int | tuple[int, int] | tuple[int, int, int, int] = 0,
         **kwargs: Any,
     ) -> None:
+        """Initialize the 2D edge clipping mixin.
+
+        This mixin is just a convenience wrapper around the more general EdgeClippingMaskBuilderMixin
+        which works in N dimensions.
+
+        Args:
+            mask_extents: Array of shape (N,) specifying the spatial dimensions of the mask to build.
+            channels: Number of channels in the mask (e.g., 1 for grayscale, 3 for RGB, more for gathering intermediate CNN features).
+            clip: Specifies how many pixels to clip from each edge. Can be:
+                - Single int: clips that many pixels from all edges
+                - Tuple of 2 ints: (top/bottom, left/right)
+                - Tuple of 4 ints: (top, bottom, left, right)
+            dtype: Data type for the accumulator.
+        """
         if isinstance(clip, int):
             clip_start_indices = clip_end_indices = (clip,) * len(mask_extents)
         elif isinstance(clip, tuple) and len(clip) == 2:
@@ -113,6 +138,7 @@ class EdgeClippingMaskBuilder2DMixin(EdgeClippingMaskBuilderMixin):
         super().__init__(
             mask_extents=mask_extents,
             channels=channels,
+            dtype=dtype,
             clip_start_indices=np.asarray(clip_start_indices, dtype=np.int64),
             clip_end_indices=np.asarray(clip_end_indices, dtype=np.int64),
             **kwargs,
@@ -143,17 +169,13 @@ class AutoScalingConstantStrideMixin(MaskBuilder):
     Furthermore, this mixin readjusts the mask extent to cover for potential partial tiles at the edges.
     The safe extent is computed also for the source, so that the resulting mask can be properly rescaled back to the input resolution
     after assembly and finalization and then cropped to the original source extents to match exactly.
+    The final rescaling and cropping is not part of this mixin and must be handled externally after mask finalization.
+    Use the `overflow_buffered_source_extents` attribute to get the adjusted source extents including
+    the overflow for partial tiles at the edges.
 
     This mixin works cooperatively with other mixins (like ScalarUniformTiledMaskBuilder) by computing
     the output space dimensions and passing them via kwargs, but keep in mind that those mixins must appear
     after this one in the inheritance list to ensure proper MRO.
-
-    Args:
-        source_extents: Spatial dimensions of the entire input/source from which tiles are drawn.
-        channels: Number of channels in the output.
-        source_tile_extents: Spatial dimensions of the input/source tiles.
-        mask_tile_extents: Spatial dimensions of the output tiles/mask.
-        source_tile_strides: Stride between input/source tiles (optional, defaults to source_tile_extents).
     """
 
     # source_extents: Int64[AccumulatorType, " N"]
@@ -168,9 +190,22 @@ class AutoScalingConstantStrideMixin(MaskBuilder):
         source_tile_strides: Int64[AccumulatorType, " N"],
         mask_tile_extents: Int64[AccumulatorType, " N"],
         channels: int,
-        dtype: npt.DTypeLike = np.float32,
+        dtype: npt.DTypeLike,
         **kwargs: Any,
     ) -> None:
+        """Initialize the auto-scaling constant stride mixin.
+
+        Here, the mask extents are computed automatically based on the source extents,
+        source tile extents, source tile strides, and mask tile extents.
+
+        Args:
+            source_extents: Spatial dimensions of the entire input/source from which tiles are drawn.
+            channels: Number of channels in the output.
+            source_tile_extents: Spatial dimensions of the input/source tiles.
+            mask_tile_extents: Spatial dimensions of the output tiles/mask.
+            source_tile_strides: Stride between input/source tiles (optional, defaults to source_tile_extents).
+            dtype: Data type for the accumulator.
+        """
         # self.source_extents = source_extents
         self.source_tile_extents = source_tile_extents
         self.mask_tile_extents = mask_tile_extents
@@ -201,6 +236,7 @@ class AutoScalingConstantStrideMixin(MaskBuilder):
             channels=channels,
             mask_tile_extents=self.mask_tile_extents,
             mask_tile_strides=adjusted_mask_tile_strides,
+            dtype=dtype,
             **kwargs,
         )
 
@@ -234,12 +270,6 @@ class ScalarUniformTiledMaskBuilder(MaskBuilder):
     This class can work cooperatively with other mixins (like AutoScalingConstantStrideMixin)
     that compute `mask_extents`. If `mask_extents` is already provided via kwargs (from a parent
     mixin), it will be used; otherwise it must be provided as a direct parameter.
-
-    Args:
-        mask_extents: Spatial dimensions of the mask to build (may be precomputed by a mixin).
-        channels: Number of channels (features) in the scalar values.
-        mask_tile_extents: Size of tiles in each dimension in mask space at the original resolution.
-        mask_tile_strides: Stride between tile positions in mask space for each dimension.
     """
 
     compression_factors: Int64[AccumulatorType, " N"]
@@ -251,13 +281,23 @@ class ScalarUniformTiledMaskBuilder(MaskBuilder):
         channels: int,
         mask_tile_extents: Int64[AccumulatorType, " N"],
         mask_tile_strides: Int64[AccumulatorType, " N"],
+        dtype: npt.DTypeLike,
         **kwargs: Any,
     ) -> None:
+        """Initialize the scalar uniform tiled mask builder.
+
+        Args:
+            mask_extents: Spatial dimensions of the mask to build (may be precomputed by a mixin).
+            channels: Number of channels (features) in the scalar values.
+            mask_tile_extents: Size of tiles in each dimension in mask space at the original resolution.
+            mask_tile_strides: Stride between tile positions in mask space for each dimension.
+            dtype: Data type for the accumulator.
+        """
         self.compression_factors = np.gcd(mask_tile_strides, mask_tile_extents)
         adjusted_mask_extents = mask_extents // self.compression_factors
         self.adjusted_tile_extents = mask_tile_extents // self.compression_factors
         super().__init__(
-            mask_extents=adjusted_mask_extents, channels=channels, **kwargs
+            mask_extents=adjusted_mask_extents, channels=channels, dtype=dtype, **kwargs
         )
 
     def update_batch(
