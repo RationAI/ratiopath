@@ -28,11 +28,25 @@ class AveragingMaskBuilderMixin(MaskBuilder):
     overlap_counter: AccumulatorType
 
     def __init__(
-        self, mask_extents: Int64[AccumulatorType, " N"], channels: int, dtype: npt.DTypeLike, **kwargs: Any
+        self,
+        mask_extents: Int64[AccumulatorType, " N"],
+        channels: int,
+        dtype: npt.DTypeLike,
+        **kwargs: Any,
     ) -> None:
         super().__init__(mask_extents, channels, dtype=dtype, **kwargs)
 
-    def setup_memory(self, mask_extents, channels, dtype: npt.DTypeLike, **kwargs) -> None:
+    def setup_memory(
+        self, mask_extents, channels, dtype: npt.DTypeLike, **kwargs
+    ) -> None:
+        """Set up memory for both the main accumulator and the overlap counter.
+        
+        Args:
+            mask_extents: Array of shape (N,) specifying the spatial dimensions of the mask to build.
+            channels: Number of channels in the mask (e.g., 1 for grayscale, 3 for RGB).
+            dtype: Data type for the accumulators (e.g., np.float32).
+            **kwargs: Additional keyword arguments passed to `allocate_accumulator()`.
+        """
         # Perform base allocation then allocate the overlap counter.
         super().setup_memory(mask_extents, channels, dtype=dtype, **kwargs)
         self.overlap_counter = self.allocate_accumulator(
