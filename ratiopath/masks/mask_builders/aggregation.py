@@ -40,7 +40,7 @@ class AveragingMaskBuilderMixin(MaskBuilder):
         self, mask_extents, channels, dtype: npt.DTypeLike, **kwargs
     ) -> None:
         """Set up memory for both the main accumulator and the overlap counter.
-        
+
         Args:
             mask_extents: Array of shape (N,) specifying the spatial dimensions of the mask to build.
             channels: Number of channels in the mask (e.g., 1 for grayscale, 3 for RGB).
