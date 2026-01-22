@@ -91,6 +91,7 @@ class MaskBuilder(ABC):
         This abstract method must be implemented by mixins or concrete builders to define
         how the accumulator(s) are allocated and stored (e.g., in-memory numpy arrays,
         memory-mapped files, etc.).
+
         Args:
             mask_extents: Array of shape (N,) specifying the spatial dimensions of the mask to build.
             channels: Number of channels in the mask (e.g., 1 for grayscale, 3 for RGB).
