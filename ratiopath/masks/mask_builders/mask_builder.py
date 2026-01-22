@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Any, TypeVar
 
 import numpy as np
+import numpy.typing as npt
 from jaxtyping import Int64, Shaped
 
 
@@ -60,7 +61,7 @@ class MaskBuilder(ABC):
     accumulator: AccumulatorType
 
     def __init__(
-        self, mask_extents: Int64[AccumulatorType, " N"], channels: int, **kwargs: Any
+        self, mask_extents: Int64[AccumulatorType, " N"], channels: int, dtype: npt.DTypeLike, **kwargs: Any
     ) -> None:
         """Initialize the mask builder and allocate the accumulator.
 
@@ -70,20 +71,20 @@ class MaskBuilder(ABC):
             **kwargs: Additional keyword arguments passed to `allocate_accumulator()`.
         """
         super().__init__()
-        self.setup_memory(mask_extents, channels, **kwargs)
+        self.setup_memory(mask_extents, channels, dtype=dtype, **kwargs)
 
     @abstractmethod
     def allocate_accumulator(
         self,
         mask_extents: Int64[AccumulatorType, " N"],
         channels: int,
-        dtype: np.dtype,
+        dtype: npt.DTypeLike,
         **kwargs: Any,
     ) -> AccumulatorType:
         """Allocates the necessary accumulators for assembling the mask."""
         ...
 
-    def setup_memory(self, mask_extents, channels, **kwargs) -> None:
+    def setup_memory(self, mask_extents, channels, dtype: npt.DTypeLike, **kwargs) -> None:
         """This method sets up memory structures needed for mask building.
 
         This methods can be overridden by mixins or concrete builders to set up any necessary memory structures.
@@ -93,7 +94,7 @@ class MaskBuilder(ABC):
         All such setup should be defined in an overridden version of this method, which will be called by the base constructor
         after the initialisation parameters are set by all classes/mixins in the MRO chain.
         """
-        self.accumulator = self.allocate_accumulator(mask_extents, channels, **kwargs)
+        self.accumulator = self.allocate_accumulator(mask_extents, channels, dtype=dtype, **kwargs)
 
     def update_batch(
         self,

@@ -1,6 +1,7 @@
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 from jaxtyping import Int64, Shaped
 
 from ratiopath.masks.mask_builders.mask_builder import (
@@ -27,15 +28,15 @@ class AveragingMaskBuilderMixin(MaskBuilder):
     overlap_counter: AccumulatorType
 
     def __init__(
-        self, mask_extents: Int64[AccumulatorType, " N"], channels: int, **kwargs: Any
+        self, mask_extents: Int64[AccumulatorType, " N"], channels: int, dtype: npt.DTypeLike, **kwargs: Any
     ) -> None:
-        super().__init__(mask_extents, channels, **kwargs)
+        super().__init__(mask_extents, channels, dtype=dtype, **kwargs)
 
-    def setup_memory(self, mask_extents, channels, **kwargs) -> None:
+    def setup_memory(self, mask_extents, channels, dtype: npt.DTypeLike, **kwargs) -> None:
         # Perform base allocation then allocate the overlap counter.
-        super().setup_memory(mask_extents, channels, **kwargs)
+        super().setup_memory(mask_extents, channels, dtype=dtype, **kwargs)
         self.overlap_counter = self.allocate_accumulator(
-            mask_extents=mask_extents, channels=1, **kwargs
+            mask_extents=mask_extents, channels=1, dtype=dtype, **kwargs
         )
 
     def update_batch_impl(

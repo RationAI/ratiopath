@@ -1,6 +1,7 @@
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 from jaxtyping import Int64, Shaped
 
 from ratiopath.masks.mask_builders.mask_builder import AccumulatorType, MaskBuilder
@@ -167,6 +168,7 @@ class AutoScalingConstantStrideMixin(MaskBuilder):
         source_tile_strides: Int64[AccumulatorType, " N"],
         mask_tile_extents: Int64[AccumulatorType, " N"],
         channels: int,
+        dtype: npt.DTypeLike = np.float32,
         **kwargs: Any,
     ) -> None:
         # self.source_extents = source_extents
