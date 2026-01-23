@@ -295,8 +295,25 @@ class AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D(
         overlap_counter_filepath: Path | None = None,
         **kwargs: Any,
     ) -> None:
+        """Set up memory for both the main accumulator and the overlap counter.
+
+        This method does not call the super.setup_memory() method, breaking the MRO chain.
+        This is intentional, as this mixin is specifically responsible for the allocation, handling both
+        the main accumulator and the overlap counter, which requires special logic for filepaths and would
+        be cumbersome to implement through multiple levels of inheritance.
+
+        Args:
+            mask_extents: Array of shape (N,) specifying the spatial dimensions of the mask to build.
+            channels: Number of channels in the mask (e.g., 1 for grayscale, 3 for RGB).
+            dtype: Data type for the accumulator (e.g., np.float32).
+            accumulator_filepath: Optional Path to back the memmap file for the accumulator. If None, a temporary file is used.
+            overlap_counter_filepath: Optional Path to back the memmap file for the overlap counter. If None, a temporary file is used.
+            **kwargs: Additional keyword arguments for allocation.
+        Returns:
+            A numpy memmap array of shape (channels, *mask_extents) and specified dtype.
+        """
         self.accumulator = self.allocate_accumulator(
-            mask_extents=mask_extents, channels=channels, filepath=accumulator_filepath
+            mask_extents=mask_extents, channels=channels, filepath=accumulator_filepath, dtype=dtype
         )
         if overlap_counter_filepath is not None:
             counter_filepath = overlap_counter_filepath
@@ -306,7 +323,7 @@ class AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D(
         else:
             counter_filepath = None
         self.overlap_counter = self.allocate_accumulator(
-            mask_extents=mask_extents, channels=1, filepath=counter_filepath
+            mask_extents=mask_extents, channels=1, filepath=counter_filepath, dtype=dtype
         )
 
     def get_vips_scale_factors(self) -> tuple[float, float]:
@@ -314,6 +331,12 @@ class AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D(
 
         The idea is to obtain coefficients for the pyvips.affine() function to rescale the assembled mask
         back to the original source resolution after assembly and finalization.
+        To do that, we compute the ratio between the source extents and the final accumulator extents, 
+        taking into account any overflow buffering that was applied to the source extents, to maintain alignment.
+        After the affine transformation, any extra pixels introduced by overflow buffering should be cropped out
+        to the original source extents. The affine transformation nor the cropping are handled by the mask builder.
+
+        The coefficients correspond to the height and width dimensions respectively.
 
         Returns:
             tuple[float, float]: Scaling factors for height and width dimensions.
