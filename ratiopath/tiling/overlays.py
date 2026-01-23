@@ -273,4 +273,4 @@ def tile_overlay_overlap(
 
     overlap_vectorized = np.vectorize(overlap_fraction, otypes=[object])
 
-    return pa.array(overlap_vectorized(overlay))
+    return pa.array(overlap_vectorized(overlay))  # type: ignore [return-value]
