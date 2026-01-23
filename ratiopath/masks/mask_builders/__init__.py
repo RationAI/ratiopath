@@ -63,7 +63,7 @@ class AveragingScalarUniformTiledNumpyMaskBuilder(
         tile_extents = (512, 512)
         tile_strides = (256, 256)
         slide = openslide.OpenSlide("path/to/slide.mrxs")
-        slide_extent_x, slide_extent_y = slide.dimensions[LEVEL]
+        slide_extent_x, slide_extent_y = slide.level_dimensions[LEVEL]
         vgg16_model = load_vgg16_model(...)  # load your pretrained model here
         mask_builder = AveragingScalarUniformTiledNumpyMaskBuilder(
             mask_extents=(slide_extent_y, slide_extent_x),
@@ -137,7 +137,7 @@ class MaxScalarUniformTiledNumpyMaskBuilder(
         tile_extents = (512, 512)
         tile_strides = (256, 256)
         slide = openslide.OpenSlide("path/to/slide.mrxs")
-        slide_extent_x, slide_extent_y = slide.dimensions[LEVEL]
+        slide_extent_x, slide_extent_y = slide.level_dimensions[LEVEL]
         vgg16_model = load_vgg16_model(...)  # load your pretrained model here
         hooked_model = HookedModule(
             vgg16_model, layer_name="backbone.9"
