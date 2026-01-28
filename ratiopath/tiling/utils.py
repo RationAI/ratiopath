@@ -141,7 +141,7 @@ def _pyarrow_group_indices(x: pa.Array) -> dict[Any, pa.Int32Array]:
         A dictionary mapping unique values to PyArrow arrays of integer indices where those values occur.
     """
     unique_values = pc.unique(x)
-    full_indices = pa.arange(0, len(x))  # type: ignore [attr-defined]
+    full_indices = pa.array(range(len(x)))
 
     groups = {}
 
