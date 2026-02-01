@@ -36,8 +36,23 @@ def _read_openslide_tiles(
     tile_extent_x: pa.IntegerArray,
     tile_extent_y: pa.IntegerArray,
     level: pa.IntegerArray,
+    background: int = 255,
 ) -> np.ndarray:
-    """Read batch of tiles from a whole-slide image using OpenSlide."""
+    """Read batch of tiles from a whole-slide image using OpenSlide.
+
+    Args:
+        slide: The OpenSlide object to read tiles from.
+        tile_x: Array of tile x-coordinates (in pixels) at level 0.
+        tile_y: Array of tile y-coordinates (in pixels) at level 0.
+        tile_extent_x: Array of tile widths in pixels.
+        tile_extent_y: Array of tile heights in pixels.
+        level: Array of OpenSlide level indices for each tile.
+        background: The RGB value (0-255) to use for transparent areas.
+            Defaults to 255 (white).
+
+    Returns:
+        A NumPy array of RGB tiles read from the slide.
+    """
     from PIL import Image
 
     def get_tile(
@@ -53,7 +68,8 @@ def _read_openslide_tiles(
             (extent_x.as_py(), extent_y.as_py()),
         )
         rgb_region = Image.alpha_composite(
-            Image.new("RGBA", rgba_region.size, (255, 255, 255)), rgba_region
+            Image.new("RGBA", rgba_region.size, (background, background, background)),
+            rgba_region,
         ).convert("RGB")
         return np.asarray(rgb_region)
 
@@ -79,8 +95,23 @@ def _read_tifffile_tiles(
     tile_extent_x: pa.IntegerArray,
     tile_extent_y: pa.IntegerArray,
     level: pa.IntegerArray,
+    background: int = 255,
 ) -> np.ndarray:
-    """Read batch of tiles from an OME-TIFF file using tifffile."""
+    """Read batch of tiles from an OME-TIFF file using tifffile.
+
+    Args:
+        slide: The OME-TIFF object to read tiles from.
+        tile_x: Array of tile x-coordinates (in pixels) at level 0.
+        tile_y: Array of tile y-coordinates (in pixels) at level 0.
+        tile_extent_x: Array of tile widths in pixels.
+        tile_extent_y: Array of tile heights in pixels.
+        level: Array of OME-TIFF level indices for each tile.
+        background: The RGB value (0-255) to use for transparent areas.
+            Defaults to 255 (white).
+
+    Returns:
+        A NumPy array of RGB tiles read from the slide.
+    """
     import tifffile
     import zarr
     from zarr.core.buffer import NDArrayLike
@@ -97,7 +128,7 @@ def _read_tifffile_tiles(
         extent_x_py: int = extent_x.as_py()
         extent_y_py: int = extent_y.as_py()
 
-        arr = np.full((extent_y_py, extent_x_py, 3), 255, dtype=np.uint8)
+        arr = np.full((extent_y_py, extent_x_py, 3), background, dtype=np.uint8)
         tile_slice = z[
             y_py : y_py + extent_y_py,
             x_py : x_py + extent_x_py,

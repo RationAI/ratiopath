@@ -81,7 +81,8 @@ def _read_openslide_overlay(
     """Read batch of overlays from a whole-slide image using OpenSlide."""
     with OpenSlide(path) as slide:
         new_kwargs = _scale_overlay(slide, **kwargs)
-        return _read_openslide_tiles(slide, **new_kwargs), new_kwargs
+        # Use a background of 0 (black) for overlays
+        return _read_openslide_tiles(slide, **new_kwargs, background=0), new_kwargs
 
 
 def _read_tifffile_overlay(
@@ -90,7 +91,8 @@ def _read_tifffile_overlay(
     """Read batch of overlays from an OME-TIFF file using tifffile."""
     with TiffFile(path) as slide:
         new_kwargs = _scale_overlay(slide, **kwargs)
-        return _read_tifffile_tiles(slide, **new_kwargs), new_kwargs
+        # Use a background of 0 (black) for overlays
+        return _read_tifffile_tiles(slide, **new_kwargs, background=0), new_kwargs
 
 
 def _tile_overlay(
