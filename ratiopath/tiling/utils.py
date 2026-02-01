@@ -100,12 +100,12 @@ def _read_tifffile_tiles(
     """Read batch of tiles from an OME-TIFF file using tifffile.
 
     Args:
-        slide: The OpenSlide object to read tiles from.
+        slide: The OME-TIFF object to read tiles from.
         tile_x: Array of tile x-coordinates (in pixels) at level 0.
         tile_y: Array of tile y-coordinates (in pixels) at level 0.
         tile_extent_x: Array of tile widths in pixels.
         tile_extent_y: Array of tile heights in pixels.
-        level: Array of OpenSlide level indices for each tile.
+        level: Array of OME-TIFF level indices for each tile.
         background: The RGB value (0-255) to use for transparent areas.
             Defaults to 255 (white).
 
