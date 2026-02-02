@@ -33,8 +33,7 @@ class EdgeClippingMaskBuilderMixin(MaskBuilder):
         self,
         mask_extents: Int64[AccumulatorType, " N"],
         channels: int,
-        clip_start_indices: Int64[AccumulatorType, " N"],
-        clip_end_indices: Int64[AccumulatorType, " N"],
+        px_to_clip: int | tuple[int, ...],
         dtype: npt.DTypeLike,
         **kwargs: Any,
     ) -> None:
@@ -43,12 +42,39 @@ class EdgeClippingMaskBuilderMixin(MaskBuilder):
         Args:
             mask_extents: Array of shape (N,) specifying the spatial dimensions of the mask to build.
             channels: Number of channels in the mask (e.g., 1 for grayscale, 3 for RGB, more for gathering intermediate CNN features).
-            clip_start_indices: Array of shape (N,) specifying pixels to clip from the start of each dimension.
-            clip_end_indices: Array of shape (N,) specifying pixels to clip from the end of each dimension.
+            px_to_clip: Integer or tuple specifying pixels to clip from the edges of each dimension.
+                1. If an integer is provided, it is applied uniformly to all edges in all dimensions.
+                2. If a tuple of length N is provided, it specifies the number of pixels to clip from the start and end of each dimension.
+                3. If a tuple of length 2N is provided, it specifies the number of pixels to clip from the start and end of each dimension separately, in the order: (dim1_start, dim1_end, dim2_start, dim2_end, ...).
             dtype: Data type for the accumulator.
             kwargs: Additional keyword arguments passed to the parent class.
         """
         super().__init__(mask_extents, channels, dtype=dtype, **kwargs)
+        # first determine the number of spatial dimensions
+        num_dims = len(mask_extents)
+
+        # process px_to_clip into clip_start_indices and clip_end_indices
+        if isinstance(px_to_clip, int):
+            clip_start_indices = (px_to_clip,) * num_dims
+            clip_end_indices = (px_to_clip,) * num_dims
+        elif (
+            isinstance(px_to_clip, tuple)
+            and len(px_to_clip) == num_dims
+        ):
+            clip_start_indices = px_to_clip
+            clip_end_indices = px_to_clip
+        elif (
+            isinstance(px_to_clip, tuple)
+            and len(px_to_clip) == 2 * num_dims
+        ):
+            clip_start_indices = px_to_clip[::2]
+            clip_end_indices = px_to_clip[1::2]
+        else:
+            raise ValueError(
+                f"px_to_clip must be an int, a tuple of {num_dims} ints, or a tuple of {2 * num_dims} ints."
+            )
+
+
         self.clip_start_indices = np.asarray(clip_start_indices, dtype=np.int64)
         self.clip_end_indices = np.asarray(clip_end_indices, dtype=np.int64)
 
@@ -71,79 +97,6 @@ class EdgeClippingMaskBuilderMixin(MaskBuilder):
         super().update_batch(
             data_batch=data_batch[..., *slices],  # type: ignore[arg-type]
             coords_batch=adjusted_coords_batch,
-        )
-
-
-class EdgeClippingMaskBuilder2DMixin(EdgeClippingMaskBuilderMixin):
-    """2D-specific edge clipping mixin with convenient parameter formats.
-
-    This specialized version of EdgeClippingMaskBuilderMixin provides intuitive parameter formats
-    for 2D masks. The `clip` parameter accepts three formats:
-
-    1. **Single integer:** `clip=5` → clips 5 pixels from all edges (top, bottom, left, right)
-    2. **Tuple of 2 ints:** `clip=(5, 10)` → clips 5 pixels from top/bottom, 10 from left/right
-    3. **Tuple of 4 ints:** `clip=(2, 3, 4, 5)` → clips 2 (top), 3 (bottom), 4 (left), 5 (right)
-
-    **Important:** This mixin must appear FIRST in the inheritance list to ensure proper MRO.
-
-    Example:
-        ```python
-        class MyBuilder(
-            EdgeClippingMaskBuilder2DMixin,  # Must be first!
-            NumpyArrayMaskBuilderAllocatorMixin,
-            AveragingMaskBuilderMixin,
-        ):
-            pass
-
-
-        builder = MyBuilder(mask_extents=(1024, 1024), channels=3, clip=8)
-        ```
-    """
-
-    def __init__(
-        self,
-        mask_extents: Int64[AccumulatorType, " N"],
-        channels: int,
-        dtype: npt.DTypeLike,
-        clip: int | tuple[int, int] | tuple[int, int, int, int] = 0,
-        **kwargs: Any,
-    ) -> None:
-        """Initialize the 2D edge clipping mixin.
-
-        This mixin is just a convenience wrapper around the more general EdgeClippingMaskBuilderMixin
-        which works in N dimensions.
-
-        Args:
-            mask_extents: Array of shape (N,) specifying the spatial dimensions of the mask to build.
-            channels: Number of channels in the mask (e.g., 1 for grayscale, 3 for RGB, more for gathering intermediate CNN features).
-            clip: Specifies how many pixels to clip from each edge. Can be:
-                - Single int: clips that many pixels from all edges
-                - Tuple of 2 ints: (top/bottom, left/right)
-                - Tuple of 4 ints: (top, bottom, left, right)
-            dtype: Data type for the accumulator.
-            kwargs: Additional keyword arguments passed to the parent class.
-        """
-        if isinstance(clip, int):
-            clip_start_indices = clip_end_indices = (clip,) * len(mask_extents)
-        elif isinstance(clip, tuple) and len(clip) == 2:
-            clip_y, clip_x = clip
-            clip_start_indices = (clip_y, clip_x)
-            clip_end_indices = (clip_y, clip_x)
-        elif isinstance(clip, tuple) and len(clip) == 4:
-            clip_top, clip_bottom, clip_left, clip_right = clip
-            clip_start_indices = (clip_top, clip_left)
-            clip_end_indices = (clip_bottom, clip_right)
-        else:
-            raise ValueError(
-                "clip must be an int, a tuple of two ints, or a tuple of four ints."
-            )
-        super().__init__(
-            mask_extents=mask_extents,
-            channels=channels,
-            dtype=dtype,
-            clip_start_indices=np.asarray(clip_start_indices, dtype=np.int64),
-            clip_end_indices=np.asarray(clip_end_indices, dtype=np.int64),
-            **kwargs,
         )
 
 
@@ -252,6 +205,26 @@ class AutoScalingConstantStrideMixin(MaskBuilder):
             coords_batch * self.mask_tile_extents[:, np.newaxis]
         ) // self.source_tile_extents[:, np.newaxis]
         super().update_batch(data_batch=data_batch, coords_batch=adjusted_coords_batch)
+
+    def get_vips_scale_factors(self) -> tuple[float, float]:
+        """Get the scaling factors to convert the built mask back to the original source resolution.
+
+        The idea is to obtain coefficients for the pyvips.affine() function to rescale the assembled mask
+        back to the original source resolution after assembly and finalization.
+        To do that, we compute the ratio between the source extents and the final accumulator extents,
+        taking into account any overflow buffering that was applied to the source extents, to maintain alignment.
+        After the affine transformation, any extra pixels introduced by overflow buffering should be cropped out
+        to the original source extents. The affine transformation nor the cropping are handled by the mask builder.
+
+        The coefficients correspond to the height and width dimensions respectively.
+
+        Returns:
+            tuple[float, float]: Scaling factors for height and width dimensions.
+        """
+        scale_factors = (
+            self.overflow_buffered_source_extents / self.accumulator.shape[1:]
+        )  # H, W
+        return tuple(scale_factors)
 
 
 class ScalarUniformTiledMaskBuilder(MaskBuilder):

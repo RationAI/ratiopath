@@ -1754,7 +1754,7 @@ requires-dist = [
     { name = "albumentations", specifier = ">=2.0.8" },
     { name = "geopandas", specifier = ">=1.1.2" },
     { name = "imagecodecs", specifier = ">=2025.8.2" },
-    { name = "jaxtyping" },
+    { name = "jaxtyping", specifier = ">=0.3.5" },
     { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.6.18" },
     { name = "mkdocstrings", extras = ["python"], marker = "extra == 'docs'", specifier = ">=0.30.0" },
     { name = "numpy", specifier = ">=2.2.2" },
