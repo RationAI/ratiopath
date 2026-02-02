@@ -17,11 +17,16 @@ Mask builders automate step 3, handling:
 - **Memory management**: Using in-memory arrays or memory-mapped files for large masks
 - **Edge clipping**: Removing boundary artifacts from tiles
 
-## Available Builders
+## MaskBuilderFactory
 
-### AveragingScalarUniformTiledNumpyMaskBuilder
+::: ratiopath.masks.mask_builders.MaskBuilderFactory
 
-::: ratiopath.masks.mask_builders.AveragingScalarUniformTiledNumpyMaskBuilder
+The factory composes a concrete mask builder dynamically based on the chosen capabilities.
+All previous concrete builders are expressible as factory configurations.
+
+## Example configurations
+
+### Averaging scalar-expansion (numpy)
 
 **Use case**: You have scalar predictions (e.g., class probabilities) for each tile and want to create a mask where each prediction is uniformly expanded to fill the tile's footprint. Overlapping regions are averaged.
 
@@ -30,9 +35,7 @@ Mask builders automate step 3, handling:
 ```python
 import numpy as np
 import openslide
-from ratiopath.masks.mask_builders import (
-    AveragingScalarUniformTiledNumpyMaskBuilder,
-)
+from ratiopath.masks.mask_builders import MaskBuilderFactory
 import matplotlib.pyplot as plt
 
 # Open slide and set up tiling parameters
@@ -46,7 +49,8 @@ slide_extent_x, slide_extent_y = slide.level_dimensions[LEVEL]
 vgg16_model = load_vgg16_model(...)  # load your pretrained model here
 
 # Initialize mask builder
-mask_builder = AveragingScalarUniformTiledNumpyMaskBuilder(
+BuilderClass = MaskBuilderFactory.create(expand_scalars=True)
+mask_builder = BuilderClass(
     mask_extents=(slide_extent_y, slide_extent_x),
     channels=1,  # for binary classification
     mask_tile_extents=tile_extents,
@@ -73,9 +77,7 @@ plt.show()
 
 ---
 
-### MaxScalarUniformTiledNumpyMaskBuilder
-
-::: ratiopath.masks.mask_builders.MaxScalarUniformTiledNumpyMaskBuilder
+### Max scalar-expansion (numpy)
 
 **Use case**: Similar to the averaging builder, but takes the maximum value at each pixel instead of averaging. Useful when you want to preserve the strongest signal.
 
@@ -84,7 +86,7 @@ plt.show()
 ```python
 import numpy as np
 import openslide
-from ratiopath.masks.mask_builders import MaxScalarUniformTiledNumpyMaskBuilder
+from ratiopath.masks.mask_builders import MaskBuilderFactory
 import matplotlib.pyplot as plt
 from rationai.explainability.model_probing import HookedModule
 
@@ -98,7 +100,11 @@ slide_extent_x, slide_extent_y = slide.level_dimensions[LEVEL]
 vgg16_model = load_vgg16_model(...)
 hooked_model = HookedModule(vgg16_model, layer_name="backbone.9")
 
-mask_builder = MaxScalarUniformTiledNumpyMaskBuilder(
+BuilderClass = MaskBuilderFactory.create(
+    aggregation="max",
+    expand_scalars=True,
+)
+mask_builder = BuilderClass(
     mask_extents=(slide_extent_y, slide_extent_x),
     channels=1,
     mask_tile_extents=tile_extents,
@@ -124,9 +130,7 @@ plt.show()
 
 ---
 
-### AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D
-
-::: ratiopath.masks.mask_builders.AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D
+### Auto-scaling + clipping (memmap)
 
 **Use case**: You have high-resolution feature maps from a network and need to:
 - Handle masks too large for RAM (using memory-mapped files)
@@ -138,9 +142,7 @@ plt.show()
 ```python
 import numpy as np
 import openslide
-from ratiopath.masks.mask_builders import (
-    AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D,
-)
+from ratiopath.masks.mask_builders import MaskBuilderFactory
 from rationai.explainability.model_probing import HookedModule
 import matplotlib.pyplot as plt
 
@@ -154,13 +156,17 @@ vgg16_model = load_vgg16_model(...)
 hooked_model = HookedModule(vgg16_model, layer_name="backbone.9")
 
 # This builder handles coordinate scaling and uses memory-mapped storage
-mask_builder = AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D(
+BuilderClass = MaskBuilderFactory.create(
+    use_memmap=True,
+    auto_scale=True,
+    px_to_clip=(4, 4, 4, 4),  # (top, bottom, left, right)
+)
+mask_builder = BuilderClass(
     source_extents=(slide_extent_y, slide_extent_x),
     source_tile_extents=tile_extents,
     source_tile_strides=tile_strides,
     mask_tile_extents=(64, 64),  # output resolution per tile
     channels=3,  # for RGB masks
-    clip=(4, 4, 4, 4),  # clip 4 pixels from each edge
 )
 
 # Note: generate_tiles_from_slide is a placeholder - you must implement your own tile extraction logic
@@ -182,9 +188,7 @@ plt.show()
 
 ---
 
-### AutoScalingScalarUniformValueConstantStrideMaskBuilder
-
-::: ratiopath.masks.mask_builders.AutoScalingScalarUniformValueConstantStrideMaskBuilder
+### Auto-scaling + scalar-expansion (numpy)
 
 **Use case**: Your network outputs scalar predictions per tile, and you want each prediction to represent a fixed-size region in the output mask, automatically handling coordinate scaling.
 
@@ -193,9 +197,7 @@ plt.show()
 ```python
 import numpy as np
 import openslide
-from ratiopath.masks.mask_builders import (
-    AutoScalingScalarUniformValueConstantStrideMaskBuilder,
-)
+from ratiopath.masks.mask_builders import MaskBuilderFactory
 import matplotlib.pyplot as plt
 
 LEVEL = 3
@@ -206,7 +208,11 @@ slide_extent_x, slide_extent_y = slide.level_dimensions[LEVEL]
 classifier_model = load_classifier_model(...)
 
 # Build a mask where each scalar prediction covers 64x64 pixels in output
-mask_builder = AutoScalingScalarUniformValueConstantStrideMaskBuilder(
+BuilderClass = MaskBuilderFactory.create(
+    auto_scale=True,
+    expand_scalars=True,
+)
+mask_builder = BuilderClass(
     source_extents=(slide_extent_y, slide_extent_x),
     source_tile_extents=tile_extents,
     source_tile_strides=tile_strides,
@@ -232,12 +238,12 @@ plt.show()
 
 ## Choosing a Mask Builder
 
-| Builder | Scalar/Feature Map | Aggregation | Memory | Auto-scaling | Edge Clipping |
-|---------|-------------------|-------------|---------|--------------|---------------|
-| `AveragingScalarUniformTiledNumpyMaskBuilder` | Scalar | Average | RAM | No | No |
-| `MaxScalarUniformTiledNumpyMaskBuilder` | Feature Map | Max | RAM | No | No |
-| `AutoScalingAveragingClippingNumpyMemMapMaskBuilder2D` | Feature Map | Average | Disk (memmap) | Yes | Yes |
-| `AutoScalingScalarUniformValueConstantStrideMaskBuilder` | Scalar | Average | RAM | Yes | No |
+| Configuration | Scalar/Feature Map | Aggregation | Memory | Auto-scaling | Edge Clipping |
+|---------------|-------------------|-------------|---------|--------------|---------------|
+| `expand_scalars=True` | Scalar | Average | RAM | No | No |
+| `aggregation="max", expand_scalars=True` | Scalar | Max | RAM | No | No |
+| `use_memmap=True, auto_scale=True, px_to_clip=(...)` | Feature Map | Average | Disk (memmap) | Yes | Yes |
+| `auto_scale=True, expand_scalars=True` | Scalar | Average | RAM | Yes | No |
 
 ## Coordinate System Notes
 
