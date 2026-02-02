@@ -27,7 +27,7 @@ dependencies = [
     "zarr>=3.1.1",
     "geopandas>=1.1.2",
     "rasterio>=1.4.3",
-    "jaxtyping",
+    "jaxtyping>=0.3.5",
 ]
 
 [dependency-groups]
