@@ -1,0 +1,11 @@
+name: Python Lint (RationAI Standard)
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  run:
+    uses: RationAI/.github/.github/workflows/python-lint.yml@main
