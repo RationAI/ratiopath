@@ -4,10 +4,10 @@ import numpy as np
 import numpy.typing as npt
 from jaxtyping import Int64, Shaped
 
-from ratiopath.masks.mask_builders.mask_builder import AccumulatorType, MaskBuilder
+from ratiopath.masks.mask_builders.mask_builder import AccumulatorType, MaskBuilderABC
 
 
-class EdgeClippingMaskBuilderMixin(MaskBuilder):
+class EdgeClippingMaskBuilderMixin(MaskBuilderABC):
     """Mixin that clips edge pixels from tiles before accumulation.
 
     Edge clipping is useful for removing boundary artifacts from tiles, such as:
@@ -100,7 +100,7 @@ class EdgeClippingMaskBuilderMixin(MaskBuilder):
         )
 
 
-class AutoScalingConstantStrideMixin(MaskBuilder):
+class AutoScalingConstantStrideMixin(MaskBuilderABC):
     """Mixin that automatically scales coordinates to match input/output resolution differences.
 
     Generally, neural networks such as CNNs and ViTs produce outputs at a different spatial resolution
@@ -133,7 +133,6 @@ class AutoScalingConstantStrideMixin(MaskBuilder):
     after this one in the inheritance list to ensure proper MRO.
     """
 
-    # source_extents: Int64[AccumulatorType, " N"]
     overflow_buffered_source_extents: Int64[AccumulatorType, " N"]
     mask_tile_extents: Int64[AccumulatorType, " N"]
     source_tile_extents: Int64[AccumulatorType, " N"]
@@ -175,7 +174,6 @@ class AutoScalingConstantStrideMixin(MaskBuilder):
             )
         adjusted_mask_tile_strides = multiplied_ // self.source_tile_extents
 
-        # adjusted_mask_extents = (source_extents // self.source_tile_extents) * self.mask_tile_extents
         total_strides = (source_extents - source_tile_extents) / source_tile_strides
         total_strides = np.ceil(total_strides).astype(np.int64)
         # without the initial tile step, including partial tile at the edge
@@ -227,13 +225,13 @@ class AutoScalingConstantStrideMixin(MaskBuilder):
         return tuple(scale_factors)
 
 
-class ScalarUniformTiledMaskBuilder(MaskBuilder):
+class ScalarUniformTiledMaskBuilder(MaskBuilderABC):
     """Mask builder that expands scalar/vector values into uniform tiles.
 
     This builder is designed for scenarios where each tile's content is uniform (constant value).
     Instead of storing full tiles, it compresses the representation by:
     1. Computing the GCD of tile extent and stride in each dimension
-    2. Dividing the mask into a coarser grid with GCD granularity
+    2. Dividing the mask into a coarser grid with GCD granularity to save memory
     3. Expanding scalar values into the compressed grid
 
     This reduces memory usage and computation when tiles have uniform content, such as:
@@ -242,6 +240,9 @@ class ScalarUniformTiledMaskBuilder(MaskBuilder):
 
     The builder automatically handles the coordinate transformation between the original
     and compressed grids.
+
+    The resulting mask has spatial dimensions reduced by the GCD factors, but the effective resolution
+    is as if the scalar values were expanded to full tiles defined in the `__init__` method.
 
     This class can work cooperatively with other mixins (like AutoScalingConstantStrideMixin)
     that compute `mask_extents`. If `mask_extents` is already provided via kwargs (from a parent

@@ -6,10 +6,10 @@ import numpy as np
 import numpy.typing as npt
 from jaxtyping import Int64
 
-from ratiopath.masks.mask_builders.mask_builder import AccumulatorType, MaskBuilder
+from ratiopath.masks.mask_builders.mask_builder import AccumulatorType, MaskBuilderABC
 
 
-class NumpyMemMapMaskBuilderAllocatorMixin(MaskBuilder):
+class NumpyMemMapMaskBuilderAllocatorMixin(MaskBuilderABC):
     """Mixin class to allocate accumulators as numpy memory-mapped files (memmaps).
 
     This mixin provides disk-backed storage for large masks that exceed available RAM.
@@ -58,7 +58,8 @@ class NumpyMemMapMaskBuilderAllocatorMixin(MaskBuilder):
             # And I do agree, that such a code snippet can look suspicious at first glance to an untrained eye,
             # and that for such rightly doubtful people, who cannot see through such things at first glance,
             # it would be better to add a clarifying comment explaining why this is indeed correct.
-            # Hopefully, the above comment serves this purpose well enough.
+            # Hopefully, the above comment serves this purpose well enough, so that no one else wastes time
+            # doubting the correctness of this code in the future.
             with tempfile.NamedTemporaryFile() as temp_file:
                 return np.lib.format.open_memmap(
                     temp_file.name,
@@ -79,7 +80,7 @@ class NumpyMemMapMaskBuilderAllocatorMixin(MaskBuilder):
             )
 
 
-class NumpyArrayMaskBuilderAllocatorMixin(MaskBuilder):
+class NumpyArrayMaskBuilderAllocatorMixin(MaskBuilderABC):
     """Mixin class to allocate accumulators as numpy arrays.
 
     This mixin implements the `allocate_accumulator` method to create

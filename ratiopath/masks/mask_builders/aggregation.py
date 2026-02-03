@@ -6,12 +6,12 @@ from jaxtyping import Int64, Shaped
 
 from ratiopath.masks.mask_builders.mask_builder import (
     AccumulatorType,
-    MaskBuilder,
+    MaskBuilderABC,
     compute_acc_slices,
 )
 
 
-class AveragingMaskBuilderMixin(MaskBuilder):
+class AveragingMaskBuilderMixin(MaskBuilderABC):
     """Mixin that implements averaging aggregation for overlapping tiles.
 
     This mixin accumulates tiles by addition and tracks the overlap count at each pixel.
@@ -37,7 +37,11 @@ class AveragingMaskBuilderMixin(MaskBuilder):
         super().__init__(mask_extents, channels, dtype=dtype, **kwargs)
 
     def setup_memory(
-        self, mask_extents, channels, dtype: npt.DTypeLike, **kwargs
+        self,
+        mask_extents: Int64[AccumulatorType, " N"], 
+        channels: int, 
+        dtype: npt.DTypeLike, 
+        **kwargs: Any,
     ) -> None:
         """Set up memory for both the main accumulator and the overlap counter.
 
@@ -50,7 +54,7 @@ class AveragingMaskBuilderMixin(MaskBuilder):
         # Perform base allocation then allocate the overlap counter.
         super().setup_memory(mask_extents, channels, dtype=dtype, **kwargs)
         self.overlap_counter = self.allocate_accumulator(
-            mask_extents=mask_extents, channels=1, dtype=dtype, **kwargs
+            mask_extents=mask_extents, channels=1, dtype=np.uint16, **kwargs
         )
 
     def update_batch_impl(
@@ -83,7 +87,7 @@ class AveragingMaskBuilderMixin(MaskBuilder):
         return self.accumulator, self.overlap_counter
 
 
-class MaxMaskBuilderMixin(MaskBuilder):
+class MaxMaskBuilderMixin(MaskBuilderABC):
     """Mixin that implements maximum aggregation for overlapping tiles.
 
     This mixin keeps only the maximum value at each pixel position when tiles overlap.
