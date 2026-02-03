@@ -30,6 +30,7 @@ def test_scalar_uniform_averaging_2d(
         channels=channels,
         mask_tile_extents=mask_tile_extents,
         mask_tile_strides=mask_tile_strides,
+        dtype=np.float32,
     )
 
     # create scalar batch (B, C)
@@ -100,6 +101,7 @@ def test_scalar_uniform_max_2d(
         channels=channels,
         mask_tile_extents=mask_tile_extents,
         mask_tile_strides=mask_tile_strides,
+        dtype=np.float32,
     )
 
     for i in range(num_batches):
@@ -176,7 +178,6 @@ def test_edge_clipping_heatmap_assembler(
     AssemblerClass = MaskBuilderFactory.create(
         use_memmap=True,
         auto_scale=True,
-        px_to_clip=(clip, clip, clip, clip) if isinstance(clip, int) else clip,
     )
     assembler = AssemblerClass(
         source_extents=mask_extents,
@@ -186,6 +187,8 @@ def test_edge_clipping_heatmap_assembler(
         channels=channels,
         accumulator_filepath=acc_filepath,
         overlap_counter_filepath=overlap_counter_filepath,
+        px_to_clip=clip,
+        dtype=np.float32,
     )
     # create dummy data
     example_tile_batch = np.ones(
@@ -255,7 +258,6 @@ def test_edge_clipping_clips_edges():
     AssemblerClass = MaskBuilderFactory.create(
         use_memmap=True,
         auto_scale=True,
-        px_to_clip=(clip, clip, clip, clip) if isinstance(clip, int) else clip,
     )
     assembler = AssemblerClass(
         source_extents=mask_extents,
@@ -263,6 +265,8 @@ def test_edge_clipping_clips_edges():
         source_tile_strides=np.asarray((4, 4)),
         mask_tile_extents=mask_tile_extents,
         channels=channels,
+        px_to_clip=clip,
+        dtype=np.float32,
     )
     tile = np.ones((1, channels, *mask_tile_extents), dtype=np.float32)
     assembler.update_batch(tile, coords_batch=np.asarray([[0], [0]]))
@@ -296,7 +300,6 @@ def test_numpy_memmap_tempfile_management(monkeypatch):
     AssemblerClass = MaskBuilderFactory.create(
         use_memmap=True,
         auto_scale=True,
-        px_to_clip=(1, 1, 1, 1),
     )
     assembler = AssemblerClass(
         source_extents=mask_extents,
@@ -304,6 +307,8 @@ def test_numpy_memmap_tempfile_management(monkeypatch):
         source_tile_strides=tile_strides,
         mask_tile_extents=mask_tile_extents,
         channels=1,
+        px_to_clip=(1, 1, 1, 1),
+        dtype=np.float32,
     )
 
     assert len(captured_files) >= 1, (
@@ -322,7 +327,7 @@ def test_numpy_memmap_tempfile_management(monkeypatch):
 
 
 def test_numpy_memmap_persistent_file(tmp_path):
-    """Test that a persistent file created by AveragingClippingNumpyMemMapMaskBuilder2D is not deleted upon finalization."""
+    """Test that a persistent file created by a factory-composed memmap builder is not deleted upon finalization."""
     filepath = tmp_path / "persistent_heatmap.npy"
 
     mask_tile_extents = np.asarray([8, 8], dtype=np.int64)
@@ -332,7 +337,6 @@ def test_numpy_memmap_persistent_file(tmp_path):
     AssemblerClass = MaskBuilderFactory.create(
         use_memmap=True,
         auto_scale=True,
-        px_to_clip=(1, 1, 1, 1),
     )
     assembler = AssemblerClass(
         source_extents=mask_extents,
@@ -342,6 +346,8 @@ def test_numpy_memmap_persistent_file(tmp_path):
         channels=1,
         accumulator_filepath=filepath,
         overlap_counter_filepath=filepath.with_suffix(".overlaps" + filepath.suffix),
+        px_to_clip=(1, 1, 1, 1),
+        dtype=np.float32,
     )
 
     tile_batch = np.ones((1, 1, *mask_tile_extents), dtype=np.float32)
@@ -388,6 +394,7 @@ def test_autoscaling_scalar_uniform_value_constant_stride(
         source_tile_extents=source_tile_extents,
         source_tile_strides=source_tile_strides,
         mask_tile_extents=mask_tile_extents,
+        dtype=np.float32,
     )
 
     mask_tile_strides = (source_tile_strides * mask_tile_extents) // source_tile_extents
