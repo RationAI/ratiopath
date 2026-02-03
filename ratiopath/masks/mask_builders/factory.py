@@ -11,7 +11,7 @@ from ratiopath.masks.mask_builders.aggregation import (
     AveragingMaskBuilderMixin,
     MaxMaskBuilderMixin,
 )
-from ratiopath.masks.mask_builders.mask_builder import AccumulatorType, MaskBuilder
+from ratiopath.masks.mask_builders.mask_builder import AccumulatorType, MaskBuilderABC
 from ratiopath.masks.mask_builders.receptive_field_manipulation import (
     AutoScalingConstantStrideMixin,
     EdgeClippingMaskBuilderMixin,
@@ -67,7 +67,7 @@ class MaskBuilderFactory:
     builds the correct mixin hierarchy automatically.
     """
 
-    _AGGREGATION_OPTIONS: dict[str, type[MaskBuilder]] = {
+    _AGGREGATION_OPTIONS: dict[str, type[MaskBuilderABC]] = {
         "average": AveragingMaskBuilderMixin,
         "max": MaxMaskBuilderMixin,
     }
@@ -86,8 +86,8 @@ class MaskBuilderFactory:
         # Edge clipping
         px_to_clip: tuple[int, ...] | None = None,
         # Extra customization
-        extra_mixins: Sequence[type[MaskBuilder]] | None = None,
-    ) -> type[MaskBuilder]:
+        extra_mixins: Sequence[type[MaskBuilderABC]] | None = None,
+    ) -> type[MaskBuilderABC]:
         """Create a mask builder class with specified capabilities.
 
         Args:
@@ -107,7 +107,7 @@ class MaskBuilderFactory:
             )
 
         # Build mixin list in correct MRO order
-        mixins: list[type[MaskBuilder]] = []
+        mixins: list[type[MaskBuilderABC]] = []
 
         # 1. Storage (provides allocate_accumulator)
         if use_memmap:

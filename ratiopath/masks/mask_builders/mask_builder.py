@@ -43,7 +43,7 @@ def compute_acc_slices(
     return acc_slices_batch_per_dim
 
 
-class MaskBuilder(ABC):
+class MaskBuilderABC(ABC):
     """Abstract base class for building masks from tiled data.
 
     This base class establishes the interface for mask builders that assemble large masks
@@ -100,7 +100,11 @@ class MaskBuilder(ABC):
         """
 
     def setup_memory(
-        self, mask_extents, channels, dtype: npt.DTypeLike, **kwargs
+        self, 
+        mask_extents: Int64[AccumulatorType, " N"],
+        channels: int, 
+        dtype: npt.DTypeLike,
+        **kwargs: Any,
     ) -> None:
         """This method sets up memory structures needed for mask building.
 

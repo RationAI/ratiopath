@@ -5,7 +5,7 @@ from ratiopath.masks.mask_builders.aggregation import (
     MaxMaskBuilderMixin,
 )
 from ratiopath.masks.mask_builders.factory import MaskBuilderFactory
-from ratiopath.masks.mask_builders.mask_builder import MaskBuilder
+from ratiopath.masks.mask_builders.mask_builder import MaskBuilderABC
 from ratiopath.masks.mask_builders.receptive_field_manipulation import (
     AutoScalingConstantStrideMixin,
     EdgeClippingMaskBuilderMixin,
@@ -20,7 +20,7 @@ __all__ = [
     "AveragingMaskBuilderMixin",
     "AutoScalingConstantStrideMixin",
     "EdgeClippingMaskBuilderMixin",
-    "MaskBuilder",
+    "MaskBuilderABC",
     "MaskBuilderFactory",
     "MaxMaskBuilderMixin",
     "NumpyArrayMaskBuilderAllocatorMixin",
