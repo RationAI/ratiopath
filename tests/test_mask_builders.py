@@ -11,9 +11,11 @@ from ratiopath.masks.mask_builders import MaskBuilderFactory
 
 if TYPE_CHECKING:
     from ratiopath.masks.mask_builders.factory import (
-        AutoScalingAveragingClippingNumpyMemMapMaskBuilder,
-        AutoScalingScalarUniformValueConstantStrideMaskBuilder,
-        MaxScalarUniformTiledNumpyMaskBuilder,
+        ExplicitCoordScalarMeanMB,
+        ExplicitCoordScalarMaxMB,
+        MemMapMeanMB,
+        ScalarMeanMB,
+        ScalarMaxMB,
     )
 
 
@@ -34,7 +36,7 @@ def test_scalar_uniform_averaging_2d(
     gcds = np.gcd(mask_tile_extents, mask_tile_strides)
     adjusted_tile_extents = mask_tile_extents // gcds
 
-    maskbuilder_cls = MaskBuilderFactory.create(expand_scalars=True)
+    maskbuilder_cls: type[ExplicitCoordScalarMeanMB] = MaskBuilderFactory.create(expand_scalars=True, auto_scale=False)
     test_mask_builder = maskbuilder_cls(
         mask_extents=mask_extents,
         channels=channels,
@@ -102,10 +104,11 @@ def test_scalar_uniform_max_2d(
     adjusted_tile_extents = mask_tile_extents // gcds
     min_batch_increment = np.prod(adjusted_tile_extents) * channels
 
-    maskbuilder_cls: type[MaxScalarUniformTiledNumpyMaskBuilder] = (
+    maskbuilder_cls: type[ExplicitCoordScalarMaxMB] = (
         MaskBuilderFactory.create(
             aggregation="max",
             expand_scalars=True,
+            auto_scale=False,
         )
     )
     test_mask_builder = maskbuilder_cls(
@@ -187,11 +190,10 @@ def test_edge_clipping_heatmap_assembler(
             (tmp_path / overlap_counter_filepath).as_posix()
         )
 
-    maskbuilder_cls: type[AutoScalingAveragingClippingNumpyMemMapMaskBuilder] = (
+    maskbuilder_cls: type[MemMapMeanMB] = (
         MaskBuilderFactory.create(
             use_memmap=True,
             auto_scale=True,
-            clip=True,
         )
     )  #
 
@@ -201,7 +203,7 @@ def test_edge_clipping_heatmap_assembler(
         source_tile_strides=tile_strides,
         mask_tile_extents=tile_extents,
         channels=channels,
-        clip=clip,
+        px_to_clip=clip,
         accumulator_filepath=acc_filepath,
         overlap_counter_filepath=overlap_counter_filepath,
         dtype=np.float32,
@@ -271,11 +273,10 @@ def test_edge_clipping_clips_edges():
     mask_extents = np.asarray((16, 16))
     mask_tile_extents = np.asarray((8, 8))
     channels = 1
-    maskbuilder_cls: type[AutoScalingAveragingClippingNumpyMemMapMaskBuilder] = (
+    maskbuilder_cls: type[MemMapMeanMB] = (
         MaskBuilderFactory.create(
             use_memmap=True,
             auto_scale=True,
-            clip=True,
         )
     )  #
     assembler = maskbuilder_cls(
@@ -284,7 +285,7 @@ def test_edge_clipping_clips_edges():
         source_tile_strides=np.asarray((4, 4)),
         mask_tile_extents=mask_tile_extents,
         channels=channels,
-        clip=clip,
+        px_to_clip=clip,
         dtype=np.float32,
     )
     tile = np.ones((1, channels, *mask_tile_extents), dtype=np.float32)
@@ -316,11 +317,10 @@ def test_numpy_memmap_tempfile_management(monkeypatch):
     mask_extents = np.asarray([16, 16], dtype=np.int64)
     tile_strides = np.asarray([4, 4], dtype=np.int64)
 
-    maskbuilder_cls: type[AutoScalingAveragingClippingNumpyMemMapMaskBuilder] = (
+    maskbuilder_cls: type[MemMapMeanMB] = (
         MaskBuilderFactory.create(
             use_memmap=True,
             auto_scale=True,
-            clip=True,
         )
     )  #
     assembler = maskbuilder_cls(
@@ -329,7 +329,7 @@ def test_numpy_memmap_tempfile_management(monkeypatch):
         source_tile_strides=tile_strides,
         mask_tile_extents=mask_tile_extents,
         channels=1,
-        clip=(1, 1, 1, 1),
+        px_to_clip=(1, 1, 1, 1),
         dtype=np.float32,
     )
 
@@ -356,11 +356,10 @@ def test_numpy_memmap_persistent_file(tmp_path):
     mask_extents = np.asarray([16, 16], dtype=np.int64)
     tile_strides = np.asarray([4, 4], dtype=np.int64)
 
-    assembler_cls: type[AutoScalingAveragingClippingNumpyMemMapMaskBuilder] = (
+    assembler_cls: type[MemMapMeanMB] = (
         MaskBuilderFactory.create(
             use_memmap=True,
             auto_scale=True,
-            clip=True,
         )
     )
     assembler = assembler_cls(
@@ -369,7 +368,7 @@ def test_numpy_memmap_persistent_file(tmp_path):
         source_tile_strides=tile_strides,
         mask_tile_extents=mask_tile_extents,
         channels=1,
-        clip=(1, 1, 1, 1),
+        px_to_clip=(1, 1, 1, 1),
         accumulator_filepath=filepath,
         overlap_counter_filepath=filepath.with_suffix(".overlaps" + filepath.suffix),
         dtype=np.float32,
@@ -409,16 +408,12 @@ def test_autoscaling_scalar_uniform_value_constant_stride(
     source_tile_strides = source_tile_extents // 2  # 50% overlap
     mask_tile_extents = np.asarray(mask_tile_extents)
 
-    builder_cls: type[AutoScalingScalarUniformValueConstantStrideMaskBuilder] = (
+    builder_cls: type[ScalarMeanMB] = (
         MaskBuilderFactory.create(
             auto_scale=True,
             expand_scalars=True,
         )
     )  #
-    # cast the builder to correct type for mypy
-    typing.cast(
-        "type[AutoScalingScalarUniformValueConstantStrideMaskBuilder]", builder_cls
-    )
     builder = builder_cls(
         source_extents=source_extents,
         channels=channels,
