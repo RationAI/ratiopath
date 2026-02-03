@@ -28,7 +28,7 @@ def compute_acc_slices(
     Returns:
         List of N lists, each containing B slice objects for indexing into accumulator.
     """
-    acc_ends = coords_batch + mask_tile_extents[:, np.newaxis]  # shape (N, B)
+    tile_end_coords = coords_batch + mask_tile_extents[:, np.newaxis]  # shape (N, B)
 
     acc_slices_batch_per_dim = []
     for dimension in range(coords_batch.shape[0]):
@@ -36,7 +36,7 @@ def compute_acc_slices(
             [
                 slice(start, end)
                 for start, end in zip(
-                    coords_batch[dimension], acc_ends[dimension], strict=True
+                    coords_batch[dimension], tile_end_coords[dimension], strict=True
                 )
             ]
         )
