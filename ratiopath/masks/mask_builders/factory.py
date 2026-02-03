@@ -658,7 +658,7 @@ class MemMapMeanMB(
             mask_extents=mask_extents,
             channels=1,
             filepath=counter_filepath,
-            dtype=dtype,
+            dtype=np.uint16,
         )
 
 
