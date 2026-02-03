@@ -38,9 +38,9 @@ class AveragingMaskBuilderMixin(MaskBuilderABC):
 
     def setup_memory(
         self,
-        mask_extents: Int64[AccumulatorType, " N"], 
-        channels: int, 
-        dtype: npt.DTypeLike, 
+        mask_extents: Int64[AccumulatorType, " N"],
+        channels: int,
+        dtype: npt.DTypeLike,
         **kwargs: Any,
     ) -> None:
         """Set up memory for both the main accumulator and the overlap counter.

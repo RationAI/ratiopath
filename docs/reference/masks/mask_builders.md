@@ -159,7 +159,7 @@ hooked_model = HookedModule(vgg16_model, layer_name="backbone.9")
 BuilderClass = MaskBuilderFactory.create(
     use_memmap=True,
     auto_scale=True,
-    px_to_clip=(4, 4, 4, 4),  # (top, bottom, left, right)
+    clip=True,
 )
 mask_builder = BuilderClass(
     source_extents=(slide_extent_y, slide_extent_x),
@@ -167,6 +167,7 @@ mask_builder = BuilderClass(
     source_tile_strides=tile_strides,
     mask_tile_extents=(64, 64),  # output resolution per tile
     channels=3,  # for RGB masks
+    px_to_clip=(4, 4, 4, 4),  # (top, bottom, left, right)
 )
 
 # Note: generate_tiles_from_slide is a placeholder - you must implement your own tile extraction logic
@@ -242,7 +243,7 @@ plt.show()
 |---------------|-------------------|-------------|---------|--------------|---------------|
 | `expand_scalars=True` | Scalar | Average | RAM | No | No |
 | `aggregation="max", expand_scalars=True` | Scalar | Max | RAM | No | No |
-| `use_memmap=True, auto_scale=True, px_to_clip=(...)` | Feature Map | Average | Disk (memmap) | Yes | Yes |
+| `use_memmap=True, auto_scale=True, clip=True` | Feature Map | Average | Disk (memmap) | Yes | Yes |
 | `auto_scale=True, expand_scalars=True` | Scalar | Average | RAM | Yes | No |
 
 ## Coordinate System Notes
