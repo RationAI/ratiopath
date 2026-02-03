@@ -5,8 +5,11 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 from jaxtyping import Int64
+import logging
 
 from ratiopath.masks.mask_builders.mask_builder import AccumulatorType, MaskBuilderABC
+
+logger = logging.getLogger(__name__)
 
 
 class NumpyMemMapMaskBuilderAllocatorMixin(MaskBuilderABC):
@@ -42,6 +45,12 @@ class NumpyMemMapMaskBuilderAllocatorMixin(MaskBuilderABC):
         super().__init__(*args, **kwargs)
 
     def __del__(self) -> None:
+        try:
+            self._cleanup_memmaps()
+        except Exception:
+            pass  # Suppress exceptions during garbage collection
+
+    def _cleanup_memmaps(self) -> None:
         """Ensure that any temporary memmap files are deleted when the builder is garbage collected."""
         for filepath, mmap in zip(
             self._memmap_files_to_be_deleted,
@@ -50,10 +59,10 @@ class NumpyMemMapMaskBuilderAllocatorMixin(MaskBuilderABC):
         ):
             try:
                 mmap._mmap.close()  # Close the memmap to release file handles
-                del mmap  # Ensure the memmap object is deleted
+                # del mmap  # Ensure the memmap object is deleted
                 filepath.unlink(missing_ok=True)
             except Exception as e:
-                print(f"Warning: Failed to delete memmap file {filepath}: {e}")
+                logger.warning(f"Failed to delete memmap file {filepath}: {e}")
 
     def allocate_accumulator(
         self,
