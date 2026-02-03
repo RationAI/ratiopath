@@ -32,6 +32,81 @@ if TYPE_CHECKING:
 
 
 # ============================================================================
+# COMBINED MIXINS
+# ============================================================================
+
+
+class NumpyMemMapForMeanMaskBuilderMixin(
+    NumpyMemMapMaskBuilderAllocatorMixin,
+):
+    """Mixin for memory-mapped averaging mask builders with dual memmap allocation.
+    
+    This mixin provides specialized setup_memory() logic for the case where both
+    the main accumulator and the overflow counter need to be allocated as memory-mapped
+    arrays.
+    
+    The overlap counter is automatically allocated with uint16 dtype and derives
+    its filepath from the accumulator filepath with a .overlaps suffix when not
+    explicitly provided.
+    
+    Aggregation logic (update_batch_impl, finalize) must be provided by including
+    AveragingMaskBuilderMixin in the final class definition after this mixin.
+    """
+    
+    overlap_counter: AccumulatorType
+    
+    def setup_memory(
+        self,
+        mask_extents: Int64[AccumulatorType, " N"],
+        channels: int,
+        dtype: npt.DTypeLike = np.float32,
+        accumulator_filepath: Path | None = None,
+        overlap_counter_filepath: Path | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Set up memory for both the main accumulator and the overlap counter.
+
+        This method does not call super().setup_memory(), instead directly allocating
+        both arrays using allocate_accumulator(). This is necessary because:
+        1. Both arrays need memmap allocation (from NumpyMemMapMaskBuilderAllocatorMixin)
+        2. The overlap counter needs special filepath logic (automatic .overlaps suffix)
+        3. Calling super() would complicate the filepath passing through the MRO chain
+
+        Args:
+            mask_extents: Array of shape (N,) specifying the spatial dimensions of the mask to build.
+            channels: Number of channels in the mask (e.g., 1 for grayscale, 3 for RGB).
+            dtype: Data type for the accumulator (e.g., np.float32).
+            accumulator_filepath: Optional Path to back the memmap file for the accumulator.
+            overlap_counter_filepath: Optional Path to back the memmap file for the overlap counter.
+            **kwargs: Additional keyword arguments for allocation.
+        """
+        # Allocate main accumulator as memmap
+        self.accumulator = self.allocate_accumulator(
+            mask_extents=mask_extents,
+            channels=channels,
+            filepath=accumulator_filepath,
+            dtype=dtype,
+        )
+        
+        # Generate overlap counter filepath if not provided
+        if overlap_counter_filepath is not None:
+            counter_filepath = overlap_counter_filepath
+        elif accumulator_filepath is not None:
+            suffix = accumulator_filepath.suffix
+            counter_filepath = accumulator_filepath.with_suffix(f".overlaps{suffix}")
+        else:
+            counter_filepath = None
+        
+        # Allocate overlap counter as memmap with uint16 dtype
+        self.overlap_counter = self.allocate_accumulator(
+            mask_extents=mask_extents,
+            channels=1,
+            filepath=counter_filepath,
+            dtype=np.uint16,
+        )
+
+
+# ============================================================================
 # OLD IMPLEMENTATIONS (kept for reference, commented out)
 # ============================================================================
 #
@@ -559,7 +634,7 @@ class ScalarMaxMB(
             **kwargs,
         )
 class MemMapMeanMB(
-    NumpyMemMapMaskBuilderAllocatorMixin,
+    NumpyMemMapForMeanMaskBuilderMixin,
     AutoScalingConstantStrideMixin,
     EdgeClippingMaskBuilderMixin,
     AveragingMaskBuilderMixin,
@@ -582,7 +657,7 @@ class MemMapMeanMB(
         source_tile_strides: Strides between tiles in the source space.
         mask_tile_extents: Extents of tiles in the mask space.
         channels: Number of channels in the tiles/mask.
-        clip: Edge clipping specification (default: 0, no clipping).
+        px_to_clip: Edge clipping specification (default: 0, no clipping).
             - int: same clipping on all edges
             - (clip_y, clip_x): same for top/bottom and left/right
             - (clip_top, clip_bottom, clip_left, clip_right): individual edge control
@@ -617,48 +692,338 @@ class MemMapMeanMB(
             **kwargs,
         )
 
-    def setup_memory(
+
+class MemMapMaxMB(
+    NumpyMemMapMaskBuilderAllocatorMixin,
+    AutoScalingConstantStrideMixin,
+    EdgeClippingMaskBuilderMixin,
+    MaxMaskBuilderMixin,
+):
+    """Memory-mapped max mask builder with auto-scaling and edge clipping support.
+    
+    This builder combines:
+    - **Memory-mapped storage**: Handles large masks that exceed RAM capacity using disk-backed arrays
+    - **Auto-scaling**: Automatically handles coordinate transformation for resolution changes
+    - **Edge clipping**: Optional removal of boundary artifacts (default: no clipping)
+    - **Max aggregation**: Takes maximum value at each pixel position (no finalization needed)
+    
+    Args:
+        source_extents: Spatial dimensions of the source space.
+        source_tile_extents: Extents of tiles in the source space.
+        source_tile_strides: Strides between tiles in the source space.
+        mask_tile_extents: Extents of tiles in the mask space.
+        channels: Number of channels in the tiles/mask.
+        px_to_clip: Edge clipping specification (default: 0, no clipping).
+            - int: same clipping on all edges
+            - (clip_y, clip_x): same for top/bottom and left/right
+            - (clip_top, clip_bottom, clip_left, clip_right): individual edge control
+        accumulator_filepath: Optional path for the main accumulator memmap.
+        dtype: Data type for the accumulator.
+    """
+    
+    def __init__(
+        self,
+        source_extents: Int64[AccumulatorType, " N"],
+        source_tile_extents: Int64[AccumulatorType, " N"],
+        source_tile_strides: Int64[AccumulatorType, " N"],
+        mask_tile_extents: Int64[AccumulatorType, " N"],
+        channels: int,
+        px_to_clip: int | tuple[int, ...] = 0,
+        accumulator_filepath: Path | None = None,
+        dtype: npt.DTypeLike = np.float32,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(
+            source_extents=source_extents,
+            source_tile_extents=source_tile_extents,
+            source_tile_strides=source_tile_strides,
+            mask_tile_extents=mask_tile_extents,
+            channels=channels,
+            px_to_clip=px_to_clip,
+            accumulator_filepath=accumulator_filepath,
+            dtype=dtype,
+            **kwargs,
+        )
+
+
+class ExplicitCoordMemMapMeanMB(
+    NumpyMemMapForMeanMaskBuilderMixin,
+    EdgeClippingMaskBuilderMixin,
+    AveragingMaskBuilderMixin,
+):
+    """Memory-mapped averaging mask builder with explicit coordinates and edge clipping support.
+    
+    This builder combines:
+    - **Memory-mapped storage**: Handles large masks that exceed RAM capacity using disk-backed arrays
+    - **Explicit coordinates**: User must specify mask_extents directly (no auto-scaling)
+    - **Edge clipping**: Optional removal of boundary artifacts (default: no clipping)
+    - **Averaging aggregation**: Smoothly blends overlapping tiles via pixel-wise averaging
+    
+    Allocates two memmaps:
+    - Main accumulator for tile data
+    - Overlap counter (auto-derived with `.overlaps` suffix if accumulator_filepath is provided)
+    
+    Args:
+        mask_extents: Spatial dimensions of the mask to build (must be provided by user).
+        channels: Number of channels in the tiles/mask.
+        px_to_clip: Edge clipping specification (default: 0, no clipping).
+            - int: same clipping on all edges
+            - (clip_y, clip_x): same for top/bottom and left/right
+            - (clip_top, clip_bottom, clip_left, clip_right): individual edge control
+        accumulator_filepath: Optional path for the main accumulator memmap.
+        overlap_counter_filepath: Optional path for the overlap counter memmap.
+        dtype: Data type for the accumulator.
+    """
+    
+    def __init__(
         self,
         mask_extents: Int64[AccumulatorType, " N"],
         channels: int,
-        dtype: npt.DTypeLike = np.float32,
+        px_to_clip: int | tuple[int, ...] = 0,
         accumulator_filepath: Path | None = None,
         overlap_counter_filepath: Path | None = None,
+        dtype: npt.DTypeLike = np.float32,
         **kwargs: Any,
     ) -> None:
-        """Set up memory for both the main accumulator and the overlap counter.
-
-        This method does not call the super.setup_memory() method, breaking the MRO chain.
-        This is intentional, as this mixin is specifically responsible for the allocation, handling both
-        the main accumulator and the overlap counter, which requires special logic for filepaths and would
-        be cumbersome to implement through multiple levels of inheritance.
-
-        Args:
-            mask_extents: Array of shape (N,) specifying the spatial dimensions of the mask to build.
-            channels: Number of channels in the mask (e.g., 1 for grayscale, 3 for RGB).
-            dtype: Data type for the accumulator (e.g., np.float32).
-            accumulator_filepath: Optional Path to back the memmap file for the accumulator.
-            overlap_counter_filepath: Optional Path to back the memmap file for the overlap counter.
-            **kwargs: Additional keyword arguments for allocation.
-        """
-        self.accumulator = self.allocate_accumulator(
+        super().__init__(
             mask_extents=mask_extents,
             channels=channels,
-            filepath=accumulator_filepath,
+            px_to_clip=px_to_clip,
+            accumulator_filepath=accumulator_filepath,
+            overlap_counter_filepath=overlap_counter_filepath,
             dtype=dtype,
+            **kwargs,
         )
-        if overlap_counter_filepath is not None:
-            counter_filepath = overlap_counter_filepath
-        elif accumulator_filepath is not None:
-            suffix = accumulator_filepath.suffix
-            counter_filepath = accumulator_filepath.with_suffix(f".overlaps{suffix}")
-        else:
-            counter_filepath = None
-        self.overlap_counter = self.allocate_accumulator(
+
+
+class ExplicitCoordMemMapMaxMB(
+    NumpyMemMapMaskBuilderAllocatorMixin,
+    EdgeClippingMaskBuilderMixin,
+    MaxMaskBuilderMixin,
+):
+    """Memory-mapped max mask builder with explicit coordinates and edge clipping support.
+    
+    This builder combines:
+    - **Memory-mapped storage**: Handles large masks that exceed RAM capacity using disk-backed arrays
+    - **Explicit coordinates**: User must specify mask_extents directly (no auto-scaling)
+    - **Edge clipping**: Optional removal of boundary artifacts (default: no clipping)
+    - **Max aggregation**: Takes maximum value at each pixel position (no finalization needed)
+    
+    Args:
+        mask_extents: Spatial dimensions of the mask to build (must be provided by user).
+        channels: Number of channels in the tiles/mask.
+        px_to_clip: Edge clipping specification (default: 0, no clipping).
+            - int: same clipping on all edges
+            - (clip_y, clip_x): same for top/bottom and left/right
+            - (clip_top, clip_bottom, clip_left, clip_right): individual edge control
+        accumulator_filepath: Optional path for the main accumulator memmap.
+        dtype: Data type for the accumulator.
+    """
+    
+    def __init__(
+        self,
+        mask_extents: Int64[AccumulatorType, " N"],
+        channels: int,
+        px_to_clip: int | tuple[int, ...] = 0,
+        accumulator_filepath: Path | None = None,
+        dtype: npt.DTypeLike = np.float32,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(
             mask_extents=mask_extents,
-            channels=1,
-            filepath=counter_filepath,
-            dtype=np.uint16,
+            channels=channels,
+            px_to_clip=px_to_clip,
+            accumulator_filepath=accumulator_filepath,
+            dtype=dtype,
+            **kwargs,
+        )
+
+
+class MeanMB(
+    NumpyArrayMaskBuilderAllocatorMixin,
+    AutoScalingConstantStrideMixin,
+    EdgeClippingMaskBuilderMixin,
+    AveragingMaskBuilderMixin,
+):
+    """Tile-based averaging mask builder with auto-scaling and edge clipping support.
+    
+    This builder combines:
+    - **Numpy array storage**: Uses RAM-based accumulation
+    - **Auto-scaling**: Automatically handles coordinate transformation for resolution changes
+    - **Edge clipping**: Optional removal of boundary artifacts (default: no clipping)
+    - **Averaging aggregation**: Smoothly blends overlapping tiles via pixel-wise averaging
+    
+    Allocates two numpy arrays:
+    - Main accumulator for tile data
+    - Overlap counter for tracking tile overlaps
+    
+    Args:
+        source_extents: Spatial dimensions of the source space.
+        source_tile_extents: Extents of tiles in the source space.
+        source_tile_strides: Strides between tiles in the source space.
+        mask_tile_extents: Extents of tiles in the mask space.
+        channels: Number of channels in the tiles/mask.
+        px_to_clip: Edge clipping specification (default: 0, no clipping).
+            - int: same clipping on all edges
+            - (clip_y, clip_x): same for top/bottom and left/right
+            - (clip_top, clip_bottom, clip_left, clip_right): individual edge control
+        dtype: Data type for the accumulator.
+    """
+    
+    def __init__(
+        self,
+        source_extents: Int64[AccumulatorType, " N"],
+        source_tile_extents: Int64[AccumulatorType, " N"],
+        source_tile_strides: Int64[AccumulatorType, " N"],
+        mask_tile_extents: Int64[AccumulatorType, " N"],
+        channels: int,
+        px_to_clip: int | tuple[int, ...] = 0,
+        dtype: npt.DTypeLike = np.float32,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(
+            source_extents=source_extents,
+            source_tile_extents=source_tile_extents,
+            source_tile_strides=source_tile_strides,
+            mask_tile_extents=mask_tile_extents,
+            channels=channels,
+            px_to_clip=px_to_clip,
+            dtype=dtype,
+            **kwargs,
+        )
+
+
+class MaxMB(
+    NumpyArrayMaskBuilderAllocatorMixin,
+    AutoScalingConstantStrideMixin,
+    EdgeClippingMaskBuilderMixin,
+    MaxMaskBuilderMixin,
+):
+    """Tile-based max mask builder with auto-scaling and edge clipping support.
+    
+    This builder combines:
+    - **Numpy array storage**: Uses RAM-based accumulation
+    - **Auto-scaling**: Automatically handles coordinate transformation for resolution changes
+    - **Edge clipping**: Optional removal of boundary artifacts (default: no clipping)
+    - **Max aggregation**: Takes maximum value at each pixel position (no finalization needed)
+    
+    Args:
+        source_extents: Spatial dimensions of the source space.
+        source_tile_extents: Extents of tiles in the source space.
+        source_tile_strides: Strides between tiles in the source space.
+        mask_tile_extents: Extents of tiles in the mask space.
+        channels: Number of channels in the tiles/mask.
+        px_to_clip: Edge clipping specification (default: 0, no clipping).
+            - int: same clipping on all edges
+            - (clip_y, clip_x): same for top/bottom and left/right
+            - (clip_top, clip_bottom, clip_left, clip_right): individual edge control
+        dtype: Data type for the accumulator.
+    """
+    
+    def __init__(
+        self,
+        source_extents: Int64[AccumulatorType, " N"],
+        source_tile_extents: Int64[AccumulatorType, " N"],
+        source_tile_strides: Int64[AccumulatorType, " N"],
+        mask_tile_extents: Int64[AccumulatorType, " N"],
+        channels: int,
+        px_to_clip: int | tuple[int, ...] = 0,
+        dtype: npt.DTypeLike = np.float32,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(
+            source_extents=source_extents,
+            source_tile_extents=source_tile_extents,
+            source_tile_strides=source_tile_strides,
+            mask_tile_extents=mask_tile_extents,
+            channels=channels,
+            px_to_clip=px_to_clip,
+            dtype=dtype,
+            **kwargs,
+        )
+
+
+class ExplicitCoordMeanMB(
+    NumpyArrayMaskBuilderAllocatorMixin,
+    EdgeClippingMaskBuilderMixin,
+    AveragingMaskBuilderMixin,
+):
+    """Tile-based averaging mask builder with explicit coordinates and edge clipping support.
+    
+    This builder combines:
+    - **Numpy array storage**: Uses RAM-based accumulation
+    - **Explicit coordinates**: User must specify mask_extents directly (no auto-scaling)
+    - **Edge clipping**: Optional removal of boundary artifacts (default: no clipping)
+    - **Averaging aggregation**: Smoothly blends overlapping tiles via pixel-wise averaging
+    
+    Allocates two numpy arrays:
+    - Main accumulator for tile data
+    - Overlap counter for tracking tile overlaps
+    
+    Args:
+        mask_extents: Spatial dimensions of the mask to build (must be provided by user).
+        channels: Number of channels in the tiles/mask.
+        px_to_clip: Edge clipping specification (default: 0, no clipping).
+            - int: same clipping on all edges
+            - (clip_y, clip_x): same for top/bottom and left/right
+            - (clip_top, clip_bottom, clip_left, clip_right): individual edge control
+        dtype: Data type for the accumulator.
+    """
+    
+    def __init__(
+        self,
+        mask_extents: Int64[AccumulatorType, " N"],
+        channels: int,
+        px_to_clip: int | tuple[int, ...] = 0,
+        dtype: npt.DTypeLike = np.float32,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(
+            mask_extents=mask_extents,
+            channels=channels,
+            px_to_clip=px_to_clip,
+            dtype=dtype,
+            **kwargs,
+        )
+
+
+class ExplicitCoordMaxMB(
+    NumpyArrayMaskBuilderAllocatorMixin,
+    EdgeClippingMaskBuilderMixin,
+    MaxMaskBuilderMixin,
+):
+    """Tile-based max mask builder with explicit coordinates and edge clipping support.
+    
+    This builder combines:
+    - **Numpy array storage**: Uses RAM-based accumulation
+    - **Explicit coordinates**: User must specify mask_extents directly (no auto-scaling)
+    - **Edge clipping**: Optional removal of boundary artifacts (default: no clipping)
+    - **Max aggregation**: Takes maximum value at each pixel position (no finalization needed)
+    
+    Args:
+        mask_extents: Spatial dimensions of the mask to build (must be provided by user).
+        channels: Number of channels in the tiles/mask.
+        px_to_clip: Edge clipping specification (default: 0, no clipping).
+            - int: same clipping on all edges
+            - (clip_y, clip_x): same for top/bottom and left/right
+            - (clip_top, clip_bottom, clip_left, clip_right): individual edge control
+        dtype: Data type for the accumulator.
+    """
+    
+    def __init__(
+        self,
+        mask_extents: Int64[AccumulatorType, " N"],
+        channels: int,
+        px_to_clip: int | tuple[int, ...] = 0,
+        dtype: npt.DTypeLike = np.float32,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(
+            mask_extents=mask_extents,
+            channels=channels,
+            px_to_clip=px_to_clip,
+            dtype=dtype,
+            **kwargs,
         )
 
 
@@ -791,11 +1156,23 @@ class MaskBuilderFactory:
         builders (expand_scalars=True), due to architectural constraints with GCD compression.
 
         Supported combinations:
-        1. auto_scale=True, expand_scalars=True, aggregation="mean" -> ScalarMeanMB
-        2. auto_scale=True, expand_scalars=True, aggregation="max" -> ScalarMaxMB
-        3. use_memmap=True, auto_scale=True, aggregation="mean" -> MemMapMeanMB
-        4. auto_scale=False, expand_scalars=True, aggregation="mean" -> ExplicitCoordScalarMeanMB
-        5. auto_scale=False, expand_scalars=True, aggregation="max" -> ExplicitCoordScalarMaxMB
+        Scalar-based (expand_scalars=True):
+          1. auto_scale=True, aggregation="mean" -> ScalarMeanMB
+          2. auto_scale=True, aggregation="max" -> ScalarMaxMB
+          3. auto_scale=False, aggregation="mean" -> ExplicitCoordScalarMeanMB
+          4. auto_scale=False, aggregation="max" -> ExplicitCoordScalarMaxMB
+        
+        Tile-based with memmap (use_memmap=True, expand_scalars=False):
+          5. auto_scale=True, aggregation="mean" -> MemMapMeanMB
+          6. auto_scale=True, aggregation="max" -> MemMapMaxMB
+          7. auto_scale=False, aggregation="mean" -> ExplicitCoordMemMapMeanMB
+          8. auto_scale=False, aggregation="max" -> ExplicitCoordMemMapMaxMB
+        
+        Tile-based with numpy (use_memmap=False, expand_scalars=False):
+          9. auto_scale=True, aggregation="mean" -> MeanMB
+          10. auto_scale=True, aggregation="max" -> MaxMB
+          11. auto_scale=False, aggregation="mean" -> ExplicitCoordMeanMB
+          12. auto_scale=False, aggregation="max" -> ExplicitCoordMaxMB
 
         Args:
             use_memmap: Use memory-mapped storage (disk) instead of RAM arrays
@@ -864,15 +1241,88 @@ class MaskBuilderFactory:
         ):
             return ExplicitCoordScalarMaxMB
 
+        # Case 6: use_memmap + auto_scale + max
+        if (
+            use_memmap
+            and aggregation == "max"
+            and auto_scale
+            and not expand_scalars
+        ):
+            return MemMapMaxMB
+
+        # Case 7: use_memmap + explicit coordinates + mean
+        if (
+            use_memmap
+            and aggregation == "mean"
+            and not auto_scale
+            and not expand_scalars
+        ):
+            return ExplicitCoordMemMapMeanMB
+
+        # Case 8: use_memmap + explicit coordinates + max
+        if (
+            use_memmap
+            and aggregation == "max"
+            and not auto_scale
+            and not expand_scalars
+        ):
+            return ExplicitCoordMemMapMaxMB
+
+        # Case 9: numpy + auto_scale + mean (tile-based)
+        if (
+            not use_memmap
+            and aggregation == "mean"
+            and auto_scale
+            and not expand_scalars
+        ):
+            return MeanMB
+
+        # Case 10: numpy + auto_scale + max (tile-based)
+        if (
+            not use_memmap
+            and aggregation == "max"
+            and auto_scale
+            and not expand_scalars
+        ):
+            return MaxMB
+
+        # Case 11: numpy + explicit coordinates + mean (tile-based)
+        if (
+            not use_memmap
+            and aggregation == "mean"
+            and not auto_scale
+            and not expand_scalars
+        ):
+            return ExplicitCoordMeanMB
+
+        # Case 12: numpy + explicit coordinates + max (tile-based)
+        if (
+            not use_memmap
+            and aggregation == "max"
+            and not auto_scale
+            and not expand_scalars
+        ):
+            return ExplicitCoordMaxMB
+
         # If no predefined combination matches, raise an error
         raise ValueError(
             f"Unsupported combination of parameters: "
             f"use_memmap={use_memmap}, aggregation={aggregation}, "
             f"auto_scale={auto_scale}, expand_scalars={expand_scalars}. "
             f"Supported combinations are:\n"
-            f"  1. auto_scale=True, expand_scalars=True, aggregation='mean' -> ScalarMeanMB\n"
-            f"  2. auto_scale=True, expand_scalars=True, aggregation='max' -> ScalarMaxMB\n"
-            f"  3. use_memmap=True, auto_scale=True, aggregation='mean' -> MemMapMeanMB\n"
-            f"  4. auto_scale=False, expand_scalars=True, aggregation='mean' -> ExplicitCoordScalarMeanMB\n"
-            f"  5. auto_scale=False, expand_scalars=True, aggregation='max' -> ExplicitCoordScalarMaxMB"
+            f"Scalar-based (expand_scalars=True):\n"
+            f"  1. auto_scale=True, aggregation='mean' -> ScalarMeanMB\n"
+            f"  2. auto_scale=True, aggregation='max' -> ScalarMaxMB\n"
+            f"  3. auto_scale=False, aggregation='mean' -> ExplicitCoordScalarMeanMB\n"
+            f"  4. auto_scale=False, aggregation='max' -> ExplicitCoordScalarMaxMB\n"
+            f"Tile-based with memmap (use_memmap=True, expand_scalars=False):\n"
+            f"  5. auto_scale=True, aggregation='mean' -> MemMapMeanMB\n"
+            f"  6. auto_scale=True, aggregation='max' -> MemMapMaxMB\n"
+            f"  7. auto_scale=False, aggregation='mean' -> ExplicitCoordMemMapMeanMB\n"
+            f"  8. auto_scale=False, aggregation='max' -> ExplicitCoordMemMapMaxMB\n"
+            f"Tile-based with numpy (use_memmap=False, expand_scalars=False):\n"
+            f"  9. auto_scale=True, aggregation='mean' -> MeanMB\n"
+            f"  10. auto_scale=True, aggregation='max' -> MaxMB\n"
+            f"  11. auto_scale=False, aggregation='mean' -> ExplicitCoordMeanMB\n"
+            f"  12. auto_scale=False, aggregation='max' -> ExplicitCoordMaxMB"
         )
