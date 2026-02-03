@@ -192,6 +192,13 @@ class AutoScalingConstantStrideMixin(MaskBuilderABC):
         data_batch: Shaped[AccumulatorType, "B C *SpatialDims"],
         coords_batch: Shaped[AccumulatorType, "N B"],
     ) -> None:
+        """Adjust input coordinates from source resolution to mask resolution before updating.
+
+        This method rescales the input coordinates based on the ratio of source tile extents
+        to mask tile extents to ensure proper alignment in the output mask space. This is handy
+        when assembling outputs from models that change spatial resolution and alleviates the need for
+        external coordinate transformations.
+        """
         adjusted_coords_batch = (
             coords_batch * self.mask_tile_extents[:, np.newaxis]
         ) // self.source_tile_extents[:, np.newaxis]
