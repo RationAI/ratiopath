@@ -29,6 +29,32 @@ class NumpyMemMapMaskBuilderAllocatorMixin(MaskBuilderABC):
     This mixin uses NumPy's NPY format version 3.0 for compatibility with large arrays (>4GB).
     """
 
+    _memmap_files_to_be_deleted: list[Path]
+    _memmap_accumulators_to_be_closed: list[np.memmap]
+
+    def __init__(
+        self,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        self._memmap_files_to_be_deleted = []
+        self._memmap_accumulators_to_be_closed = []
+        super().__init__(*args, **kwargs)
+
+    def __del__(self) -> None:
+        """Ensure that any temporary memmap files are deleted when the builder is garbage collected."""
+        for filepath, mmap in zip(
+            self._memmap_files_to_be_deleted,
+            self._memmap_accumulators_to_be_closed,
+            strict=True,
+        ):
+            try:
+                mmap._mmap.close()  # Close the memmap to release file handles
+                del mmap  # Ensure the memmap object is deleted
+                filepath.unlink(missing_ok=True)
+            except Exception as e:
+                print(f"Warning: Failed to delete memmap file {filepath}: {e}")
+
     def allocate_accumulator(
         self,
         mask_extents: Int64[AccumulatorType, " N"],
@@ -38,36 +64,18 @@ class NumpyMemMapMaskBuilderAllocatorMixin(MaskBuilderABC):
         **kwargs: Any,
     ) -> np.memmap:
         if filepath is None:
-            # The following implementation is correct. The file descriptor is kept open until the
-            # memmap is closed or garbage collected, at which point the temporary file is deleted.
-            # Exiting the with block only unlinks the file from the filesystem,
-            # but the file itself with its reserved space remains valid for as long as the memmap exists.
-            # it should be obvious that the code works, as it would be impossible to use the memmap otherwise.
-            # This should be even more evident, as the tempfile behaviour is explicitly tested in the test suite.
-            # One could also argue that something this important WAS definitely thought through carefully
-            # and would definitely NOT be "just resolved" if an AI agent pointed its figurative finger at it
-            # nad said "this is wrong" and marked the issue as CRITICAL as well, but anyway.
-            # But it was "just resolved", what a coincidence.
-            # I would never lower myself to such antics as to use my reputation, for example,
-            # to suggest that someone as experienced as me would never write this glaringly suspicious code
-            # without verifying its correctness multiple times and so, he should be trusted unconditionally,
-            # that it is indeed correctly implemented. I do know how stupid people can be after all.
-            # I will not stoop to such levels, as to get offended by an AI agent doubting my competence
-            # nor my colleagues doubting it based on the AI agent's claims.
-            # But still, the fact, that the code is indeed correct, stands. and that is what matters.
-            # And I do agree, that such a code snippet can look suspicious at first glance to an untrained eye,
-            # and that for such rightly doubtful people, who cannot see through such things at first glance,
-            # it would be better to add a clarifying comment explaining why this is indeed correct.
-            # Hopefully, the above comment serves this purpose well enough, so that no one else wastes time
-            # doubting the correctness of this code in the future.
-            with tempfile.NamedTemporaryFile() as temp_file:
-                return np.lib.format.open_memmap(
-                    temp_file.name,
-                    mode="w+",
-                    shape=(channels, *mask_extents),
-                    dtype=dtype,
-                    version=(3, 0),
-                )
+            with tempfile.NamedTemporaryFile(delete=True) as temp_file:
+                temp_filename = temp_file.name
+                self._memmap_files_to_be_deleted.append(Path(temp_filename))
+            mmap = np.lib.format.open_memmap(
+                temp_filename,
+                mode="w+",
+                shape=(channels, *mask_extents),
+                dtype=dtype,
+                version=(3, 0),
+            )
+            self._memmap_accumulators_to_be_closed.append(mmap)
+            return mmap
         else:
             if filepath.exists():
                 raise FileExistsError(f"Memmap filepath {filepath} already exists.")

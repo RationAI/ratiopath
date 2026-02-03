@@ -57,23 +57,16 @@ class EdgeClippingMaskBuilderMixin(MaskBuilderABC):
         if isinstance(px_to_clip, int):
             clip_start_indices = (px_to_clip,) * num_dims
             clip_end_indices = (px_to_clip,) * num_dims
-        elif (
-            isinstance(px_to_clip, tuple)
-            and len(px_to_clip) == num_dims
-        ):
+        elif isinstance(px_to_clip, tuple) and len(px_to_clip) == num_dims:
             clip_start_indices = px_to_clip
             clip_end_indices = px_to_clip
-        elif (
-            isinstance(px_to_clip, tuple)
-            and len(px_to_clip) == 2 * num_dims
-        ):
+        elif isinstance(px_to_clip, tuple) and len(px_to_clip) == 2 * num_dims:
             clip_start_indices = px_to_clip[::2]
             clip_end_indices = px_to_clip[1::2]
         else:
             raise ValueError(
                 f"px_to_clip must be an int, a tuple of {num_dims} ints, or a tuple of {2 * num_dims} ints."
             )
-
 
         self.clip_start_indices = np.asarray(clip_start_indices, dtype=np.int64)
         self.clip_end_indices = np.asarray(clip_end_indices, dtype=np.int64)

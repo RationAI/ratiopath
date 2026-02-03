@@ -100,9 +100,9 @@ class MaskBuilderABC(ABC):
         """
 
     def setup_memory(
-        self, 
+        self,
         mask_extents: Int64[AccumulatorType, " N"],
-        channels: int, 
+        channels: int,
         dtype: npt.DTypeLike,
         **kwargs: Any,
     ) -> None:
