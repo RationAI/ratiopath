@@ -58,7 +58,7 @@ class NumpyMemMapMaskBuilderAllocatorMixin(MaskBuilderABC):
             strict=True,
         ):
             try:
-                # Close the memmap to release file handles 
+                # Close the memmap to release file handles
                 mmap._mmap.close()  # type: ignore[attr-defined]
                 # del mmap  # Ensure the memmap object is deleted
                 filepath.unlink(missing_ok=True)
