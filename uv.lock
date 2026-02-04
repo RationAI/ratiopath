@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
     "sys_platform == 'darwin'",
@@ -1742,7 +1742,6 @@ dependencies = [
     { name = "openslide-python" },
     { name = "pandas" },
     { name = "pillow" },
-    { name = "pytest" },
     { name = "pyvips" },
     { name = "pyvips", extra = ["binary"], marker = "sys_platform == 'win32'" },
     { name = "rasterio" },
@@ -1769,6 +1768,7 @@ dev = [
     { name = "mypy" },
     { name = "pandas-stubs" },
     { name = "pyarrow-stubs" },
+    { name = "pytest" },
     { name = "ruff" },
 ]
 
@@ -1786,7 +1786,6 @@ requires-dist = [
     { name = "openslide-python", specifier = ">=1.4.1" },
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "pillow", specifier = ">=11.1.0" },
-    { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest", marker = "extra == 'tests'", specifier = ">=8.4.1" },
     { name = "pyvips", marker = "sys_platform != 'win32'", specifier = ">=3.1.1" },
     { name = "pyvips", extras = ["binary"], marker = "sys_platform == 'win32'", specifier = ">=3.1.1" },
@@ -1805,6 +1804,7 @@ dev = [
     { name = "mypy" },
     { name = "pandas-stubs", specifier = ">=2.3.3.251201" },
     { name = "pyarrow-stubs", specifier = ">=20.0.0.20251107" },
+    { name = "pytest", specifier = ">=9.0.2" },
     { name = "ruff" },
 ]
 

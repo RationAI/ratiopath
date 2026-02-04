@@ -1,3 +1,5 @@
+import contextlib
+import logging
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -5,9 +7,9 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 from jaxtyping import Int64
-import logging
 
 from ratiopath.masks.mask_builders.mask_builder import AccumulatorType, MaskBuilderABC
+
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +47,8 @@ class NumpyMemMapMaskBuilderAllocatorMixin(MaskBuilderABC):
         super().__init__(*args, **kwargs)
 
     def __del__(self) -> None:
-        try:
+        with contextlib.suppress(Exception):
             self._cleanup_memmaps()
-        except Exception:
-            pass  # Suppress exceptions during garbage collection
 
     def _cleanup_memmaps(self) -> None:
         """Ensure that any temporary memmap files are deleted when the builder is garbage collected."""

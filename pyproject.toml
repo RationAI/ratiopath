@@ -28,7 +28,6 @@ dependencies = [
     "rasterio>=1.4.3",
     "jaxtyping>=0.3.5",
     "openslide-bin>=4.0.0.11 ; sys_platform == 'win32'",
-    "pytest>=9.0.2",
     "pyvips>=3.1.1 ; sys_platform != 'win32'",
     "pyvips[binary]>=3.1.1 ; sys_platform == 'win32'",
 ]
@@ -38,6 +37,7 @@ dev = [
     "mypy",
     "pandas-stubs>=2.3.3.251201",
     "pyarrow-stubs>=20.0.0.20251107",
+    "pytest>=9.0.2",
     "ruff",
 ]
 

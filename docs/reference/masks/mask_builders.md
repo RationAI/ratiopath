@@ -28,7 +28,7 @@ All previous concrete builders are expressible as factory configurations.
 
 ### Averaging scalar-expansion (numpy)
 
-**Use case**: You have scalar predictions (e.g., class probabilities) for each tile and want to create a mask where each prediction is uniformly expanded to fill the tile's footprint. Overlapping regions are averaged.
+**Use case**: You have scalar predictions (e.g., class probabilities) for each tile and want to create a mask where each prediction is uniformly expanded to fill the tile's footprint. Overlapping regions are averaged (mean aggregation).
 
 **Example**: Creating a heatmap of tumor probability predictions.
 
@@ -118,9 +118,10 @@ for tiles, xs, ys in generate_tiles_from_slide(
     # tiles has shape (B, C, H, W)
     outputs = hooked_model.predict(tiles)  # outputs are not used directly
     features = hooked_model.get_activations("backbone.9")  # shape (B, C, H, W)
+    tile_scores = features.max(axis=(2, 3))  # shape (B, C)
     # Stack ys and xs into coords_batch with shape (N, B) where N=2 (y, x dimensions)
     coords_batch = np.stack([ys, xs], axis=0)
-    mask_builder.update_batch(features, coords_batch)
+    mask_builder.update_batch(tile_scores, coords_batch)
 
 (assembled_mask,) = mask_builder.finalize()
 plt.imshow(assembled_mask[0], cmap="gray", interpolation="nearest")
@@ -159,13 +160,14 @@ hooked_model = HookedModule(vgg16_model, layer_name="backbone.9")
 BuilderClass = MaskBuilderFactory.create(
     use_memmap=True,
     auto_scale=True,
-    clip=True,
 )
+downsample = 32  # adjust to your model's output stride
+mask_tile_extents = (tile_extents[0] // downsample, tile_extents[1] // downsample)
 mask_builder = BuilderClass(
     source_extents=(slide_extent_y, slide_extent_x),
     source_tile_extents=tile_extents,
     source_tile_strides=tile_strides,
-    mask_tile_extents=(64, 64),  # output resolution per tile
+    mask_tile_extents=mask_tile_extents,  # must match feature map spatial size
     channels=3,  # for RGB masks
     px_to_clip=(4, 4, 4, 4),  # (top, bottom, left, right)
 )
@@ -239,12 +241,49 @@ plt.show()
 
 ## Choosing a Mask Builder
 
-| Configuration | Scalar/Feature Map | Aggregation | Memory | Auto-scaling | Edge Clipping |
-|---------------|-------------------|-------------|---------|--------------|---------------|
-| `expand_scalars=True` | Scalar | Average | RAM | No | No |
-| `aggregation="max", expand_scalars=True` | Scalar | Max | RAM | No | No |
-| `use_memmap=True, auto_scale=True, clip=True` | Feature Map | Average | Disk (memmap) | Yes | Yes |
-| `auto_scale=True, expand_scalars=True` | Scalar | Average | RAM | Yes | No |
+The table below lists **all supported factory configurations** and explicitly notes the
+edge-clipping limitation for scalar builders (no edge clipping when `expand_scalars=True`).
+
+| # | Factory configuration | Output type | Aggregation | Memory | Auto-scaling | Edge Clipping | Notes |
+|---|------------------------|-------------|-------------|--------|--------------|---------------|-------|
+| 1 | `auto_scale=True, expand_scalars=True, aggregation="mean"` | Scalar | Mean | RAM | Yes | Unsupported | Edge clipping not available for scalar builders |
+| 2 | `auto_scale=True, expand_scalars=True, aggregation="max"` | Scalar | Max | RAM | Yes | Unsupported | Edge clipping not available for scalar builders |
+| 3 | `auto_scale=False, expand_scalars=True, aggregation="mean"` | Scalar | Mean | RAM | No | Unsupported | Edge clipping not available for scalar builders |
+| 4 | `auto_scale=False, expand_scalars=True, aggregation="max"` | Scalar | Max | RAM | No | Unsupported | Edge clipping not available for scalar builders |
+| 5 | `use_memmap=True, auto_scale=True, expand_scalars=False, aggregation="mean"` | Feature map | Mean | Disk (memmap) | Yes | Supported via `px_to_clip` | — |
+| 6 | `use_memmap=True, auto_scale=True, expand_scalars=False, aggregation="max"` | Feature map | Max | Disk (memmap) | Yes | Supported via `px_to_clip` | — |
+| 7 | `use_memmap=True, auto_scale=False, expand_scalars=False, aggregation="mean"` | Feature map | Mean | Disk (memmap) | No | Supported via `px_to_clip` | Explicit `mask_extents` required |
+| 8 | `use_memmap=True, auto_scale=False, expand_scalars=False, aggregation="max"` | Feature map | Max | Disk (memmap) | No | Supported via `px_to_clip` | Explicit `mask_extents` required |
+| 9 | `use_memmap=False, auto_scale=True, expand_scalars=False, aggregation="mean"` | Feature map | Mean | RAM | Yes | Supported via `px_to_clip` | — |
+| 10 | `use_memmap=False, auto_scale=True, expand_scalars=False, aggregation="max"` | Feature map | Max | RAM | Yes | Supported via `px_to_clip` | — |
+| 11 | `use_memmap=False, auto_scale=False, expand_scalars=False, aggregation="mean"` | Feature map | Mean | RAM | No | Supported via `px_to_clip` | Explicit `mask_extents` required |
+| 12 | `use_memmap=False, auto_scale=False, expand_scalars=False, aggregation="max"` | Feature map | Max | RAM | No | Supported via `px_to_clip` | Explicit `mask_extents` required |
+
+### How to select a configuration
+
+Ask these questions and map the answers to the factory flags:
+
+1. **Are your per-tile outputs scalars/vectors (e.g., class scores) rather than feature maps?**
+    - Yes → `expand_scalars=True`
+    - No → `expand_scalars=False`
+
+2. **Does the model for which you collect outputs, produce output tiles which have different extents than the input tiles and you want the MaskBuilder to handle this scaling automatically?**
+    - Yes → `auto_scale=True`
+    - No → `auto_scale=False` (you must provide `mask_extents` explicitly)
+
+3. **Do you want mean blending or max aggregation for overlaps?**
+    - Mean → `aggregation="mean"`
+    - Max → `aggregation="max"`
+
+4. **Will the output masks fit in RAM?**
+    - No → `use_memmap=True`
+    - Yes → `use_memmap=False`
+
+5. **Do you need edge clipping to remove boundary artifacts from the output tiles?**
+    - Supported only when `expand_scalars=False`. Use `px_to_clip` in the builder init.
+    - If `expand_scalars=True`, edge clipping is **unsupported** due to GCD compression.
+
+Once you’ve answered these, pass the corresponding flags to `MaskBuilderFactory.create(...)`.
 
 ## Coordinate System Notes
 
