@@ -696,9 +696,9 @@ class MaskBuilderFactory:
     builds the correct mixin hierarchy automatically.
     """
 
-    _AGGREGATION_OPTIONS: ClassVar[dict[str, type[MaskBuilderABC]]] = {
-        "mean": AveragingMaskBuilderMixin,
-        "max": MaxMaskBuilderMixin,
+    _AGGREGATION_OPTIONS: ClassVar[set[str]] = {
+        "mean",
+        "max",
     }
 
     @staticmethod
@@ -756,7 +756,7 @@ class MaskBuilderFactory:
         """
         if aggregation not in MaskBuilderFactory._AGGREGATION_OPTIONS:
             raise ValueError(
-                f"Unknown aggregation '{aggregation}'. Supported: {tuple(MaskBuilderFactory._AGGREGATION_OPTIONS.keys())}."
+                f"Unknown aggregation '{aggregation}'. Supported: {tuple(MaskBuilderFactory._AGGREGATION_OPTIONS)}."
             )
 
         # Case 1: auto_scale + expand_scalars + mean (numpy)
