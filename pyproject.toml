@@ -1,6 +1,6 @@
 [project]
 name = "ratiopath"
-version = "1.1.0"
+version = "1.1.1"
 description = "A library for efficient processing and analysis of whole-slide pathology images."
 authors = [
     { name = "Matěj Pekár", email = "matejpekar@mail.muni.cz" },
