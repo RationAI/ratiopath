@@ -18,15 +18,18 @@ dependencies = [
     "openslide-python>=1.4.1",
     "pandas>=2.2.3",
     "pillow>=11.1.0",
-    "pyvips>=2.2.3",
     "ray[data]>=2.50.0",
     "scikit-image>=0.25.2",
     "tifffile>=2024.5.22",
     "shapely>=2.0.0",
     "torch>=2.6.0",
     "zarr>=3.1.1",
-    "geopandas>=1.1.1",
+    "geopandas>=1.1.2",
     "rasterio>=1.4.3",
+    "jaxtyping>=0.3.5",
+    "openslide-bin>=4.0.0.11 ; sys_platform == 'win32'",
+    "pyvips>=3.1.1 ; sys_platform != 'win32'",
+    "pyvips[binary]>=3.1.1 ; sys_platform == 'win32'",
 ]
 
 [dependency-groups]
@@ -34,6 +37,7 @@ dev = [
     "mypy",
     "pandas-stubs>=2.3.3.251201",
     "pyarrow-stubs>=20.0.0.20251107",
+    "pytest>=9.0.2",
     "ruff",
 ]
 

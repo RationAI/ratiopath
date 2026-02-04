@@ -18,6 +18,8 @@ nav:
           - read_slide_tile: reference/tiling/read_slide_tile.md
           - tilers: reference/tiling/tilers.md
           - utils: reference/tiling/utils.md
+      - Masks:
+          - mask_builders: reference/masks/mask_builders.md
       - Parsers:
           - ASAPParser: reference/parsers/asap.md
           - GeoJSONParser: reference/parsers/geojson.md
