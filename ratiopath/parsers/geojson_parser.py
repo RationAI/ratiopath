@@ -14,6 +14,22 @@ class GeoJSONParser:
 
     GeoJSON is a format for encoding geographic data structures using JSON.
     This parser supports both polygon and point geometries.
+
+    Extended capabilities:
+    - Relational metadata integration: Maps properties from geometry-less definition
+      features to spatial annotation features via a shared join key (solve_relations).
+
+    Expected relational schema for solve_relations:
+    FeatureCollection
+    ├── Feature (Definition)
+    │   ├── geometry: null
+    │   └── properties
+    │       ├── presetID: "a376..."  <──────┐ (join_key)
+    │       └── meta: { "Category": "..." } │
+    └── Feature (Annotation)                │
+        ├── geometry: { "type": "Polygon" } │
+        └── properties                      │
+            └── presetID: "a376..."  <──────┘
     """
 
     def __init__(self, file_path: Path | str | TextIO) -> None:
