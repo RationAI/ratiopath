@@ -70,7 +70,7 @@ class GeoJSONParser:
             subkeys = key.split(separator)
             if not subkeys or subkeys[0] not in filtered_gdf.columns:
                 # If the first part of the key doesn't exist, return an empty frame with "geometry" column
-                return gpd.GeoDataFrame(self.gdf.iloc[0:0], geometry="geometry")
+                return self.gdf.iloc[0:0]
 
             series = filtered_gdf[subkeys[0]]
             if len(subkeys) > 1:
@@ -131,6 +131,10 @@ class GeoJSONParser:
     def solve_relations(self, join_key: str) -> None:
         """Merge properties from non-geometry features into geometry features based on a join key.
 
+        Side effects:
+        - Non-geometry features (definitions) are permanently removed from self.gdf.
+        - Annotations without a matching definition receive NaN values for the imported attributes.
+
         Args:
             join_key: The column name used to link non-geometry definitions to geometry features.
         """
@@ -138,19 +142,22 @@ class GeoJSONParser:
             return
 
         is_empty_geom = self.gdf.geometry.isna() | self.gdf.geometry.is_empty
-        definitions = (
-            self.gdf[is_empty_geom]
-            .drop(columns=["geometry"], errors="ignore")
-            .dropna(axis=1, how="all")
-        )
+        definitions = self.gdf[is_empty_geom].drop(columns=["geometry"]).dropna(axis=1, how="all")
         annotations = self.gdf[~is_empty_geom]
 
         if definitions.empty or annotations.empty:
             return
 
-        # Suffixes prevent naming conflicts; empty attributes in annotations become '_orig'
+        if definitions[join_key].isna().all():
+            return
+
+        definitions = definitions.dropna(axis=1, how="all")
+
         merged_df = annotations.merge(
-            definitions, on=join_key, how="left", suffixes=("_orig", "")
+            definitions,
+            on=join_key,
+            how="left",
+            suffixes=("_orig", "")
         )
 
         self.gdf = gpd.GeoDataFrame(merged_df, geometry="geometry")
