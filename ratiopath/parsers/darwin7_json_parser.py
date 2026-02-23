@@ -37,7 +37,7 @@ class Darwin7JSONParser:
         if isinstance(file_path, io.IOBase):
             data = json.load(file_path)
         else:
-            with open(file_path, encoding="utf-8") as f: # type: ignore[arg-type]
+            with open(file_path, encoding="utf-8") as f:  # type: ignore[arg-type]
                 data = json.load(f)
 
         records = []
