@@ -3,8 +3,8 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, TextIO
 
-import pandas as pd
 import geopandas as gpd
+import pandas as pd
 from geopandas import GeoDataFrame
 from shapely import Point, Polygon
 
@@ -42,11 +42,14 @@ class GeoJSONParser:
             annotations = self.gdf[~has_null_geometry]
 
             if not annotations.empty:
-                annotations = annotations.explode(index_parts=True) # Decompose MultiPolygons into individual Shapely geometries
+                annotations = annotations.explode(
+                    index_parts=True
+                )  # Decompose MultiPolygons into individual Shapely geometries
 
-            self.gdf = gpd.GeoDataFrame(pd.concat([annotations, definitions], ignore_index=True), geometry="geometry")
-
-
+            self.gdf = gpd.GeoDataFrame(
+                pd.concat([annotations, definitions], ignore_index=True),
+                geometry="geometry",
+            )
 
     def get_filtered_geodataframe(
         self, separator: str = "_", **kwargs: str
@@ -72,7 +75,9 @@ class GeoJSONParser:
             series = filtered_gdf[subkeys[0]]
             if len(subkeys) > 1:
                 mask = series.apply(is_json_dict)
-                series = series[mask].apply(lambda x: json.loads(x) if isinstance(x, str) else x)
+                series = series[mask].apply(
+                    lambda x: json.loads(x) if isinstance(x, str) else x
+                )
                 filtered_gdf = filtered_gdf[mask]
 
             # Protection against Pandas dropping all columns when applying masks to 0-row DataFrames
@@ -133,7 +138,11 @@ class GeoJSONParser:
             return
 
         is_empty_geom = self.gdf.geometry.isna() | self.gdf.geometry.is_empty
-        definitions = self.gdf[is_empty_geom].drop(columns=["geometry"], errors="ignore").dropna(axis=1, how="all")
+        definitions = (
+            self.gdf[is_empty_geom]
+            .drop(columns=["geometry"], errors="ignore")
+            .dropna(axis=1, how="all")
+        )
         annotations = self.gdf[~is_empty_geom]
 
         if definitions.empty or annotations.empty:
@@ -141,13 +150,11 @@ class GeoJSONParser:
 
         # Suffixes prevent naming conflicts; empty attributes in annotations become '_orig'
         merged_df = annotations.merge(
-            definitions,
-            on=join_key,
-            how="left",
-            suffixes=("_orig", "")
+            definitions, on=join_key, how="left", suffixes=("_orig", "")
         )
 
         self.gdf = gpd.GeoDataFrame(merged_df, geometry="geometry")
+
 
 def is_json_dict(obj: Any) -> bool:
     if isinstance(obj, dict):
