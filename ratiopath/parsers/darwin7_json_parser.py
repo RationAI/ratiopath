@@ -37,7 +37,7 @@ class Darwin7JSONParser:
         if isinstance(file_path, io.IOBase):
             data = json.load(file_path)
         else:
-            with open(file_path, encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f: # type: ignore[arg-type]
                 data = json.load(f)
 
         records = []
@@ -70,7 +70,11 @@ class Darwin7JSONParser:
             paths = ann["polygon"].get("paths", [])
             if paths:
                 exterior = [(pt["x"], pt["y"]) for pt in paths[0]]
-                holes = [[(pt["x"], pt["y"]) for pt in hole] for hole in paths[1:]]
+                holes = [
+                    [(pt["x"], pt["y"]) for pt in hole]
+                    for hole in paths[1:]
+                    if len(hole) >= 3
+                ]
                 if len(exterior) >= 3:
                     return Polygon(exterior, holes)
         elif "bounding_box" in ann:
@@ -118,7 +122,9 @@ class Darwin7JSONParser:
             series = filtered_gdf[subkeys[0]]
 
             if len(subkeys) > 1:
-                series = series.apply(lambda x, sk=subkeys[1:]: self.extract_nested(x, sk))
+                series = series.apply(
+                    lambda x, sk=subkeys[1:]: self.extract_nested(x, sk)
+                )
                 mask = series.notna()
                 filtered_gdf = filtered_gdf[mask]
                 series = series[mask]
@@ -133,11 +139,25 @@ class Darwin7JSONParser:
         return filtered_gdf
 
     def get_polygons(self, **kwargs: Any) -> Iterable[Polygon]:
-        """Get polygons from the GeoDataFrame."""
+        """Get polygons from the GeoDataFrame.
+
+        Args:
+            **kwargs: Keyword arguments containing regex patterns for filtering properties.
+
+        Yields:
+            Shapely Polygon objects.
+        """
         filtered_gdf = self.get_filtered_geodataframe(**kwargs)
         yield from filtered_gdf[filtered_gdf.geom_type == "Polygon"].geometry
 
     def get_points(self, **kwargs: Any) -> Iterable[Point]:
-        """Get points from the GeoDataFrame."""
+        """Get points from the GeoDataFrame.
+
+        Args:
+            **kwargs: Keyword arguments containing regex patterns for filtering properties.
+
+        Yields:
+            Shapely Point objects.
+        """
         filtered_gdf = self.get_filtered_geodataframe(**kwargs)
         yield from filtered_gdf[filtered_gdf.geom_type == "Point"].geometry
