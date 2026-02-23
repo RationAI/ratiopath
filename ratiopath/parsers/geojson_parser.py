@@ -37,12 +37,12 @@ class GeoJSONParser:
 
         if not self.gdf.empty:
             # Isolate definitions (no geometry) from physical annotations
-            mask = self.gdf.geometry.isna() | self.gdf.geometry.is_empty
-            definitions = self.gdf[mask]
-            annotations = self.gdf[~mask]
+            has_null_geometry = self.gdf.geometry.isna() | self.gdf.geometry.is_empty
+            definitions = self.gdf[has_null_geometry]
+            annotations = self.gdf[~has_null_geometry]
 
             if not annotations.empty:
-                annotations = annotations.explode(index_parts=True)
+                annotations = annotations.explode(index_parts=True) # Decompose MultiPolygons into individual Shapely geometries
 
             self.gdf = gpd.GeoDataFrame(pd.concat([annotations, definitions], ignore_index=True), geometry="geometry")
 
@@ -77,7 +77,7 @@ class GeoJSONParser:
 
             # Protection against Pandas dropping all columns when applying masks to 0-row DataFrames
             if filtered_gdf.empty:
-                return gpd.GeoDataFrame(filtered_gdf, geometry="geometry")
+                return filtered_gdf
 
             for subkey in subkeys[1:]:
                 mask = series.apply(
@@ -87,13 +87,13 @@ class GeoJSONParser:
                 filtered_gdf = filtered_gdf[mask]
 
                 if filtered_gdf.empty:
-                    return gpd.GeoDataFrame(filtered_gdf, geometry="geometry")
+                    return filtered_gdf
 
             series = series.astype(str)
             mask = series.str.match(pattern, na=False)
             filtered_gdf = filtered_gdf[mask]
 
-        return gpd.GeoDataFrame(filtered_gdf, geometry="geometry")
+        return filtered_gdf
 
     def get_polygons(self, **kwargs: str) -> Iterable[Polygon]:
         """Get polygons from the GeoDataFrame.
