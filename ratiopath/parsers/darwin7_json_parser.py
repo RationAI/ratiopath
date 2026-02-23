@@ -34,11 +34,13 @@ class Darwin7JSONParser:
     """
 
     def __init__(self, file_path: Path | str | TextIO) -> None:
-        if isinstance(file_path, io.IOBase):
+        if isinstance(file_path, io.TextIOBase):
             data = json.load(file_path)
-        else:
-            with open(file_path, encoding="utf-8") as f:  # type: ignore[arg-type]
+        elif isinstance(file_path, (str, Path)):
+            with open(file_path, encoding="utf-8") as f:
                 data = json.load(f)
+        else:
+            data = json.load(file_path)
 
         records = []
         for ann in data.get("annotations", []):
@@ -111,7 +113,22 @@ class Darwin7JSONParser:
     def get_filtered_geodataframe(
         self, separator: str = "_", **kwargs: str
     ) -> GeoDataFrame:
-        """Filter the GeoDataFrame based on property values."""
+        """Filter the GeoDataFrame based on property values.
+
+        Supports filtering by top-level columns or nested attributes within JSON-like
+        columns (e.g., 'properties'). Nested keys are accessed by joining column
+        names and keys with the separator.
+
+        Args:
+            separator: String used to separate nested keys in kwargs.
+            **kwargs: Keyword arguments where keys represent (possibly nested)
+                columns and values are regex patterns to match.
+
+        Returns:
+            A GeoDataFrame containing only the rows that match all filter criteria.
+            If a requested top-level column is missing, an empty GeoDataFrame
+            with the original schema is returned.
+        """
         filtered_gdf = self.gdf
 
         for key, pattern in kwargs.items():
