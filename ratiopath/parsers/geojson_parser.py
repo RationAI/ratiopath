@@ -142,7 +142,9 @@ class GeoJSONParser:
             return
 
         is_empty_geom = self.gdf.geometry.isna() | self.gdf.geometry.is_empty
-        definitions = self.gdf[is_empty_geom].drop(columns=["geometry"]).dropna(axis=1, how="all")
+        definitions = (
+            self.gdf[is_empty_geom].drop(columns=["geometry"]).dropna(axis=1, how="all")
+        )
         annotations = self.gdf[~is_empty_geom]
 
         if definitions.empty or annotations.empty:
@@ -154,10 +156,7 @@ class GeoJSONParser:
         definitions = definitions.dropna(axis=1, how="all")
 
         merged_df = annotations.merge(
-            definitions,
-            on=join_key,
-            how="left",
-            suffixes=("_orig", "")
+            definitions, on=join_key, how="left", suffixes=("_orig", "")
         )
 
         self.gdf = gpd.GeoDataFrame(merged_df, geometry="geometry")
