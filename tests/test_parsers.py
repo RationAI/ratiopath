@@ -150,9 +150,7 @@ class TestDarwin7JSONParser:
         """Sample Darwin JSON V2 content."""
         return {
             "version": "2.0",
-            "item": {
-                "name": "bst-001.tiff"
-            },
+            "item": {"name": "bst-001.tiff"},
             "annotations": [
                 {
                     "id": "1",
@@ -162,22 +160,19 @@ class TestDarwin7JSONParser:
                             [
                                 {"x": 40702.0455, "y": 126600.7015},
                                 {"x": 40651.8178, "y": 126669.5851},
-                                {"x": 40650.3827, "y": 126669.5851}
+                                {"x": 40650.3827, "y": 126669.5851},
                             ]
                         ]
                     },
-                    "properties": []
+                    "properties": [],
                 },
                 {
                     "id": "2",
                     "name": "POINT-ANNOTATION",
-                    "point": {
-                        "x": 300.0,
-                        "y": 400.0
-                    },
-                    "properties": []
-                }
-            ]
+                    "point": {"x": 300.0, "y": 400.0},
+                    "properties": [],
+                },
+            ],
         }
 
     def test_get_polygons(self, darwin_json_content):
