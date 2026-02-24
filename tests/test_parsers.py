@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from ratiopath.parsers import ASAPParser, GeoJSONParser, Darwin7JSONParser
+from ratiopath.parsers import ASAPParser, Darwin7JSONParser, GeoJSONParser
 
 
 class TestASAPParser:
