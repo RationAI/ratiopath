@@ -140,3 +140,71 @@ class TestGeoJSONParser:
 
         polygons = list(parser.get_polygons(name="nonexistent"))
         assert len(polygons) == 0
+
+    @pytest.fixture
+    def geojson_with_relations_content(self):
+        """Sample GeoJSON content with relations (definitions and annotations)."""
+        return {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.0, 0.0]]
+                        ],
+                    },
+                    "properties": {"presetID": "a1", "shared_attr": "A"},
+                },
+                {
+                    "type": "Feature",
+                    "geometry": None,  # Definition without geometry
+                    "properties": {
+                        "presetID": "a1",
+                        "category": "Tumor",
+                        "shared_attr": "B",
+                    },
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [[2.0, 2.0], [3.0, 2.0], [3.0, 3.0], [2.0, 3.0], [2.0, 2.0]]
+                        ],
+                    },
+                    "properties": {"presetID": "b2"},
+                },
+            ],
+        }
+
+    def test_solve_relations_successful_merge(self, geojson_with_relations_content):
+        """Test resolving relations between annotations and definitions."""
+        f = io.StringIO(json.dumps(geojson_with_relations_content))
+        parser = GeoJSONParser(f)
+
+        parser.solve_relations(join_key="presetID")
+
+        # Definitions must be removed, only two annotations should remain
+        assert len(parser.gdf) == 2
+        assert parser.gdf.geometry.notna().all()
+
+        # Validation of merged data under key "a1"
+        tumor_row = parser.gdf[parser.gdf["presetID"] == "a1"].iloc[0]
+        assert tumor_row["category"] == "Tumor"
+
+        # Validation of collisions within columns
+        assert tumor_row["shared_attr_orig"] == "A"
+        assert tumor_row["shared_attr_def"] == "B"
+
+    def test_solve_relations_missing_join_key(self, geojson_with_relations_content):
+        """Test solve_relations behavior when the join key is missing."""
+        f = io.StringIO(json.dumps(geojson_with_relations_content))
+        parser = GeoJSONParser(f)
+
+        parser.solve_relations(join_key="invalid_key")
+
+        assert len(parser.gdf) == 2
+        assert parser.gdf.geometry.notna().all()
+        assert "category_def" not in parser.gdf.columns
