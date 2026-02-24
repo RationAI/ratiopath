@@ -1,7 +1,6 @@
-import json
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, TextIO
+from typing import TextIO
 
 import geopandas as gpd
 import pandas as pd
@@ -69,30 +68,16 @@ class GeoJSONParser:
         for key, pattern in kwargs.items():
             subkeys = key.split(separator)
             if not subkeys or subkeys[0] not in filtered_gdf.columns:
-                # If the first part of the key doesn't exist, return an empty frame with "geometry" column
+                # If the first part of the key doesn't exist, return an empty frame
                 return self.gdf.iloc[0:0]
 
             series = filtered_gdf[subkeys[0]]
-            if len(subkeys) > 1:
-                mask = series.apply(is_json_dict)
-                series = series[mask].apply(
-                    lambda x: json.loads(x) if isinstance(x, str) else x
-                )
-                filtered_gdf = filtered_gdf[mask]
-
-            # Protection against Pandas dropping all columns when applying masks to 0-row DataFrames
-            if filtered_gdf.empty:
-                return filtered_gdf
-
             for subkey in subkeys[1:]:
                 mask = series.apply(
-                    lambda x, subkey=subkey: isinstance(x, dict) and subkey in x
+                    lambda x, sk=subkey: isinstance(x, dict) and sk in x
                 )
-                series = series[mask].apply(lambda x, subkey=subkey: x[subkey])
+                series = series[mask].apply(lambda x, sk=subkey: x[sk])
                 filtered_gdf = filtered_gdf[mask]
-
-                if filtered_gdf.empty:
-                    return filtered_gdf
 
             series = series.astype(str)
             mask = series.str.match(pattern, na=False)
@@ -138,36 +123,35 @@ class GeoJSONParser:
         Args:
             join_key: The column name used to link non-geometry definitions to geometry features.
         """
+        is_empty_geom = self.gdf.geometry.isna() | self.gdf.geometry.is_empty
+        annotations = self.gdf[~is_empty_geom].copy()
+
         if join_key not in self.gdf.columns:
+            self.gdf = annotations
             return
 
-        is_empty_geom = self.gdf.geometry.isna() | self.gdf.geometry.is_empty
-        definitions = (
-            self.gdf[is_empty_geom].drop(columns=["geometry"]).dropna(axis=1, how="all")
-        )
-        annotations = self.gdf[~is_empty_geom]
+        definitions = self.gdf[is_empty_geom].copy()
 
         if definitions.empty or annotations.empty:
+            self.gdf = annotations
             return
 
-        if definitions[join_key].isna().all():
+        if definitions[join_key].isna().all() or annotations[join_key].isna().all():
+            self.gdf = annotations
             return
 
-        definitions = definitions.dropna(axis=1, how="all")
+        if definitions[join_key].duplicated().any():
+            raise ValueError(f"Duplicate definition for key '{join_key}' found.")
 
-        merged_df = annotations.merge(
-            definitions, on=join_key, how="left", suffixes=("_orig", "")
+        definitions = definitions.drop(columns=["geometry"], errors="ignore").dropna(
+            axis=1, how="all"
         )
+        annotations = annotations.dropna(axis=1, how="all")
 
-        self.gdf = gpd.GeoDataFrame(merged_df, geometry="geometry")
-
-
-def is_json_dict(obj: Any) -> bool:
-    if isinstance(obj, dict):
-        return True
-    if isinstance(obj, str):
-        try:
-            return isinstance(json.loads(obj), dict)
-        except json.JSONDecodeError:
-            return False
-    return False
+        self.gdf = gpd.GeoDataFrame(
+            annotations.merge(
+                definitions, on=join_key, how="left", suffixes=("_orig", "_def")
+            ),
+            geometry="geometry",
+            crs=self.gdf.crs,
+        )
