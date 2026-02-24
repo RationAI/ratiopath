@@ -34,9 +34,7 @@ class Darwin7JSONParser:
     """
 
     def __init__(self, file_path: Path | str | TextIO) -> None:
-        if isinstance(file_path, io.TextIOBase):
-            data = json.load(file_path)
-        elif isinstance(file_path, (str, Path)):
+        if isinstance(file_path, (str, Path)):
             with open(file_path, encoding="utf-8") as f:
                 data = json.load(f)
         else:
@@ -155,7 +153,7 @@ class Darwin7JSONParser:
 
         return filtered_gdf
 
-    def get_polygons(self, **kwargs: Any) -> Iterable[Polygon]:
+    def get_polygons(self, **kwargs: str) -> Iterable[Polygon]:
         """Get polygons from the GeoDataFrame.
 
         Args:
@@ -167,7 +165,7 @@ class Darwin7JSONParser:
         filtered_gdf = self.get_filtered_geodataframe(**kwargs)
         yield from filtered_gdf[filtered_gdf.geom_type == "Polygon"].geometry
 
-    def get_points(self, **kwargs: Any) -> Iterable[Point]:
+    def get_points(self, **kwargs: str) -> Iterable[Point]:
         """Get points from the GeoDataFrame.
 
         Args:
