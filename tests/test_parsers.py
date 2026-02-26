@@ -2,6 +2,7 @@
 
 import io
 import json
+import pandas as pd
 
 import pytest
 
@@ -190,13 +191,15 @@ class TestGeoJSONParser:
         assert len(parser.gdf) == 2
         assert parser.gdf.geometry.notna().all()
 
-        # Validation of merged data under key "a1"
-        target_row = parser.gdf[parser.gdf["presetID"] == "a1"].iloc[0]
-        assert target_row["meta"]["category"]["value"] == "Healthy Tissue"
+        target_row_a1 = parser.gdf[parser.gdf["presetID"] == "a1"].iloc[0]
+        assert target_row_a1["meta"]["category"]["value"] == "Healthy Tissue"
+        assert target_row_a1["shared_attr_orig"] == "A"
+        assert target_row_a1["shared_attr_def"] == "B"
 
-        # Validation of collisions within columns
-        assert target_row["shared_attr_orig"] == "A"
-        assert target_row["shared_attr_def"] == "B"
+        target_row_b2 = parser.gdf[parser.gdf["presetID"] == "b2"].iloc[0]
+        assert pd.isna(target_row_b2.get("meta"))
+        assert pd.isna(target_row_b2.get("shared_attr_orig"))
+        assert pd.isna(target_row_b2.get("shared_attr_def"))
 
     def test_solve_relations_missing_join_key(self, geojson_with_relations_content):
         """Test solve_relations behavior when the join key is missing."""
