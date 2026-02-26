@@ -215,4 +215,6 @@ class TestGeoJSONParser:
 
         assert len(parser.gdf) == 2
         assert parser.gdf.geometry.notna().all()
-        assert "category_def" not in parser.gdf.columns
+
+        assert not any(col.endswith("_orig") for col in parser.gdf.columns)
+        assert not any(col.endswith("_def") for col in parser.gdf.columns)
