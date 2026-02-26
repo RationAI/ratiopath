@@ -162,7 +162,7 @@ class TestGeoJSONParser:
                     "geometry": None,  # Definition without geometry
                     "properties": {
                         "presetID": "a1",
-                        "category": "Tumor",
+                        "meta": {"category": {"name": "Category", "value": "Healthy Tissue"}},
                         "shared_attr": "B",
                     },
                 },
@@ -191,12 +191,12 @@ class TestGeoJSONParser:
         assert parser.gdf.geometry.notna().all()
 
         # Validation of merged data under key "a1"
-        tumor_row = parser.gdf[parser.gdf["presetID"] == "a1"].iloc[0]
-        assert tumor_row["category"] == "Tumor"
+        target_row = parser.gdf[parser.gdf["presetID"] == "a1"].iloc[0]
+        assert target_row["meta"]["category"]["value"] == "Healthy Tissue"
 
         # Validation of collisions within columns
-        assert tumor_row["shared_attr_orig"] == "A"
-        assert tumor_row["shared_attr_def"] == "B"
+        assert target_row["shared_attr_orig"] == "A"
+        assert target_row["shared_attr_def"] == "B"
 
     def test_solve_relations_missing_join_key(self, geojson_with_relations_content):
         """Test solve_relations behavior when the join key is missing."""

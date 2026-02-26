@@ -25,7 +25,7 @@ class GeoJSONParser:
     │   ├── geometry: null
     │   └── properties
     │       ├── presetID: "a376..."  <──────┐ (join_key)
-    │       └── meta: { "Category": "..." } │
+    │       └── meta: { "category": { "name": "Category", "value": "Healthy Tissue" } }
     └── Feature (Annotation)                │
         ├── geometry: { "type": "Polygon" } │
         └── properties                      │
