@@ -34,7 +34,6 @@ class GeoJSONParser:
 
     def __init__(self, file_path: Path | str | TextIO) -> None:
         self.gdf = gpd.read_file(file_path)
-        original_crs = self.gdf.crs
 
         if not self.gdf.empty:
             # Isolate definitions (no geometry) from physical annotations
@@ -50,7 +49,7 @@ class GeoJSONParser:
             self.gdf = gpd.GeoDataFrame(
                 pd.concat([annotations, definitions], ignore_index=True),
                 geometry="geometry",
-                crs=original_crs,
+                crs=self.gdf.crs,
             )
 
     def get_filtered_geodataframe(
