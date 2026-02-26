@@ -189,12 +189,15 @@ class TestGeoJSONParser:
 
         parser.solve_relations(join_key="presetID")
 
-        # Definitions must be removed, only two annotations should remain
         assert len(parser.gdf) == 2
         assert parser.gdf.geometry.notna().all()
 
         target_row_a1 = parser.gdf[parser.gdf["presetID"] == "a1"].iloc[0]
-        assert target_row_a1["meta"]["category"]["value"] == "Healthy Tissue"
+
+        raw_meta = target_row_a1["meta"]
+        meta_dict = json.loads(raw_meta) if isinstance(raw_meta, str) else raw_meta
+
+        assert meta_dict["category"]["value"] == "Healthy Tissue"
         assert target_row_a1["shared_attr_orig"] == "A"
         assert target_row_a1["shared_attr_def"] == "B"
 
