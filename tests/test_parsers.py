@@ -2,8 +2,8 @@
 
 import io
 import json
-import pandas as pd
 
+import pandas as pd
 import pytest
 
 from ratiopath.parsers import ASAPParser, GeoJSONParser
@@ -163,7 +163,9 @@ class TestGeoJSONParser:
                     "geometry": None,  # Definition without geometry
                     "properties": {
                         "presetID": "a1",
-                        "meta": {"category": {"name": "Category", "value": "Healthy Tissue"}},
+                        "meta": {
+                            "category": {"name": "Category", "value": "Healthy Tissue"}
+                        },
                         "shared_attr": "B",
                     },
                 },
