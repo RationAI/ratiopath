@@ -12,7 +12,7 @@ def test_train_test_split_with_groups_and_stratify():
     groups = np.array([1, 1, 2, 2, 3, 3])
 
     # include groups as one of the arrays so we can inspect split groups
-    x_train, x_test, y_train, y_test, g_train, g_test = train_test_split(
+    _, _, _, y_test, g_train, g_test = train_test_split(
         x, y, groups, test_size=0.33, random_state=0, stratify=y, groups=groups
     )
 
@@ -30,7 +30,7 @@ def test_train_test_split_with_groups_no_stratify():
     y = np.array([0, 1, 0, 1, 0])
     groups = np.array([1, 1, 2, 2, 3])
 
-    x_train, x_test, y_train, y_test, g_train, g_test = train_test_split(
+    _, _, _, _, g_train, g_test = train_test_split(
         x, y, groups, test_size=0.4, random_state=1, groups=groups
     )
 
