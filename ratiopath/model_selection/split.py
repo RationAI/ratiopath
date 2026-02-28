@@ -259,9 +259,9 @@ def train_test_split(
     )
 
     if shuffle is False:
-        if stratify is not None:
+        if stratify is not None or groups is not None:
             raise ValueError(
-                "Stratified train/test split is not implemented for shuffle=False"
+                "Stratified or grouped train/test split is not implemented for shuffle=False"
             )
 
         train = np.arange(n_train)
