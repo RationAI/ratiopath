@@ -126,9 +126,9 @@ class StratifiedGroupShuffleSplit(GroupsConsumerMixin, BaseShuffleSplit):
         n_splits = round(n_samples / n_test)
         rng = check_random_state(self.random_state)
         y = np.asarray(y)
+        data_distribution = self._get_distribution(y)
 
         for _ in range(self.n_splits):
-            data_distribution = self._get_distribution(y)
             min_diff: Float | None = None
             train_index: np.ndarray | None = None
             test_index: np.ndarray | None = None
