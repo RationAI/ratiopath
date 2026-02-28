@@ -69,8 +69,6 @@ class StratifiedGroupShuffleSplit(GroupsConsumerMixin, BaseShuffleSplit):
         The implementation finds the best stratification split by trying multiple splits
         and selecting the one that minimizes the difference between the class
         distributions in the original data and the test split.
-
-        Groups appear exactly once in the test set across all splits.
     """
 
     def __init__(
@@ -97,7 +95,7 @@ class StratifiedGroupShuffleSplit(GroupsConsumerMixin, BaseShuffleSplit):
     def split(
         self,
         X: list[str] | MatrixLike,  # noqa: N803
-        y: ArrayLike,
+        y: ArrayLike | None = None,
         groups: Any = None,
     ) -> Iterator[Any]:
         """Generate indices to split data into training and test set.
@@ -129,12 +127,11 @@ class StratifiedGroupShuffleSplit(GroupsConsumerMixin, BaseShuffleSplit):
         rng = check_random_state(self.random_state)
         y = np.asarray(y)
 
-        data_distribution = self._get_distribution(y)
-        min_diff: Float | None = None
-        train_index: np.ndarray | None = None
-        test_index: np.ndarray | None = None
-
         for _ in range(self.n_splits):
+            data_distribution = self._get_distribution(y)
+            min_diff: Float | None = None
+            train_index: np.ndarray | None = None
+            test_index: np.ndarray | None = None
             cv = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=rng)
 
             for curr_train_index, curr_test_index in cv.split(X=X, y=y, groups=groups):
@@ -283,6 +280,7 @@ def train_test_split(
         # It is safer to pass fractions, because some splitters calculate n_samplers
         # as number of groups, not samples
         cv = cvclass(
+            n_splits=1,
             test_size=n_test / n_samples,
             train_size=n_train / n_samples,
             random_state=random_state,
