@@ -36,8 +36,6 @@ dev = [
     "pyarrow-stubs>=20.0.0.20251107",
     "ruff",
 ]
-
-[project.optional-dependencies]
 docs = ["mkdocs-material>=9.6.18", "mkdocstrings[python]>=0.30.0"]
 tests = ["openslide-bin>=4.0.0.8", "pytest>=8.4.1"]
 
