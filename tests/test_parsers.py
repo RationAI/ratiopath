@@ -185,9 +185,8 @@ class TestGeoJSONParser:
     def test_solve_relations_successful_merge(self, geojson_with_relations_content):
         """Test resolving relations between annotations and definitions."""
         f = io.StringIO(json.dumps(geojson_with_relations_content))
-        parser = GeoJSONParser(f)
 
-        parser.solve_relations(join_key="presetID")
+        parser = GeoJSONParser(f, join_key="presetID")
 
         assert len(parser.gdf) == 2
         assert parser.gdf.geometry.notna().all()
@@ -198,23 +197,21 @@ class TestGeoJSONParser:
         meta_dict = json.loads(raw_meta) if isinstance(raw_meta, str) else raw_meta
 
         assert meta_dict["category"]["value"] == "Healthy Tissue"
-        assert target_row_a1["shared_attr_orig"] == "A"
+
+        assert target_row_a1["shared_attr"] == "A"
         assert target_row_a1["shared_attr_def"] == "B"
 
         target_row_b2 = parser.gdf[parser.gdf["presetID"] == "b2"].iloc[0]
         assert pd.isna(target_row_b2.get("meta"))
-        assert pd.isna(target_row_b2.get("shared_attr_orig"))
         assert pd.isna(target_row_b2.get("shared_attr_def"))
 
     def test_solve_relations_missing_join_key(self, geojson_with_relations_content):
         """Test solve_relations behavior when the join key is missing."""
         f = io.StringIO(json.dumps(geojson_with_relations_content))
-        parser = GeoJSONParser(f)
 
-        parser.solve_relations(join_key="invalid_key")
+        parser = GeoJSONParser(f, join_key="invalid_key")
 
         assert len(parser.gdf) == 2
         assert parser.gdf.geometry.notna().all()
 
-        assert not any(col.endswith("_orig") for col in parser.gdf.columns)
         assert not any(col.endswith("_def") for col in parser.gdf.columns)
