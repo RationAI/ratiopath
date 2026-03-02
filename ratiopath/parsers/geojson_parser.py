@@ -1,6 +1,7 @@
+import json
 from collections.abc import Iterable
 from pathlib import Path
-from typing import TextIO
+from typing import Any, TextIO
 
 import geopandas as gpd
 from geopandas import GeoDataFrame
@@ -95,6 +96,7 @@ class GeoJSONParser:
 
             series = filtered_gdf[subkeys[0]]
             for subkey in subkeys[1:]:
+                series = series.apply(safe_to_dict)
                 mask = series.apply(
                     lambda x, sk=subkey: isinstance(x, dict) and sk in x
                 )
@@ -134,3 +136,13 @@ class GeoJSONParser:
         for geom in filtered_gdf.geometry:
             if isinstance(geom, Point):
                 yield geom
+
+
+def safe_to_dict(x: str | Any) -> Any:
+    """Safely converts potential JSON strings to dict, preserving existing dicts and NaNs."""
+    if isinstance(x, str):
+        try:
+            return json.loads(x)
+        except (json.JSONDecodeError, TypeError):
+            return x
+    return x
