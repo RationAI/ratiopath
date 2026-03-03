@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from ratiopath.parsers import ASAPParser, GeoJSONParser
+from ratiopath.parsers import ASAPParser, Darwin7JSONParser, GeoJSONParser
 
 
 class TestASAPParser:
@@ -139,4 +139,67 @@ class TestGeoJSONParser:
         assert len(polygons) == 0
 
         polygons = list(parser.get_polygons(name="nonexistent"))
+        assert len(polygons) == 0
+
+
+class TestDarwin7JSONParser:
+    """Test the Darwin JSON parser."""
+
+    @pytest.fixture
+    def darwin_json_content(self):
+        """Sample Darwin JSON V2 content."""
+        return {
+            "version": "2.0",
+            "item": {"name": "bst-001.tiff"},
+            "annotations": [
+                {
+                    "id": "1",
+                    "name": "EPITHELIUM",
+                    "polygon": {
+                        "paths": [
+                            [
+                                {"x": 40702.0455, "y": 126600.7015},
+                                {"x": 40651.8178, "y": 126669.5851},
+                                {"x": 40650.3827, "y": 126669.5851},
+                            ]
+                        ]
+                    },
+                    "properties": [],
+                },
+                {
+                    "id": "2",
+                    "name": "POINT-ANNOTATION",
+                    "point": {"x": 300.0, "y": 400.0},
+                    "properties": [],
+                },
+            ],
+        }
+
+    def test_get_polygons(self, darwin_json_content):
+        f = io.StringIO(json.dumps(darwin_json_content))
+        parser = Darwin7JSONParser(f)
+        polygons = list(parser.get_polygons())
+
+        assert len(polygons) == 1
+        assert hasattr(polygons[0], "exterior")
+        assert polygons[0].exterior.coords[0] == (40702.0455, 126600.7015)
+
+    def test_get_points(self, darwin_json_content):
+        f = io.StringIO(json.dumps(darwin_json_content))
+        parser = Darwin7JSONParser(f)
+        points = list(parser.get_points())
+
+        assert len(points) == 1
+        assert hasattr(points[0], "x") and hasattr(points[0], "y")
+        assert points[0].x == 300.0
+        assert points[0].y == 400.0
+
+    def test_get_polygons_with_filters(self, darwin_json_content):
+        f = io.StringIO(json.dumps(darwin_json_content))
+        parser = Darwin7JSONParser(f)
+
+        polygons = list(parser.get_polygons(name="EPITHELIUM"))
+        assert len(polygons) == 1
+
+        polygons = list(parser.get_polygons(name="Nonexistent"))
         assert len(polygons) == 0
