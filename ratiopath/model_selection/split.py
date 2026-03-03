@@ -41,17 +41,18 @@ class StratifiedGroupShuffleSplit(GroupsConsumerMixin, BaseShuffleSplit):
     Read more in the :ref:`User Guide <cross_validation>`.
 
     Parameters:
-    n_splits: Number of re-shuffling & splitting iterations.
-    test_size: If float, should be between 0.0 and 1.0 and represent the proportion of
-        the dataset to include in the test split. If int, represents the absolute number
-        of test samples. If None, the value is set to the complement of the train size.
-    train_size: If float, should be between 0.0 and 1.0 and represent the proportion of
-        the dataset to include in the train split. If int, represents the absolute
-        number of train samples. If None, the value is automatically set to the
-        complement of the test size.
-    random_state: Controls the randomness of the training and testing indices. Pass an
-        int for reproducible output across multiple function calls.
-        See :term:`Glossary <random_state>`.
+        n_splits: Number of re-shuffling & splitting iterations.
+        test_size: If float, should be between 0.0 and 1.0 and represent the proportion
+            of the dataset to include in the test split. If int, represents the absolute
+            number of test samples. If None, the value is set to the complement of the
+            train size.
+        train_size: If float, should be between 0.0 and 1.0 and represent the proportion
+            of the dataset to include in the train split. If int, represents the
+            absolute number of train samples. If None, the value is automatically set to
+            the complement of the test size.
+        random_state: Controls the randomness of the training and testing indices. Pass
+            an int for reproducible output across multiple function calls.
+            See :term:`Glossary <random_state>`.
 
     Examples:
         >>> import numpy as np
