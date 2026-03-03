@@ -1500,22 +1500,16 @@ dependencies = [
     { name = "zarr" },
 ]
 
-[package.optional-dependencies]
-docs = [
-    { name = "mkdocs-material" },
-    { name = "mkdocstrings", extra = ["python"] },
-]
-tests = [
-    { name = "openslide-bin" },
-    { name = "pytest" },
-]
-
 [package.dev-dependencies]
 dev = [
     { name = "mypy" },
     { name = "pandas-stubs" },
     { name = "pyarrow-stubs" },
     { name = "ruff" },
+]
+docs = [
+    { name = "mkdocs-material" },
+    { name = "mkdocstrings", extra = ["python"] },
 ]
 tests = [
     { name = "openslide-bin" },
@@ -1527,14 +1521,10 @@ requires-dist = [
     { name = "albumentations", specifier = ">=2.0.8" },
     { name = "geopandas", specifier = ">=1.1.1" },
     { name = "imagecodecs", specifier = ">=2025.8.2" },
-    { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.6.18" },
-    { name = "mkdocstrings", extras = ["python"], marker = "extra == 'docs'", specifier = ">=0.30.0" },
     { name = "numpy", specifier = ">=2.2.2" },
-    { name = "openslide-bin", marker = "extra == 'tests'", specifier = ">=4.0.0.8" },
     { name = "openslide-python", specifier = ">=1.4.1" },
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "pillow", specifier = ">=11.1.0" },
-    { name = "pytest", marker = "extra == 'tests'", specifier = ">=8.4.1" },
     { name = "pyvips", specifier = ">=2.2.3" },
     { name = "rasterio", specifier = ">=1.4.3" },
     { name = "ray", extras = ["data"], specifier = ">=2.50.0" },
@@ -1545,7 +1535,6 @@ requires-dist = [
     { name = "torch", specifier = ">=2.6.0" },
     { name = "zarr", specifier = ">=3.1.1" },
 ]
-provides-extras = ["docs", "tests"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1553,6 +1542,10 @@ dev = [
     { name = "pandas-stubs", specifier = ">=2.3.3.251201" },
     { name = "pyarrow-stubs", specifier = ">=20.0.0.20251107" },
     { name = "ruff" },
+]
+docs = [
+    { name = "mkdocs-material", specifier = ">=9.6.18" },
+    { name = "mkdocstrings", extras = ["python"], specifier = ">=0.30.0" },
 ]
 tests = [
     { name = "openslide-bin", specifier = ">=4.0.0.8" },
