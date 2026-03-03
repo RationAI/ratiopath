@@ -216,6 +216,7 @@ class TestGeoJSONParser:
 
         assert not any(col.endswith("_def") for col in parser.gdf.columns)
 
+
 class TestDarwin7JSONParser:
     """Test the Darwin JSON parser."""
 
