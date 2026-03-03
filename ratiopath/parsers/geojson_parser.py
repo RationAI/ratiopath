@@ -34,19 +34,17 @@ class GeoJSONParser:
     def __init__(
         self, file_path: Path | str | TextIO, join_key: str | None = "presetID"
     ) -> None:
-        gdf = gpd.read_file(file_path)
+        self.gdf = gpd.read_file(file_path)
 
-        if not gdf.empty:
-            has_geometry = ~(gdf.geometry.is_empty | gdf.geometry.isna())
-            annotations = gdf[has_geometry].explode(index_parts=True)
-            definitions = gdf[~has_geometry]
+        if not self.gdf.empty:
+            has_geometry = ~(self.gdf.geometry.is_empty | self.gdf.geometry.isna())
+            annotations = self.gdf[has_geometry].explode(index_parts=True)
+            definitions = self.gdf[~has_geometry]
 
-            if join_key and join_key in gdf.columns and not definitions.empty:
+            if join_key in self.gdf.columns and not definitions.empty:
                 self.gdf = self._solve_relations(annotations, definitions, join_key)
             else:
                 self.gdf = annotations
-        else:
-            self.gdf = gdf
 
     @staticmethod
     def _solve_relations(
