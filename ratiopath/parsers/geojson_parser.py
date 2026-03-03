@@ -41,7 +41,7 @@ class GeoJSONParser:
             annotations = self.gdf[has_geometry].explode(index_parts=True)
             definitions = self.gdf[~has_geometry]
 
-            if join_key in self.gdf.columns and not definitions.empty:
+            if join_key is not None in self.gdf.columns and not definitions.empty:
                 self.gdf = self._solve_relations(annotations, definitions, join_key)
             else:
                 self.gdf = annotations
