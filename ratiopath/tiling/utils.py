@@ -53,29 +53,9 @@ def _read_openslide_tiles(
     Returns:
         A NumPy array of RGB tiles read from the slide.
     """
-    from PIL import Image
-
-    def get_tile(
-        x: pa.Scalar,
-        y: pa.Scalar,
-        extent_x: pa.Scalar,
-        extent_y: pa.Scalar,
-        level: pa.Scalar,
-    ) -> np.ndarray:
-        rgba_region = slide.read_region_relative(
-            (x.as_py(), y.as_py()),
-            level.as_py(),
-            (extent_x.as_py(), extent_y.as_py()),
-        )
-        rgb_region = Image.alpha_composite(
-            Image.new("RGBA", rgba_region.size, (background, background, background)),
-            rgba_region,
-        ).convert("RGB")
-        return np.asarray(rgb_region)
-
     return np.array(
         [
-            get_tile(*args)
+            slide.read_tile(*args, background=background)
             for args in zip(
                 tile_x,
                 tile_y,
