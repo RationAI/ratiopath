@@ -3,6 +3,7 @@
 import io
 import json
 
+import pandas as pd
 import pytest
 
 from ratiopath.parsers import ASAPParser, Darwin7JSONParser, GeoJSONParser
@@ -140,6 +141,80 @@ class TestGeoJSONParser:
 
         polygons = list(parser.get_polygons(name="nonexistent"))
         assert len(polygons) == 0
+
+    @pytest.fixture
+    def geojson_with_relations_content(self):
+        """Sample GeoJSON content with relations (definitions and annotations)."""
+        return {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.0, 0.0]]
+                        ],
+                    },
+                    "properties": {"presetID": "a1", "shared_attr": "A"},
+                },
+                {
+                    "type": "Feature",
+                    "geometry": None,  # Definition without geometry
+                    "properties": {
+                        "presetID": "a1",
+                        "meta": {
+                            "category": {"name": "Category", "value": "Healthy Tissue"}
+                        },
+                        "shared_attr": "B",
+                    },
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [[2.0, 2.0], [3.0, 2.0], [3.0, 3.0], [2.0, 3.0], [2.0, 2.0]]
+                        ],
+                    },
+                    "properties": {"presetID": "b2"},
+                },
+            ],
+        }
+
+    def test_solve_relations_successful_merge(self, geojson_with_relations_content):
+        """Test resolving relations between annotations and definitions."""
+        f = io.StringIO(json.dumps(geojson_with_relations_content))
+
+        parser = GeoJSONParser(f, join_key="presetID")
+
+        assert len(parser.gdf) == 2
+        assert parser.gdf.geometry.notna().all()
+
+        target_row_a1 = parser.gdf[parser.gdf["presetID"] == "a1"].iloc[0]
+
+        raw_meta = target_row_a1["meta"]
+        meta_dict = json.loads(raw_meta) if isinstance(raw_meta, str) else raw_meta
+
+        assert meta_dict["category"]["value"] == "Healthy Tissue"
+
+        assert target_row_a1["shared_attr"] == "A"
+        assert target_row_a1["shared_attr_def"] == "B"
+
+        target_row_b2 = parser.gdf[parser.gdf["presetID"] == "b2"].iloc[0]
+        assert pd.isna(target_row_b2.get("meta"))
+        assert pd.isna(target_row_b2.get("shared_attr_def"))
+
+    def test_solve_relations_missing_join_key(self, geojson_with_relations_content):
+        """Test solve_relations behavior when the join key is missing."""
+        f = io.StringIO(json.dumps(geojson_with_relations_content))
+
+        parser = GeoJSONParser(f, join_key="invalid_key")
+
+        assert len(parser.gdf) == 2
+        assert parser.gdf.geometry.notna().all()
+
+        assert not any(col.endswith("_def") for col in parser.gdf.columns)
 
 
 class TestDarwin7JSONParser:
