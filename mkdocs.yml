@@ -10,8 +10,8 @@ nav:
               - learn/get-started/quick-start/tiling.md
               - learn/get-started/quick-start/annotations.md
               - learn/get-started/quick-start/overlays.md
+              - learn/get-started/quick-start/tiled-dataset.md
           - learn/get-started/installation.md
-          - learn/tiled-dataset.md
   - Reference:
       - Tiling:
           - annotations: reference/tiling/annotations.md
