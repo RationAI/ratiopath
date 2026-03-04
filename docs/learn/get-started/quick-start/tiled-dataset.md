@@ -1,6 +1,6 @@
 # Loading a Tiled Dataset
 
-In the [tiling tutorial](./quick-start/tiling.md), we discussed how to create a tiled dataset from massive files and save the resulting metadata to disk. Now, let's explore how to efficiently load this tiled dataset for training or inference.
+In the [tiling tutorial](./tiling.md), we discussed how to create a tiled dataset from massive files and save the resulting metadata to disk. Now, let's explore how to efficiently load this tiled dataset for training or inference.
 
 Before writing the data loaders, we must consider the structure and approximate size of our dataset. A tiled dataset typically consists of two highly interrelated components:
 
