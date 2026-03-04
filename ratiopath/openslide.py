@@ -2,7 +2,7 @@ import numpy as np
 import openslide
 import pyarrow as pa
 from openslide import PROPERTY_NAME_MPP_X, PROPERTY_NAME_MPP_Y
-from PIL.Image import Image
+from PIL import Image
 
 
 class OpenSlide(openslide.OpenSlide):
@@ -51,7 +51,7 @@ class OpenSlide(openslide.OpenSlide):
 
     def read_region_relative(
         self, location: tuple[int, int], level: int, size: tuple[int, int]
-    ) -> Image:
+    ) -> Image.Image:
         """Reads a region from the slide with coordinates relative to the specified level.
 
         This method adjusts the coordinates based on the level's downsampling factor
@@ -86,8 +86,8 @@ class OpenSlide(openslide.OpenSlide):
         white background to remove any alpha channel.
 
         Args:
-            x: The x-coordinate of the tile at level 0.
-            y: The y-coordinate of the tile at level 0.
+            x: The x-coordinate of the tile.
+            y: The y-coordinate of the tile.
             extent_x: The width of the tile in pixels.
             extent_y: The height of the tile in pixels.
             level: The level of the slide to read from.
@@ -111,8 +111,8 @@ class OpenSlide(openslide.OpenSlide):
         )
 
         rgb_region = Image.alpha_composite(
-            Image.new("RGBA", rgba_region.size, background_broadcasted),  # pyright: ignore[reportAttributeAccessIssue]
+            Image.new("RGBA", rgba_region.size, background_broadcasted),
             rgba_region,
-        ).convert("RGB")  # pyright: ignore[reportAttributeAccessIssue]
+        ).convert("RGB")
 
         return np.asarray(rgb_region)

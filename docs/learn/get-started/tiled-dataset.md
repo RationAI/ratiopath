@@ -1,6 +1,6 @@
 # Loading a Tiled Dataset
 
-In the [tiling tutorial](https://www.google.com/search?q=./quick-start/tiling.md), we discussed how to create a tiled dataset from massive files and save the resulting metadata to disk. Now, let's explore how to efficiently load this tiled dataset for training or inference.
+In the [tiling tutorial](./quick-start/tiling.md), we discussed how to create a tiled dataset from massive files and save the resulting metadata to disk. Now, let's explore how to efficiently load this tiled dataset for training or inference.
 
 Before writing the data loaders, we must consider the structure and approximate size of our dataset. A tiled dataset typically consists of two highly interrelated components:
 
@@ -13,7 +13,7 @@ If your Parquet files are small enough, you can safely load the entire dataset i
 
 ## 1. Lazy Loading: The Hugging Face `datasets` Backend
 
-To handle massive tabular metadata, we use the Hugging Face (datasets)[https://huggingface.co/docs/datasets/v1.12.1/index.html] library. It is vastly superior to standard Pandas DataFrames for deep learning data loaders because of how it handles memory.
+To handle massive tabular metadata, we use the Hugging Face [datasets](https://huggingface.co/docs/datasets/index) library. It is vastly superior to standard Pandas DataFrames for deep learning data loaders because of how it handles memory.
 
 **How it works:**
 Parquet is a heavily compressed, columnar storage format. It is great for saving disk space but terrible for the random row access required by PyTorch (e.g., `dataset[idx]`).
