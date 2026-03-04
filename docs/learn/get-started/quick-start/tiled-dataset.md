@@ -98,8 +98,8 @@ class SlideDataset(ConcatDataset[TileDataset]):
         slides_parquet_path: str,
         tiles_parquet_path: str,
     ) -> None:
-        slides_dataset = load_dataset("parquet", data_files=slides_parquet_path)
-        tiles_dataset = load_dataset("parquet", data_files=tiles_parquet_path)
+        slides_dataset = load_dataset("parquet", data_files=slides_parquet_path, split="train") # Train is default split name for Hugging Face datasets, even if we don't have multiple splits
+        tiles_dataset = load_dataset("parquet", data_files=tiles_parquet_path, split="train")
 
         datasets = [
             TileDataset(
