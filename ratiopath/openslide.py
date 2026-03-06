@@ -1,7 +1,8 @@
 import numpy as np
 import openslide
+import pyarrow as pa
 from openslide import PROPERTY_NAME_MPP_X, PROPERTY_NAME_MPP_Y
-from PIL.Image import Image
+from PIL import Image
 
 
 class OpenSlide(openslide.OpenSlide):
@@ -50,7 +51,7 @@ class OpenSlide(openslide.OpenSlide):
 
     def read_region_relative(
         self, location: tuple[int, int], level: int, size: tuple[int, int]
-    ) -> Image:
+    ) -> Image.Image:
         """Reads a region from the slide with coordinates relative to the specified level.
 
         This method adjusts the coordinates based on the level's downsampling factor
@@ -68,3 +69,50 @@ class OpenSlide(openslide.OpenSlide):
         location = (int(location[0] * downsample), int(location[1] * downsample))
 
         return super().read_region(location, level, size)
+
+    def read_tile(
+        self,
+        x: int | pa.Scalar,
+        y: int | pa.Scalar,
+        extent_x: int | pa.Scalar,
+        extent_y: int | pa.Scalar,
+        level: int | pa.Scalar,
+        background: tuple[int, int, int] | int = 255,
+    ) -> np.ndarray:
+        """Reads a tile from the slide at the specified coordinates and level.
+
+        This method reads a tile from the slide based on the provided x and y
+        coordinates, tile extent, and level. It also composites the tile onto a
+        white background to remove any alpha channel.
+
+        Args:
+            x: The x-coordinate of the tile.
+            y: The y-coordinate of the tile.
+            extent_x: The width of the tile in pixels.
+            extent_y: The height of the tile in pixels.
+            level: The level of the slide to read from.
+            background: The RGB value (0-255) to use for transparent areas. Defaults to 255 (white).
+
+        Returns:
+            The RGB image of the requested tile.
+
+        """
+        # Convert PyArrow scalars to native Python ints if needed
+        x_val = x.as_py() if isinstance(x, pa.Scalar) else x
+        y_val = y.as_py() if isinstance(y, pa.Scalar) else y
+        extent_x_val = extent_x.as_py() if isinstance(extent_x, pa.Scalar) else extent_x
+        extent_y_val = extent_y.as_py() if isinstance(extent_y, pa.Scalar) else extent_y
+        level_val = level.as_py() if isinstance(level, pa.Scalar) else level
+
+        background_broadcasted = tuple(np.broadcast_to(background, (3,)))
+
+        rgba_region = self.read_region_relative(
+            (x_val, y_val), level_val, (extent_x_val, extent_y_val)
+        )
+
+        rgb_region = Image.alpha_composite(
+            Image.new("RGBA", rgba_region.size, background_broadcasted),
+            rgba_region,
+        ).convert("RGB")
+
+        return np.asarray(rgb_region)
