@@ -17,7 +17,7 @@ jobs:
       - name: Install Openslide dependencies
         run: |
           sudo apt update
-          sudo apt install python3-openslide
+          sudo apt install -y python3-openslide
 
       - name: Setup LibVips
         run: sudo apt install -y libvips-dev
