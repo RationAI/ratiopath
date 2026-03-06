@@ -7,5 +7,26 @@ on:
   workflow_dispatch:
 
 jobs:
-  run:
-    uses: RationAI/.github/.github/workflows/pytest.yml@main
+  pytest:
+    name: Pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # Install Openslide dependencies
+      - name: Install Openslide dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y python3-openslide
+
+      - name: Setup LibVips
+        run: sudo apt install -y libvips-dev
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install dependencies
+        run: uv sync --frozen --dev --group tests
+
+      - name: Run Pytest
+        run: uv run pytest
