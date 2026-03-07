@@ -47,7 +47,7 @@ def test_tensor_mean_int_shorthand(ray_start):
     # Aggregating over axis 1 (internal becomes (0, 1))
     result = ds.aggregate(TensorMean(on="m", axis=1))
 
-    expected = np.array([10.0, 15.0])  # [(10+30+0+0)/2, (20+40+0+0)/2]
+    expected = np.array([10.0, 15.0])  # [(10+30+0+0)/4, (20+40+0+0)/4]
     np.testing.assert_array_equal(result["mean(m)"], expected)
 
 
@@ -125,3 +125,4 @@ def test_tensor_aggregate_groupby(ray_start):
     res_std = sorted(res_std, key=lambda x: x["id"])
 
     np.testing.assert_array_equal(res_std[0]["std(m)"], [1.0, 1.0])  # Std of [1,3]
+    np.testing.assert_array_equal(res_std[1]["std(m)"], [0.0, 0.0])  # Std of [10
