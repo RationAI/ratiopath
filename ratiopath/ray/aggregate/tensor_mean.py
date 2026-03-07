@@ -62,17 +62,17 @@ class TensorMean(AggregateFnV2[dict, np.ndarray | float]):
 
     def __init__(
         self,
-        on: str | None = None,
+        on: str,
         axis: int | tuple[int, ...] | None = None,
         ignore_nulls: bool = True,
         alias_name: str | None = None,
     ):
         super().__init__(
-            name=alias_name if alias_name else f"mean({on!s})",
+            name=alias_name if alias_name else f"mean({on})",
             on=on,
             ignore_nulls=ignore_nulls,
             # Initialize with identity values for summation
-            zero_factory=lambda: {"sum": None, "shape": None, "count": 0},
+            zero_factory=self.zero_factory,
         )
 
         if axis is not None:
@@ -87,8 +87,17 @@ class TensorMean(AggregateFnV2[dict, np.ndarray | float]):
 
             self.aggregate_axis = tuple(axes)
 
+    @staticmethod
+    def zero_factory() -> dict:
+        return {"sum": None, "shape": None, "count": 0}
+
     def aggregate_block(self, block: Block) -> dict:
         block_acc = BlockAccessor.for_block(block)
+
+        # If there are no valid (non-null) entries, return the zero value
+        if block_acc.count(self._target_col_name, self._ignore_nulls) == 0:  # type: ignore [arg-type]
+            return self.zero_factory()
+
         # Access the raw numpy data for the column
         col_np = cast("np.ndarray", block_acc.to_numpy(self._target_col_name))
 
@@ -115,7 +124,7 @@ class TensorMean(AggregateFnV2[dict, np.ndarray | float]):
             "count": current_accumulator["count"] + new["count"],
         }
 
-    def finalize(self, accumulator: dict) -> np.ndarray | float:
+    def finalize(self, accumulator: dict) -> np.ndarray | float:  # type: ignore [override]
         count = accumulator["count"]
 
         if count == 0:

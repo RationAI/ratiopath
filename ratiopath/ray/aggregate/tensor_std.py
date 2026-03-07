@@ -51,17 +51,17 @@ class TensorStd(AggregateFnV2[dict, np.ndarray | float]):
 
     def __init__(
         self,
-        on: str | None = None,
+        on: str,
         axis: int | tuple[int, ...] | None = None,
         ignore_nulls: bool = True,
         alias_name: str | None = None,
     ):
         super().__init__(
-            name=alias_name if alias_name else f"std({on!s})",
+            name=alias_name if alias_name else f"std({on})",
             on=on,
             ignore_nulls=ignore_nulls,
             # sum: partial sum, ssd: sum of squared differences, count: elements reduced
-            zero_factory=lambda: {"sum": None, "ssd": None, "shape": None, "count": 0},
+            zero_factory=self.zero_factory,
         )
 
         if axis is not None:
@@ -76,8 +76,17 @@ class TensorStd(AggregateFnV2[dict, np.ndarray | float]):
 
             self.aggregate_axis = tuple(sorted(axes))
 
+    @staticmethod
+    def zero_factory() -> dict:
+        return {"sum": None, "ssd": None, "shape": None, "count": 0}
+
     def aggregate_block(self, block: Block) -> dict:
         block_acc = BlockAccessor.for_block(block)
+
+        # If there are no valid (non-null) entries, return the zero value
+        if block_acc.count(self._target_col_name, self._ignore_nulls) == 0:  # type: ignore [arg-type]
+            return self.zero_factory()
+
         col_np = cast("np.ndarray", block_acc.to_numpy(self._target_col_name))
 
         # Partial sum and element count
@@ -85,15 +94,12 @@ class TensorStd(AggregateFnV2[dict, np.ndarray | float]):
         block_count = np.prod(col_np.shape) // np.prod(block_sum.shape)
 
         # SSD calculation: sum((x - mean)^2)
-        # Note: We need to expand block_sum to be broadcastable against col_np
-        # or calculate ssd using the identity: sum(x^2) - (sum(x)^2 / n)
-        # The (x - mean)^2 method is usually more numerically stable.
         if self.aggregate_axis is None:
             block_ssd = np.sum((col_np - (block_sum / block_count)) ** 2)
         else:
             # Re-expand sum for broadcasting
             expanded_sum = block_sum
-            for ax in sorted(self.aggregate_axis):
+            for ax in self.aggregate_axis:
                 expanded_sum = np.expand_dims(expanded_sum, ax)
             block_ssd = np.sum(
                 (col_np - (expanded_sum / block_count)) ** 2, axis=self.aggregate_axis
@@ -132,7 +138,7 @@ class TensorStd(AggregateFnV2[dict, np.ndarray | float]):
             "count": combined_count,
         }
 
-    def finalize(self, accumulator: dict) -> np.ndarray | float:
+    def finalize(self, accumulator: dict) -> np.ndarray | float: # type: ignore [override]
         count = accumulator["count"]
 
         if count == 0:
