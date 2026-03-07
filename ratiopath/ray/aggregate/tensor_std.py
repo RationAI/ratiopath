@@ -138,7 +138,7 @@ class TensorStd(AggregateFnV2[dict, np.ndarray | float]):
             "count": combined_count,
         }
 
-    def finalize(self, accumulator: dict) -> np.ndarray | float: # type: ignore [override]
+    def finalize(self, accumulator: dict) -> np.ndarray | float:  # type: ignore [override]
         count = accumulator["count"]
 
         if count == 0:
