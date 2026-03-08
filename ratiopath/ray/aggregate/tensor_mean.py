@@ -11,12 +11,9 @@ class TensorMean(AggregateFnV2[dict, np.ndarray | float]):
 
     This aggregator treats the data column as a high-dimensional array where
     **axis 0 represents the batch dimension**. To satisfy the requirements
-    of a reduction, axis 0 must be included in the aggregation. This ensures
-    that the data is collapsed across rows, preventing the internal state
-    from growing linearly with the dataset size.
+    of a reduction and prevent memory growth proportional to the number of rows,
+    axis 0 must be included in the aggregation.
 
-    The `axis` parameter defines which dimensions of the 2D+ block (Batch, ...)
-    should be collapsed.
 
     Args:
         on: The name of the column containing tensors or numbers.
@@ -31,11 +28,12 @@ class TensorMean(AggregateFnV2[dict, np.ndarray | float]):
         alias_name: Optional name for the resulting column. Defaults to "mean(<on>)".
 
     Raises:
-        ValueError: If `axis` is provided but does not include `0`.
+        ValueError: If `axis` is provided as a tuple but does not include `0`.
 
     Note:
-        If you wish to perform operations on tensors independently without
-        collapsing the batch dimension (axis 0), use `.map()` instead.
+        This aggregator is designed for "reduction" operations. If you wish to
+        calculate statistics per-row without collapsing the batch dimension,
+        use `.map()` instead.
 
     Example:
         >>> import ray
