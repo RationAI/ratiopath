@@ -17,7 +17,6 @@ class TensorStd(AggregateFnV2[dict, np.ndarray | float]):
     It uses a parallel variance accumulation algorithm (Chan's method) to maintain
     numerical stability while processing data across multiple Ray blocks.
 
-
     Args:
         on: The name of the column containing tensors or numbers.
         axis: The axis or axes along which the reduction is computed.
