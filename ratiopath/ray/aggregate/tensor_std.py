@@ -60,7 +60,7 @@ class TensorStd(AggregateFnV2[dict, np.ndarray | float]):
         >>> ds.aggregate(TensorStd(on="m", axis=1))
     """
 
-    aggregate_axis: tuple[int, ...] | None = None
+    _aggregate_axis: tuple[int, ...] | None = None
 
     def __init__(
         self,

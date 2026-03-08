@@ -56,7 +56,7 @@ class TensorMean(AggregateFnV2[dict, np.ndarray | float]):
         >>> ds.aggregate(TensorMean(on="m", axis=(0, 1)))
     """
 
-    aggregate_axis: tuple[int, ...] | None = None
+    _aggregate_axis: tuple[int, ...] | None = None
 
     def __init__(
         self,
