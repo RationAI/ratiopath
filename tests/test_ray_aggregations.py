@@ -73,7 +73,7 @@ def test_tensor_std_global(ray_start):
     data = [{"m": vals[:4].reshape(2, 2)}, {"m": vals[4:].reshape(2, 2)}]
     ds = ray.data.from_items(data)
 
-    result = ds.aggregate(TensorStd(on="m", axis=None))
+    result = ds.aggregate(TensorStd(on="m", axis=None, ddof=0))
     expected = np.std(vals)
     assert pytest.approx(result["std(m)"], 0.0001) == expected
 
@@ -86,7 +86,7 @@ def test_tensor_std_batch_only(ray_start):
         {"m": np.array([30, 40])},  # Sample 2
     ]
     ds = ray.data.from_items(data)
-    result = ds.aggregate(TensorStd(on="m", axis=0))
+    result = ds.aggregate(TensorStd(on="m", axis=0, ddof=0))
 
     # Std of [10, 30] is 10; Std of [20, 40] is 10
     expected = np.array([10.0, 10.0])
@@ -121,8 +121,8 @@ def test_tensor_aggregate_groupby(ray_start):
     np.testing.assert_array_equal(res_mean[1]["mean(m)"], [10.0, 10.0])
 
     # Test Std Groupby
-    res_std = ds.groupby("id").aggregate(TensorStd(on="m", axis=0)).take_all()
+    res_std = ds.groupby("id").aggregate(TensorStd(on="m", axis=0, ddof=0)).take_all()
     res_std = sorted(res_std, key=lambda x: x["id"])
 
     np.testing.assert_array_equal(res_std[0]["std(m)"], [1.0, 1.0])  # Std of [1,3]
-    np.testing.assert_array_equal(res_std[1]["std(m)"], [0.0, 0.0])  # Std of [10
+    np.testing.assert_array_equal(res_std[1]["std(m)"], [0.0, 0.0])  # Std of [10,10]
