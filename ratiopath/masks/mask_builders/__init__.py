@@ -2,6 +2,11 @@ from ratiopath.masks.mask_builders.aggregation import (
     AveragingMaskBuilderMixin,
     MaxMaskBuilderMixin,
 )
+from ratiopath.masks.mask_builders.builder import (
+    AggregationType,
+    MaskBuilder,
+    StorageType,
+)
 from ratiopath.masks.mask_builders.factory import (
     ExplicitCoordMaxMB,
     ExplicitCoordMeanMB,
@@ -29,6 +34,7 @@ from ratiopath.masks.mask_builders.storage import (
 
 
 __all__ = [
+    "AggregationType",
     "AutoScalingConstantStrideMixin",
     "AveragingMaskBuilderMixin",
     "EdgeClippingMaskBuilderMixin",
@@ -38,6 +44,7 @@ __all__ = [
     "ExplicitCoordMemMapMeanMB",
     "ExplicitCoordScalarMaxMB",
     "ExplicitCoordScalarMeanMB",
+    "MaskBuilder",
     "MaskBuilderFactory",
     "MaxMB",
     "MaxMaskBuilderMixin",
@@ -49,4 +56,5 @@ __all__ = [
     "ScalarMaxMB",
     "ScalarMeanMB",
     "ScalarUniformTiledMaskBuilder",
+    "StorageType",
 ]
