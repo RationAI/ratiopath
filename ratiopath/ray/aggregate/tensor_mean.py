@@ -85,7 +85,7 @@ class TensorMean(AggregateFnV2[dict, np.ndarray | float]):
                     "independently without collapsing the batch, use .map() instead."
                 )
 
-            self.aggregate_axis = tuple(axes)
+            self._aggregate_axis = tuple(axes)
 
     @staticmethod
     def zero_factory() -> dict:
@@ -102,7 +102,7 @@ class TensorMean(AggregateFnV2[dict, np.ndarray | float]):
         col_np = cast("np.ndarray", block_acc.to_numpy(self._target_col_name))
 
         # Perform the partial sum and calculate how many elements contributed
-        block_sum = np.sum(col_np, axis=self.aggregate_axis)
+        block_sum = np.sum(col_np, axis=self._aggregate_axis)
         block_count = np.prod(col_np.shape) // np.prod(block_sum.shape)
 
         return {
