@@ -278,3 +278,28 @@ class TestDarwin7JSONParser:
 
         polygons = list(parser.get_polygons(name="Nonexistent"))
         assert len(polygons) == 0
+
+    def test_extract_nested(self):
+        """Test the static method extract_nested."""
+        # Test malformed JSON string
+        assert Darwin7JSONParser.extract_nested("{'invalid': json", ["key"]) is None
+
+        # Test valid JSON string extraction
+        json_str = json.dumps({"a": {"b": [10, 20]}})
+        assert Darwin7JSONParser.extract_nested(json_str, ["a", "b", "1"]) == 20
+
+        # Test valid dict extraction
+        data = {"a": {"b": [10, 20]}}
+        assert Darwin7JSONParser.extract_nested(data, ["a", "b", "0"]) == 10
+
+        # Test missing key
+        assert Darwin7JSONParser.extract_nested(data, ["a", "c"]) is None
+
+        # Test out-of-bounds list index
+        assert Darwin7JSONParser.extract_nested(data, ["a", "b", "5"]) is None
+
+        # Test non-digit key for list
+        assert Darwin7JSONParser.extract_nested(data, ["a", "b", "not_a_digit"]) is None
+
+        # Test non-dict/non-list value with remaining path
+        assert Darwin7JSONParser.extract_nested(data, ["a", "b", "0", "something"]) is None
