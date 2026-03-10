@@ -46,30 +46,22 @@ def discard_pixels(
     Returns:
         A numpy array containing the filtered optical densities for red, green, and blue channels.
     """
-    keep_count = 0
-    max_stain_squared = max_stain * max_stain
+    mag_squared = np.sum(od**2, axis=1)
+
+    keep_mask = (
+        (mag_squared <= max_stain**2)
+        & np.all(od >= min_stain, axis=1)
+        & (mag_squared > 0)
+    )
+
+    # Filtering first reduces the number of expensive operations (sqrt and division)
+    od = od[keep_mask]
+    mag_squared = mag_squared[keep_mask]
+
     sqrt3 = 1 / np.sqrt(3)
+    gray_mask = (np.sum(od * sqrt3, axis=1) / np.sqrt(mag_squared)) < gray_threshold
 
-    for i in range(len(od)):
-        r, g, b = od[i]
-        mag_squared = r * r + g * g + b * b
-        if (
-            mag_squared > max_stain_squared
-            or r < min_stain
-            or g < min_stain
-            or b < min_stain
-            or mag_squared <= 0
-        ):
-            continue
-
-        # Exclude very gray pixels
-        if (r * sqrt3 + g * sqrt3 + b * sqrt3) / np.sqrt(mag_squared) >= gray_threshold:
-            continue
-
-        od[keep_count] = np.array([r, g, b])
-        keep_count += 1
-
-    return od[:keep_count]
+    return od[gray_mask]
 
 
 def estimate_stain_vectors(
