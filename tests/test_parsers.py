@@ -302,4 +302,6 @@ class TestDarwin7JSONParser:
         assert Darwin7JSONParser.extract_nested(data, ["a", "b", "not_a_digit"]) is None
 
         # Test non-dict/non-list value with remaining path
-        assert Darwin7JSONParser.extract_nested(data, ["a", "b", "0", "something"]) is None
+        assert (
+            Darwin7JSONParser.extract_nested(data, ["a", "b", "0", "something"]) is None
+        )
