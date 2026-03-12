@@ -31,7 +31,9 @@ def test_tensor_mean_global(ray_start):
         {"m": np.array([[2, 4], [6, 8]])},
         {"m": np.array([[0, 0], [0, 0]])},
     ]
-    ds = ray.data.from_items(data)
+    ds = ray.data.from_items(data).repartition(
+        2
+    )  # Ensure multiple blocks for reduction
     result = ds.aggregate(TensorMean(on="m", axis=None))
     # (2+4+6+8) / 8 = 2.5
     assert result["mean(m)"] == 2.5
@@ -43,7 +45,9 @@ def test_tensor_mean_int_shorthand(ray_start):
         {"m": np.array([[10, 20], [30, 40]])},  # Row sums: 30, 70
         {"m": np.array([[0, 0], [0, 0]])},  # Row sums: 0, 0
     ]
-    ds = ray.data.from_items(data)
+    ds = ray.data.from_items(data).repartition(
+        2
+    )  # Ensure multiple blocks for reduction
     # Aggregating over axis 1 (internal becomes (0, 1))
     result = ds.aggregate(TensorMean(on="m", axis=1))
 
@@ -57,7 +61,9 @@ def test_tensor_mean_batch_only(ray_start):
         {"m": np.array([[10, 10], [10, 10]])},
         {"m": np.array([[20, 20], [20, 20]])},
     ]
-    ds = ray.data.from_items(data)
+    ds = ray.data.from_items(data).repartition(
+        2
+    )  # Ensure multiple blocks for reduction
     result = ds.aggregate(TensorMean(on="m", axis=0))
 
     expected = np.array([[15.0, 15.0], [15.0, 15.0]])
@@ -71,7 +77,9 @@ def test_tensor_std_global(ray_start):
     """Tests global standard deviation."""
     vals = np.array([1, 2, 3, 4, 5, 6, 7, 8])
     data = [{"m": vals[:4].reshape(2, 2)}, {"m": vals[4:].reshape(2, 2)}]
-    ds = ray.data.from_items(data)
+    ds = ray.data.from_items(data).repartition(
+        2
+    )  # Ensure multiple blocks for reduction
 
     result = ds.aggregate(TensorStd(on="m", axis=None, ddof=0))
     expected = np.std(vals)
@@ -85,7 +93,9 @@ def test_tensor_std_batch_only(ray_start):
         {"m": np.array([10, 20])},  # Sample 1
         {"m": np.array([30, 40])},  # Sample 2
     ]
-    ds = ray.data.from_items(data)
+    ds = ray.data.from_items(data).repartition(
+        2
+    )  # Ensure multiple blocks for reduction
     result = ds.aggregate(TensorStd(on="m", axis=0, ddof=0))
 
     # Std of [10, 30] is 10; Std of [20, 40] is 10
@@ -111,7 +121,9 @@ def test_tensor_aggregate_groupby(ray_start):
         {"id": "A", "m": np.array([3, 3])},
         {"id": "B", "m": np.array([10, 10])},
     ]
-    ds = ray.data.from_items(data)
+    ds = ray.data.from_items(data).repartition(
+        2
+    )  # Ensure multiple blocks for reduction
 
     # Test Mean Groupby
     res_mean = ds.groupby("id").aggregate(TensorMean(on="m", axis=0)).take_all()
