@@ -158,7 +158,7 @@ class TensorStd(AggregateFnV2[dict, np.ndarray | float]):
         )
 
         return {
-            "K": combined_true_mean,
+            "k": combined_true_mean,
             "mean": np.zeros_like(combined_true_mean),
             "ssd": combined_ssd,
             "shape": new["shape"],
