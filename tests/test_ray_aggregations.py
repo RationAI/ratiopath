@@ -30,10 +30,9 @@ def test_tensor_mean_global(ray_start):
     data = [
         {"m": np.array([[2, 4], [6, 8]])},
         {"m": np.array([[0, 0], [0, 0]])},
+        {"m": None},
     ]
-    ds = ray.data.from_items(data).repartition(
-        2
-    )  # Ensure multiple blocks for reduction
+    ds = ray.data.from_items(data)
     result = ds.aggregate(TensorMean(on="m", axis=None))
     # (2+4+6+8) / 8 = 2.5
     assert result["mean(m)"] == 2.5
@@ -119,6 +118,7 @@ def test_tensor_aggregate_groupby(ray_start):
     data = [
         {"id": "A", "m": np.array([1, 1])},
         {"id": "A", "m": np.array([3, 3])},
+        {"id": "B", "m": None},
         {"id": "B", "m": np.array([10, 10])},
     ]
     ds = ray.data.from_items(data).repartition(

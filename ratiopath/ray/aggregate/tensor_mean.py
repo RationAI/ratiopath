@@ -96,8 +96,10 @@ class TensorMean(AggregateFnV2[dict, np.ndarray | float]):
         if block_acc.count(self._target_col_name, self._ignore_nulls) == 0:  # type: ignore [arg-type]
             return self.zero_factory()
 
-        # Access the raw numpy data for the column
         col_np = cast("np.ndarray", block_acc.to_numpy(self._target_col_name))
+        if self._ignore_nulls and col_np.dtype == object:
+            # Filter out Nones)
+            col_np = np.stack([x for x in col_np if x is not None])
 
         # Perform the partial sum and calculate how many elements contributed
         block_sum = np.sum(col_np, axis=self._aggregate_axis)
