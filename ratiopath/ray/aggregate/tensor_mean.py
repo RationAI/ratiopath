@@ -87,7 +87,7 @@ class TensorMean(AggregateFnV2[dict, np.ndarray | float]):
 
     @staticmethod
     def zero_factory() -> dict:
-        return {"sum": None, "shape": None, "count": 0}
+        return {"sum": 0, "shape": None, "count": 0}
 
     def aggregate_block(self, block: Block) -> dict:
         block_acc = BlockAccessor.for_block(block)
