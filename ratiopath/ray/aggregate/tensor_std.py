@@ -91,7 +91,7 @@ class TensorStd(AggregateFnV2[dict, np.ndarray | float]):
                     "independently without collapsing the batch, use .map() instead."
                 )
 
-            self._aggregate_axis = tuple(sorted(axes))
+            self._aggregate_axis = tuple(axes)
 
     @staticmethod
     def zero_factory() -> dict:
@@ -104,6 +104,9 @@ class TensorStd(AggregateFnV2[dict, np.ndarray | float]):
             return self.zero_factory()
 
         col_np = cast("np.ndarray", block_acc.to_numpy(self._target_col_name))
+        if self._ignore_nulls and col_np.dtype == object:
+            # Filter out Nones)
+            col_np = np.stack([x for x in col_np if x is not None])
 
         # Partial sum and element count
         block_sum = np.sum(col_np, axis=self._aggregate_axis, keepdims=True)
