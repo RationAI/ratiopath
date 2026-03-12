@@ -52,11 +52,11 @@ class TensorStd(AggregateFnV2[dict, np.ndarray | float]):
         ... )
         >>> # 1. Global Std (axis=None) -> All elements reduced to one scalar
         >>> ds.aggregate(TensorStd(on="m", axis=None))
-
+        >>>
         >>> # 2. Batch Std (axis=0) -> Result is a 2x2 matrix of std values
         >>> # calculated across the dataset rows.
         >>> ds.aggregate(TensorStd(on="m", axis=0))
-
+        >>>
         >>> # 3. Int shorthand (axis=1) -> Internally uses axis=(0, 1)
         >>> # Collapses batch and the first dimension of the tensor.
         >>> ds.aggregate(TensorStd(on="m", axis=1))
