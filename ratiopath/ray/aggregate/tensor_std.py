@@ -52,9 +52,11 @@ class TensorStd(AggregateFnV2[dict, np.ndarray | float]):
         ... )
         >>> # 1. Global Std (axis=None) -> All elements reduced to one scalar
         >>> ds.aggregate(TensorStd(on="m", axis=None))
+
         >>> # 2. Batch Std (axis=0) -> Result is a 2x2 matrix of std values
         >>> # calculated across the dataset rows.
         >>> ds.aggregate(TensorStd(on="m", axis=0))
+
         >>> # 3. Int shorthand (axis=1) -> Internally uses axis=(0, 1)
         >>> # Collapses batch and the first dimension of the tensor.
         >>> ds.aggregate(TensorStd(on="m", axis=1))
@@ -74,7 +76,6 @@ class TensorStd(AggregateFnV2[dict, np.ndarray | float]):
             name=alias_name if alias_name else f"std({on})",
             on=on,
             ignore_nulls=ignore_nulls,
-            # sum: partial sum, ssd: sum of squared differences, count: elements reduced
             zero_factory=self.zero_factory,
         )
 
@@ -94,37 +95,34 @@ class TensorStd(AggregateFnV2[dict, np.ndarray | float]):
 
     @staticmethod
     def zero_factory() -> dict:
-        return {"sum": None, "ssd": None, "shape": None, "count": 0}
+        return {"k": 0, "mean": 0, "ssd": 0, "shape": None, "count": 0}
 
     def aggregate_block(self, block: Block) -> dict:
         block_acc = BlockAccessor.for_block(block)
 
-        # If there are no valid (non-null) entries, return the zero value
         if block_acc.count(self._target_col_name, self._ignore_nulls) == 0:  # type: ignore [arg-type]
             return self.zero_factory()
 
         col_np = cast("np.ndarray", block_acc.to_numpy(self._target_col_name))
 
         # Partial sum and element count
-        block_sum = np.sum(col_np, axis=self._aggregate_axis)
+        block_sum = np.sum(col_np, axis=self._aggregate_axis, keepdims=True)
         block_count = np.prod(col_np.shape) // np.prod(block_sum.shape)
 
-        # SSD calculation: sum((x - mean)^2)
-        if self._aggregate_axis is None:
-            block_ssd = np.sum((col_np - (block_sum / block_count)) ** 2)
-        else:
-            # Re-expand sum for broadcasting
-            expanded_sum = block_sum
-            for ax in self._aggregate_axis:
-                expanded_sum = np.expand_dims(expanded_sum, ax)
-            block_ssd = np.sum(
-                (col_np - (expanded_sum / block_count)) ** 2, axis=self._aggregate_axis
-            )
+        # Compute the reference point K for stable variance calculation#
+        k = block_sum / block_count
+
+        # Shift the data by K to improve numerical stability when calculating SSD
+        shifted = col_np - k
+        mean = np.sum(shifted, axis=self._aggregate_axis) / block_count
+
+        block_ssd = np.sum((shifted - mean) ** 2, axis=self._aggregate_axis)
 
         return {
-            "sum": block_sum.flatten(),
+            "k": k.flatten(),
+            "mean": mean.flatten(),
             "ssd": block_ssd.flatten(),
-            "shape": block_sum.shape,
+            "shape": mean.shape,
             "count": block_count,
         }
 
@@ -135,20 +133,33 @@ class TensorStd(AggregateFnV2[dict, np.ndarray | float]):
         if current_accumulator["count"] == 0:
             return new
 
-        mean_a = np.asarray(current_accumulator["sum"]) / current_accumulator["count"]
-        mean_b = np.asarray(new["sum"]) / new["count"]
-        delta = mean_b - mean_a
+        n_current = current_accumulator["count"]
+        n_new = new["count"]
+        combined_count = n_current + n_new
 
-        combined_sum = np.asarray(current_accumulator["sum"]) + np.asarray(new["sum"])
-        combined_count = current_accumulator["count"] + new["count"]
+        k_current = np.asarray(current_accumulator["k"])
+        k_new = np.asarray(new["k"])
+
+        mean_current = np.asarray(current_accumulator["mean"])
+        mean_new = np.asarray(new["mean"])
+
+        # Calculate delta stably using the reference points.
+        # This is algebraically identical to (mean_b - mean_a), but Sterbenz Lemma
+        # ensures (K2 - K1) is computed without catastrophic precision loss.
+        delta = (k_new - k_current) + mean_new - mean_current
+
+        # Chan's formula for the combined true mean
+        combined_true_mean = (k_current + mean_current) + delta * n_new / combined_count
+
         combined_ssd = (
             np.asarray(current_accumulator["ssd"])
             + np.asarray(new["ssd"])
-            + (delta**2 * current_accumulator["count"] * new["count"] / combined_count)
+            + (delta**2 * n_current * n_new / combined_count)
         )
 
         return {
-            "sum": combined_sum,
+            "K": combined_true_mean,
+            "mean": np.zeros_like(combined_true_mean),
             "ssd": combined_ssd,
             "shape": new["shape"],
             "count": combined_count,
@@ -160,7 +171,12 @@ class TensorStd(AggregateFnV2[dict, np.ndarray | float]):
         if count - self._ddof <= 0:
             return np.nan
 
-        return np.sqrt(
+        # np.maximum added as a safety net. Floating point jitter can occasionally
+        # result in trivially negative numbers (e.g., -1e-16), which crashes np.sqrt
+        variance = np.maximum(
+            0.0,
             np.asarray(accumulator["ssd"]).reshape(accumulator["shape"])
-            / (count - self._ddof)
+            / (count - self._ddof),
         )
+
+        return np.sqrt(variance)
