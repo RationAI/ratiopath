@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 def tissue_mask(
     slide: pyvips.Image, mpp: Res, filter: VipsFilter | None = None
-) -> tuple[pyvips.Image, Res]:
+) -> pyvips.Image:
     """Generates a tissue mask from a whole-slide image (WSI) using saturation channel extraction and morphological operations, and saves the mask as a TIFF image.
 
     The function extracts the saturation channel from the WSI, applies Otsu thresholding to
@@ -42,9 +42,9 @@ def tissue_mask(
             [
                 VipsGrayScaleFilter(),
                 VipsOtsu(),
-                VipsOpening(),
                 VipsClosing(),
+                VipsOpening(),
             ]
         )
 
-    return filter(slide, mpp)
+    return filter(slide, mpp)[0]

@@ -151,7 +151,7 @@ class AutoScalingTransform(TileTransform):
         total_strides = (
             source_extents - self.source_tile_extents
         ) / source_tile_strides
-        total_strides = np.ceil(total_strides).astype(np.int64)
+        total_strides = np.ceil(total_strides).clip(min=0).astype(np.int64)
 
         self.overflow_buffered_source_extents = (
             total_strides * source_tile_strides
