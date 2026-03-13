@@ -31,8 +31,8 @@ The `MaskBuilder` is the central orchestrator. It uses **composition** rather th
 
 ### Storage Strategies
 
-::: ratiopath.masks.mask_builders.NumpyStorage
-::: ratiopath.masks.mask_builders.MemMapStorage
+::: ratiopath.masks.mask_builders.inmemory
+::: ratiopath.masks.mask_builders.memmap
 
 ### Aggregation Strategies
 
@@ -75,7 +75,7 @@ scalar_prep = ScalarUniformExpansionPreprocessor(
 
 mask_builder = MaskBuilder(
     shape=(1, slide_h, slide_w),
-    storage="numpy",
+    storage="inmemory",
     aggregation="mean",
     preprocessors=[scalar_prep],
     dtype=np.float32,
@@ -133,6 +133,7 @@ assembled_mask = mask_builder.finalize()
 **Use case**: Your model's output tiles have different spatial dimensions than the input tiles (e.g., due to stride or pooling).
 
 ```python
+import numpy as np
 from ratiopath.masks.mask_builders import MaskBuilder, AutoScalingPreprocessor
 
 auto_scale = AutoScalingPreprocessor(
@@ -144,7 +145,7 @@ auto_scale = AutoScalingPreprocessor(
 
 mask_builder = MaskBuilder(
     shape=(1, *auto_scale.mask_extents),
-    storage="numpy",
+    storage="inmemory",
     aggregation="mean",
     preprocessors=[auto_scale]
 )

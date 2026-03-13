@@ -1,89 +1,86 @@
 import logging
 import tempfile
-from abc import ABC, abstractmethod
+from os import PathLike
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 import numpy as np
-from numpy.typing import NDArray
 
 
 logger = logging.getLogger(__name__)
 
 
-class StorageAllocator[DType: np.generic](ABC):
-    """Abstract base class for storage allocation strategies.
+class inmemory[DType: np.generic](np.ndarray):
+    """Storage allocator that uses in-memory NumPy arrays."""
 
-    The allocator is responsible for creating and managing the lifecycle of the
-    main accumulator array.
-    """
-
-    accumulator: NDArray[DType]
-
-    @abstractmethod
-    def __init__(
-        self, shape: tuple[int, ...], dtype: type[DType], **kwargs: Any
-    ) -> None:
-        """Initialize and allocate the accumulator.
-
-        Args:
-            shape: The shape of the accumulator array.
-            dtype: Data type of the array.
-            **kwargs: Additional allocation arguments (e.g. filepath).
-        """
-
-    def cleanup(self) -> None:
-        """Perform any necessary cleanup (e.g. closing files, deleting temporary memmaps)."""
-        return
+    def __new__(cls, shape: tuple[int, ...], dtype: type[DType]) -> Self:
+        return np.zeros(shape=shape, dtype=dtype).view(cls)
 
 
-class MemMapStorage[DType: np.generic](StorageAllocator[DType]):
+class memmap[DType: np.generic](np.memmap):
     """Storage allocator that uses numpy memory-mapped files (memmaps).
 
-    This storage provides disk-backed allocation for large masks that exceed available RAM.
+    This class provides disk-backed storage for large masks that exceed available RAM.
+    Memory mapping allows the OS to manage paging between disk and memory transparently,
+    enabling processing of masks that would otherwise cause out-of-memory errors.
+
+    **Temporary Files (default behavior when `filepath=None`):**
+    A temporary file is created and used as backing storage. The file is deleted when
+    the memmap is closed or garbage collected. Disk space is consumed during processing
+    but automatically reclaimed afterward.
+
+    **Explicit Files (when `filepath` is provided):**
+    The memmap is backed by the specified file path, which persists after processing.
+    This is useful for caching results or processing masks too large for temporary storage.
+    If the file already exists, a FileExistsError is raised to prevent accidental data loss.
+
+    This class uses NumPy's NPY format version 3.0 for compatibility with large arrays (>4GB).
     """
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         shape: tuple[int, ...],
         dtype: type[DType],
-        filename: Path | str | None = None,
-        **kwargs: Any,
-    ) -> None:
+        filename: str | PathLike[Any] | None = None,
+    ) -> Self:
+        temp_path = None
         if filename is None:
+            # delete=False ensures Windows doesn't lock the file prematurely
             with tempfile.NamedTemporaryFile(delete=False) as file:
-                self.tempfile = file.name
-                filename = file.name
+                temp_path = filename = file.name
         elif Path(filename).exists():
             raise FileExistsError(f"Memmap {filename} already exists.")
 
-        self.accumulator = np.memmap(filename, mode="w+", shape=shape, dtype=dtype)
+        obj = np.lib.format.open_memmap(
+            filename, mode="w+", shape=shape, dtype=dtype, version=(3, 0)
+        ).view(cls)
+
+        obj._tempfile = temp_path
+        return obj
+
+    def __array_finalize__(self, obj: Any) -> None:
+        """Called automatically when a view or slice of the array is created."""
+        if obj is None:
+            return
+
+        # CRITICAL: If someone slices this array (e.g., subset = my_memmap[:5]),
+        # the slice should NOT own the tempfile. Only the original object should
+        # delete the file during garbage collection.
+        self._tempfile = None
+
+    def cleanup(self) -> None:
+        if hasattr(self, "_mmap") and self._mmap is not None:
+            try:
+                self._mmap.close()
+            except Exception as e:
+                logger.warning(f"Failed to close memmap: {e}")
+
+        if self._tempfile is not None:
+            try:
+                Path(self._tempfile).unlink(missing_ok=True)
+            except Exception as e:
+                logger.warning(f"Failed to delete memmap file {self._tempfile}: {e}")
+            self._tempfile = None
 
     def __del__(self) -> None:
         self.cleanup()
-
-    def cleanup(self) -> None:
-        if hasattr(self, "accumulator"):
-            try:
-                self.accumulator._mmap.close()  # type: ignore[attr-defined]
-            except Exception as e:
-                logger.warning(f"Failed to close memmap: {e}")
-            finally:
-                del self.accumulator
-
-        if hasattr(self, "tempfile"):
-            try:
-                Path(self.tempfile).unlink(missing_ok=True)
-            except Exception as e:
-                logger.warning(f"Failed to delete memmap file {self.tempfile}: {e}")
-            finally:
-                del self.tempfile
-
-
-class NumpyStorage[DType: np.generic](StorageAllocator[DType]):
-    """Storage allocator that uses in-memory numpy arrays."""
-
-    def __init__(
-        self, shape: tuple[int, ...], dtype: type[DType], **kwargs: Any
-    ) -> None:
-        self.accumulator = np.zeros(shape, dtype=dtype)

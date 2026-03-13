@@ -1,60 +1,37 @@
 from collections.abc import Sequence
-from typing import Any, Literal, overload
+from typing import Any, Literal
 
 import numpy as np
 from numpy.typing import NDArray
 
 from ratiopath.masks.mask_builders.aggregation import Aggregator
 from ratiopath.masks.mask_builders.receptive_field_manipulation import Preprocessor
-from ratiopath.masks.mask_builders.storage import StorageAllocator
+from ratiopath.misc import safely_instantiate
 
 
 class MaskBuilder[DType: np.generic]:
     """Builder for assembling large masks from tiled data using a composed strategy pattern.
 
-    Instead of relying on mixins, this class takes pluggable components:
+    This class takes pluggable components:
     - storage: Determines how the accumulator memory is allocated (e.g. RAM vs disk).
     - aggregator: Determines how overlapping tiles are merged (e.g. max, mean).
     - preprocessors: A list of transformations applied to tiles/coords before accumulation.
     """
 
-    @overload
-    def __init__(
-        self,
-        shape: tuple[int, ...],
-        storage: Literal["numpy", "memmap"] | type[StorageAllocator[DType]],
-        aggregation: Literal["mean", "max"]
-        | type[Aggregator[DType]]
-        | Aggregator[DType] = "mean",
-        preprocessors: Sequence[Preprocessor] = (),
-        *,
-        dtype: type[DType] = np.float32,  # type: ignore[assignment]
-        **kwargs: Any,
-    ) -> None: ...
-
-    @overload
-    def __init__(
-        self,
-        shape: tuple[int, ...],
-        storage: StorageAllocator[DType],
-        aggregation: Literal["mean", "max"]
-        | type[Aggregator[DType]]
-        | Aggregator[DType] = "mean",
-        preprocessors: Sequence[Preprocessor] = (),
-        **kwargs: Any,
-    ) -> None: ...
+    storage: NDArray[DType]
+    aggregator: Aggregator[DType]
+    preprocessors: Sequence[Preprocessor]
 
     def __init__(
         self,
         shape: tuple[int, ...],
-        storage: Literal["numpy", "memmap"]
-        | type[StorageAllocator[DType]]
-        | StorageAllocator[DType] = "numpy",
+        storage: Literal["inmemory", "memmap"]
+        | type[NDArray[DType]]
+        | NDArray[DType] = "inmemory",
         aggregation: Literal["mean", "max"]
         | type[Aggregator[DType]]
         | Aggregator[DType] = "mean",
         preprocessors: Sequence[Preprocessor] = (),
-        *,
         dtype: type[DType] = np.float32,  # type: ignore[assignment]
         **kwargs: Any,
     ) -> None:
@@ -62,31 +39,37 @@ class MaskBuilder[DType: np.generic]:
 
         Args:
             shape: Spatial dimensions of the mask to build.
-            storage: Strategy for allocating memory ("numpy", "memmap", a class, or an instance).
+            storage: Strategy for allocating memory ("inmemory", "memmap", a class, or an instance).
             aggregation: Strategy for combining tiles ("mean", "max", a class, or an instance).
             preprocessors: Optional sequence of preprocessing steps.
             dtype: Data type for the accumulator.
             **kwargs: Extra arguments passed to storage and aggregator initialization.
         """
         for preprocessor in preprocessors:
-            shape = preprocessor.reshape_storage(shape)
+            shape = preprocessor.setup(shape)
 
         # Resolve Storage
         if isinstance(storage, str):
-            if storage == "numpy":
-                from ratiopath.masks.mask_builders.storage import NumpyStorage
+            if storage == "inmemory":
+                from ratiopath.masks.mask_builders.storage import inmemory
 
-                storage_cls: type[StorageAllocator[DType]] = NumpyStorage
+                self.storage = inmemory(shape=shape, dtype=dtype)
             elif storage == "memmap":
-                from ratiopath.masks.mask_builders.storage import MemMapStorage
+                from ratiopath.masks.mask_builders.storage import memmap
 
-                storage_cls = MemMapStorage
+                self.storage = safely_instantiate(
+                    memmap,  # type: ignore[arg-type]
+                    shape=shape,
+                    dtype=dtype,
+                    **kwargs,
+                )
             else:
                 raise ValueError(f"Unknown storage type: {storage}")
 
-            self.storage = storage_cls(shape=shape, dtype=dtype, **kwargs)
-        elif isinstance(storage, type) and issubclass(storage, StorageAllocator):
-            self.storage = storage(shape=shape, dtype=dtype, **kwargs)
+        elif isinstance(storage, type) and issubclass(storage, np.ndarray):
+            self.storage = safely_instantiate(
+                storage, shape=shape, dtype=dtype, **kwargs
+            )
         else:
             self.storage = storage
 
@@ -103,15 +86,12 @@ class MaskBuilder[DType: np.generic]:
             else:
                 raise ValueError(f"Unknown aggregation type: {aggregation}")
 
-            self.aggregator = aggregator_cls(
-                storage=self.storage, shape=shape, dtype=dtype, **kwargs
+            self.aggregator = safely_instantiate(
+                aggregator_cls, storage=self.storage, **kwargs
             )
         elif isinstance(aggregation, type) and issubclass(aggregation, Aggregator):
-            self.aggregator = aggregation(
-                storage=self.storage,
-                shape=shape,
-                dtype=dtype,
-                **kwargs,
+            self.aggregator = safely_instantiate(
+                aggregation, storage=self.storage, **kwargs
             )
         else:
             self.aggregator = aggregation
@@ -128,8 +108,14 @@ class MaskBuilder[DType: np.generic]:
         for preprocessor in self.preprocessors:
             data_batch, coords_batch = preprocessor.process(data_batch, coords_batch)
 
-        self.aggregator.update(self.storage.accumulator, data_batch, coords_batch)
+        self.aggregator.update(self.storage, data_batch, coords_batch)
 
     def finalize(self) -> dict[str, NDArray[DType]] | NDArray[DType]:
         """Finalize the mask and perform any necessary final computations (like averaging)."""
-        return self.aggregator.finalize(self.storage.accumulator)
+        return self.aggregator.finalize(self.storage)
+
+    def cleanup(self) -> None:
+        if hasattr(self, "storage"):
+            del self.storage
+
+        self.aggregator.cleanup()

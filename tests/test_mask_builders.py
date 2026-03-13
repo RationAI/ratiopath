@@ -33,7 +33,7 @@ def test_scalar_uniform_averaging_2d(shape, mask_tile_extents, mask_tile_strides
 
     test_mask_builder = MaskBuilder(
         shape=shape,
-        storage="numpy",
+        storage="inmemory",
         aggregation="mean",
         preprocessors=[preprocessor],
         dtype=np.float32,
@@ -53,7 +53,7 @@ def test_scalar_uniform_averaging_2d(shape, mask_tile_extents, mask_tile_strides
         test_mask_builder.update_batch(example, coords_batch)
 
         # Access accumulator via storage
-        accumulator = test_mask_builder.storage.accumulator
+        accumulator = test_mask_builder.storage
         assert np.isclose(
             accumulator.sum(),
             (i + 1) * batch_size * channels * np.prod(adjusted_tile_extents),
@@ -82,6 +82,7 @@ def test_scalar_uniform_averaging_2d(shape, mask_tile_extents, mask_tile_strides
     assert np.isclose(assembled.max(), 1.0, atol=1e-6), (
         f"Assembled max should be close to 1.0, is {assembled.max()}"
     )
+    test_mask_builder.cleanup()
 
 
 @pytest.mark.parametrize("shape", [(1, 16, 16), (3, 32, 64), (8, 400, 35)])
@@ -106,7 +107,7 @@ def test_scalar_uniform_max_2d(shape, mask_tile_extents, mask_tile_strides):
 
     test_mask_builder = MaskBuilder(
         shape=shape,
-        storage="numpy",
+        storage="inmemory",
         aggregation="max",
         preprocessors=[preprocessor],
         dtype=np.float32,
@@ -129,7 +130,7 @@ def test_scalar_uniform_max_2d(shape, mask_tile_extents, mask_tile_strides):
         data = np.full((batch_size, channels), value, dtype=np.float32)
         test_mask_builder.update_batch(data, coordinates_batch)
 
-        accumulator = test_mask_builder.storage.accumulator
+        accumulator = test_mask_builder.storage
         assert accumulator.max() == value, (
             f"Max value in accumulator after batch {i + 1} should be {value}, is {accumulator.max()}"
         )
@@ -137,13 +138,14 @@ def test_scalar_uniform_max_2d(shape, mask_tile_extents, mask_tile_strides):
             f"Number of maxed pixels with value {float(i + 1)} after batch {i + 1} should be greater than {min_batch_increment}, is {(accumulator == float(i + 1)).sum()}"
         )
 
-    accumulator = test_mask_builder.storage.accumulator
+    accumulator = test_mask_builder.storage
     nonfinal_acc = accumulator.copy()
     final_acc = test_mask_builder.finalize()
     # final_acc should contain the maximum value (num_batches)
     assert (final_acc == nonfinal_acc).all(), (
         "Finalized accumulator should be equal to non-finalized accumulator for max aggregation"
     )
+    test_mask_builder.cleanup()
 
 
 @pytest.mark.parametrize("clip", [0, 1, 3])
@@ -183,7 +185,7 @@ def test_edge_clipping_heatmap_assembler(
             (tmp_path / overlap_counter_filename).as_posix()
         )
 
-    edge_clip_prep = EdgeClippingPreprocessor(px_to_clip=clip, num_dims=2)
+    edge_clip_prep = EdgeClippingPreprocessor(px_to_clip=clip)
     auto_scale_prep = AutoScalingPreprocessor(
         source_extents=mask_extents,
         source_tile_extents=tile_extents,
@@ -222,12 +224,12 @@ def test_edge_clipping_heatmap_assembler(
         coords_batch = coords_batch.astype(np.int64)
         assembler.update_batch(example_tile_batch, coords_batch)
 
-        accumulator = assembler.storage.accumulator
+        accumulator = assembler.storage
         assert accumulator.sum() == (i + 1) * increment, (
             f"Checksum mismatch in heatmap accumulator after update {i + 1}. Is {accumulator.sum()}, but expected {(i + 1) * increment}"
         )
 
-    accumulator = assembler.storage.accumulator
+    accumulator = assembler.storage
     assert (
         accumulator.sum()
         == num_batches
@@ -260,6 +262,7 @@ def test_edge_clipping_heatmap_assembler(
     assert assembled_heatmap.max() == 1.0, (
         f"Assembled heatmap values should be normalized to 1.0 after finalization: {assembled_heatmap.max()}"
     )
+    assembler.cleanup()
 
 
 def test_edge_clipping_clips_edges():
@@ -269,7 +272,7 @@ def test_edge_clipping_clips_edges():
     mask_extents = np.asarray((16, 16))
     mask_tile_extents = np.asarray((8, 8))
 
-    edge_clip_prep = EdgeClippingPreprocessor(px_to_clip=clip, num_dims=2)
+    edge_clip_prep = EdgeClippingPreprocessor(px_to_clip=clip)
     auto_scale_prep = AutoScalingPreprocessor(
         source_extents=mask_extents,
         source_tile_extents=mask_tile_extents,
@@ -297,6 +300,7 @@ def test_edge_clipping_clips_edges():
     assert (overlap_counter[0, 0] == 0.0).all(), (
         "Top-left corner of overlap counter should be zero due to clipping"
     )
+    assembler.cleanup()
 
 
 def test_numpy_memmap_tempfile_management(monkeypatch):
@@ -315,7 +319,7 @@ def test_numpy_memmap_tempfile_management(monkeypatch):
     mask_extents = np.asarray([16, 16], dtype=np.int64)
     tile_strides = np.asarray([4, 4], dtype=np.int64)
 
-    edge_clip_prep = EdgeClippingPreprocessor(px_to_clip=(1, 1, 1, 1), num_dims=2)
+    edge_clip_prep = EdgeClippingPreprocessor(px_to_clip=(1, 1, 1, 1))
     auto_scale_prep = AutoScalingPreprocessor(
         source_extents=mask_extents,
         source_tile_extents=mask_tile_extents,
@@ -331,19 +335,17 @@ def test_numpy_memmap_tempfile_management(monkeypatch):
         dtype=np.float32,
     )
 
-    assert len(captured_files) >= 1, (
-        "Expected at least one temporary file to be created"
+    assert len(captured_files) >= 2, (
+        "Expected at least two temporary files for main and overlap accumulators"
     )
-    temp_filepath = captured_files[0]
-
+    temp_filepaths = captured_files.copy()
     tile = np.ones((1, 1, 8, 8), dtype=np.float32)
     assembler.update_batch(tile, coords_batch=np.asarray([[0], [0]]))
-
     del assembler
-
-    assert not temp_filepath.exists(), (
-        f"Temporary file {temp_filepath} should be deleted"
-    )
+    for temp_filepath in temp_filepaths:
+        assert not temp_filepath.exists(), (
+            f"Temporary file {temp_filepath} should be deleted"
+        )
 
 
 def test_numpy_memmap_persistent_file(tmp_path):
@@ -354,7 +356,7 @@ def test_numpy_memmap_persistent_file(tmp_path):
     mask_extents = np.asarray([16, 16], dtype=np.int64)
     tile_strides = np.asarray([4, 4], dtype=np.int64)
 
-    edge_clip_prep = EdgeClippingPreprocessor(px_to_clip=(1, 1, 1, 1), num_dims=2)
+    edge_clip_prep = EdgeClippingPreprocessor(px_to_clip=(1, 1, 1, 1))
     auto_scale_prep = AutoScalingPreprocessor(
         source_extents=mask_extents,
         source_tile_extents=mask_tile_extents,
@@ -423,7 +425,7 @@ def test_autoscaling_scalar_uniform_value_constant_stride(
     # 2. Expand scalars and compress coords (ScalarUniformExpansionPreprocessor)
     builder = MaskBuilder(
         shape=(channels, *auto_scale_prep.mask_extents),
-        storage="numpy",
+        storage="inmemory",
         aggregation="mean",
         preprocessors=[auto_scale_prep, scalar_prep],
         dtype=np.float32,
@@ -440,7 +442,7 @@ def test_autoscaling_scalar_uniform_value_constant_stride(
     compressed_mask_extents = expected_mask_extents // gcds
 
     # Verify accumulator shape matches adjusted dimensions
-    accumulator = builder.storage.accumulator
+    accumulator = builder.storage
     assert accumulator.shape == (channels, *compressed_mask_extents), (
         f"Accumulator shape mismatch: {accumulator.shape} vs expected {(channels, *compressed_mask_extents)}"
     )
@@ -490,3 +492,4 @@ def test_autoscaling_scalar_uniform_value_constant_stride(
     ), (
         f"Overlap sum mismatch: {overlap.sum()} vs expected {num_batches * batch_size * np.prod(adjusted_mask_tile_extents)}"
     )
+    builder.cleanup()

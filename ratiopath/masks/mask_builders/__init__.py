@@ -10,11 +10,7 @@ from ratiopath.masks.mask_builders.receptive_field_manipulation import (
     Preprocessor,
     ScalarUniformExpansionPreprocessor,
 )
-from ratiopath.masks.mask_builders.storage import (
-    MemMapStorage,
-    NumpyStorage,
-    StorageAllocator,
-)
+from ratiopath.masks.mask_builders.storage import inmemory, memmap
 
 
 __all__ = [
@@ -24,9 +20,8 @@ __all__ = [
     "MaskBuilder",
     "MaxAggregator",
     "MeanAggregator",
-    "MemMapStorage",
-    "NumpyStorage",
     "Preprocessor",
     "ScalarUniformExpansionPreprocessor",
-    "StorageAllocator",
+    "inmemory",
+    "memmap",
 ]
