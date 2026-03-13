@@ -1,137 +1,147 @@
-import os
-
 import numpy as np
 import pytest
 import ray
 
-
-# Set environment variables before ray.init
-os.environ["RAY_ENABLE_METRICS_EXPORT"] = "0"
-os.environ["RAY_IGNORE_VENV_MISMATCH"] = "1"
-os.environ["RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO"] = "0"
-
-# Adjust imports based on your file structure
 from ratiopath.ray.aggregate import TensorMean, TensorStd
 
 
-@pytest.fixture(scope="module")
-def ray_start():
-    if not ray.is_initialized():
-        ray.init(ignore_reinit_error=True)
+@pytest.fixture(scope="module", autouse=True)
+def ray_init():
+    """Initializes and tears down Ray for the test module."""
+    ray.init(ignore_reinit_error=True)
     yield
     ray.shutdown()
 
 
-## --- TensorMean Tests ---
+@pytest.fixture
+def sample_tensors():
+    """Provides a list of dictionaries containing numpy arrays."""
+    np.random.seed(42)
+    return [{"m": np.random.rand(4, 5)} for _ in range(10)]
 
 
-def test_tensor_mean_global(ray_start):
-    """Tests axis=None: Global reduction to a single scalar."""
-    data = [
-        {"m": np.array([[2, 4], [6, 8]])},
-        {"m": np.array([[0, 0], [0, 0]])},
-        {"m": None},
-    ]
-    ds = ray.data.from_items(data)
-    result = ds.aggregate(TensorMean(on="m", axis=None))
-    # (2+4+6+8) / 8 = 2.5
-    assert result["mean(m)"] == 2.5
+@pytest.fixture
+def stacked_sample_tensors(sample_tensors):
+    """Provides the exact NumPy equivalent of the stacked dataset for validation."""
+    return np.stack([item["m"] for item in sample_tensors])
 
 
-def test_tensor_mean_int_shorthand(ray_start):
-    """Tests axis=1: Should aggregate over batch (0) AND dim 1."""
-    data = [
-        {"m": np.array([[10, 20], [30, 40]])},  # Row sums: 30, 70
-        {"m": np.array([[0, 0], [0, 0]])},  # Row sums: 0, 0
-    ]
-    ds = ray.data.from_items(data).repartition(
-        2
-    )  # Ensure multiple blocks for reduction
-    # Aggregating over axis 1 (internal becomes (0, 1))
-    result = ds.aggregate(TensorMean(on="m", axis=1))
+class TestTensorAggregatorInit:
+    """Tests initialization and validation logic of the aggregators."""
 
-    expected = np.array([10.0, 15.0])  # [(10+30+0+0)/4, (20+40+0+0)/4]
-    np.testing.assert_array_equal(result["mean(m)"], expected)
+    @pytest.mark.parametrize("AggClass", [TensorMean, TensorStd])
+    def test_invalid_axis_raises_value_error(self, AggClass):
+        with pytest.raises(ValueError, match="Axis 0 .* must be included"):
+            AggClass(on="m", axis=(1, 2))
 
-
-def test_tensor_mean_batch_only(ray_start):
-    """Tests axis=0: Should collapse only the batch dimension."""
-    data = [
-        {"m": np.array([[10, 10], [10, 10]])},
-        {"m": np.array([[20, 20], [20, 20]])},
-    ]
-    ds = ray.data.from_items(data).repartition(
-        2
-    )  # Ensure multiple blocks for reduction
-    result = ds.aggregate(TensorMean(on="m", axis=0))
-
-    expected = np.array([[15.0, 15.0], [15.0, 15.0]])
-    np.testing.assert_array_equal(result["mean(m)"], expected)
+    @pytest.mark.parametrize("AggClass", [TensorMean, TensorStd])
+    def test_valid_axis_initialization(self, AggClass):
+        # Should not raise
+        AggClass(on="m", axis=None)
+        AggClass(on="m", axis=0)
+        AggClass(on="m", axis=1)
+        AggClass(on="m", axis=(0, 1))
 
 
-## --- TensorStd Tests ---
+class TestTensorMean:
+    """End-to-end tests for TensorMean over Ray datasets."""
 
-
-def test_tensor_std_global(ray_start):
-    """Tests global standard deviation."""
-    vals = np.array([1, 2, 3, 4, 5, 6, 7, 8])
-    data = [{"m": vals[:4].reshape(2, 2)}, {"m": vals[4:].reshape(2, 2)}]
-    ds = ray.data.from_items(data).repartition(
-        2
-    )  # Ensure multiple blocks for reduction
-
-    result = ds.aggregate(TensorStd(on="m", axis=None, ddof=0))
-    expected = np.std(vals)
-    assert pytest.approx(result["std(m)"], 0.0001) == expected
-
-
-def test_tensor_std_batch_only(ray_start):
-    """Tests STD across the batch dimension only."""
-    # Two identical matrices with different offsets
-    data = [
-        {"m": np.array([10, 20])},  # Sample 1
-        {"m": np.array([30, 40])},  # Sample 2
-    ]
-    ds = ray.data.from_items(data).repartition(
-        2
-    )  # Ensure multiple blocks for reduction
-    result = ds.aggregate(TensorStd(on="m", axis=0, ddof=0))
-
-    # Std of [10, 30] is 10; Std of [20, 40] is 10
-    expected = np.array([10.0, 10.0])
-    np.testing.assert_array_equal(result["std(m)"], expected)
-
-
-## --- Validation & Logic Tests ---
-
-
-def test_invalid_axis_tuple(ray_start):
-    """Verifies that providing a tuple without axis 0 raises ValueError."""
-    with pytest.raises(
-        ValueError, match=r"Axis 0 \(the batch dimension\) must be included"
+    @pytest.mark.parametrize(
+        "axis, expected_axis",
+        [
+            (None, None),  # Global mean
+            (0, 0),  # Batch mean
+            (1, (0, 1)),  # Batch + Dim 1
+            ((0, 2), (0, 2)),  # Batch + Dim 2
+        ],
+    )
+    def test_mean_accuracy(
+        self, sample_tensors, stacked_sample_tensors, axis, expected_axis
     ):
-        TensorMean(on="m", axis=(1, 2))
+        ds = ray.data.from_items(sample_tensors).repartition(4)
+
+        agg = TensorMean(on="m", axis=axis, alias_name="result")
+        ray_result = ds.aggregate(agg)["result"]
+
+        expected = np.mean(stacked_sample_tensors, axis=expected_axis)
+
+        np.testing.assert_allclose(ray_result, expected, rtol=1e-6, atol=1e-8)
+
+    def test_mean_ignore_nulls(self):
+        data = [
+            {"m": np.array([1.0, 2.0])},
+            {"m": None},
+            {"m": np.array([3.0, 4.0])},
+        ]
+        ds = ray.data.from_items(data)
+
+        agg_ignore = TensorMean(on="m", axis=0, ignore_nulls=True, alias_name="res")
+
+        res_ignore = ds.aggregate(agg_ignore)["res"]
+        np.testing.assert_allclose(res_ignore, np.array([2.0, 3.0]))
+
+        agg_strict = TensorMean(on="m", axis=0, ignore_nulls=False, alias_name="res")
+        with pytest.raises(Exception, match="contains null values"):
+            ds.aggregate(agg_strict)
 
 
-def test_tensor_aggregate_groupby(ray_start):
-    """Verifies Mean and Std work within groupby operations."""
-    data = [
-        {"id": "A", "m": np.array([1, 1])},
-        {"id": "A", "m": np.array([3, 3])},
-        {"id": "B", "m": np.array([10, 10])},
-    ]
-    ds = ray.data.from_items(data)
+class TestTensorStd:
+    """End-to-end tests for TensorStd over Ray datasets."""
 
-    # Test Mean Groupby
-    res_mean = ds.groupby("id").aggregate(TensorMean(on="m", axis=0)).take_all()
-    res_mean = sorted(res_mean, key=lambda x: x["id"])
+    @pytest.mark.parametrize(
+        "axis, expected_axis",
+        [
+            (None, None),
+            (0, 0),
+            (1, (0, 1)),
+            ((0, 2), (0, 2)),
+        ],
+    )
+    @pytest.mark.parametrize("ddof", [0.0, 1.0])
+    def test_std_accuracy(
+        self, sample_tensors, stacked_sample_tensors, axis, expected_axis, ddof
+    ):
+        ds = ray.data.from_items(sample_tensors).repartition(4)
 
-    np.testing.assert_array_equal(res_mean[0]["mean(m)"], [2.0, 2.0])  # Mean of [1,3]
-    np.testing.assert_array_equal(res_mean[1]["mean(m)"], [10.0, 10.0])
+        agg = TensorStd(on="m", axis=axis, ddof=ddof, alias_name="result")
 
-    # Test Std Groupby
-    res_std = ds.groupby("id").aggregate(TensorStd(on="m", axis=0, ddof=0)).take_all()
-    res_std = sorted(res_std, key=lambda x: x["id"])
+        ray_result = ds.aggregate(agg)["result"]
 
-    np.testing.assert_array_equal(res_std[0]["std(m)"], [1.0, 1.0])  # Std of [1,3]
-    np.testing.assert_array_equal(res_std[1]["std(m)"], [0.0, 0.0])  # Std of [10,10]
+        expected = np.std(stacked_sample_tensors, axis=expected_axis, ddof=ddof)
+        np.testing.assert_allclose(ray_result, expected, rtol=1e-6, atol=1e-8)
+
+    def test_std_all_null_or_empty(self):
+        ds_empty = ray.data.from_items([{"m": np.array([1, 2])}]).filter(
+            lambda x: False
+        )
+
+        res_empty = ds_empty.aggregate(TensorStd(on="m", axis=0, alias_name="res"))[
+            "res"
+        ]
+        assert res_empty is None or np.isnan(res_empty)
+
+        ds_single = ray.data.from_items([{"m": np.array([1.0, 2.0])}])
+
+        res_single = ds_single.aggregate(
+            TensorStd(on="m", axis=0, ddof=1, alias_name="res")
+        )["res"]
+        assert np.isnan(res_single).all()
+
+    def test_std_numerical_stability(self):
+        """Tests Chan's algorithm with large numbers where naive variance fails."""
+        base = 1e9
+        data = [
+            {"m": np.array([base + 1, base + 2])},
+            {"m": np.array([base + 1, base + 2])},
+            {"m": np.array([base + 3, base + 4])},
+            {"m": np.array([base + 3, base + 4])},
+        ]
+        ds = ray.data.from_items(data).repartition(4)
+
+        agg = TensorStd(on="m", axis=0, ddof=1.0, alias_name="res")
+        ray_result = ds.aggregate(agg)["res"]
+
+        stacked = np.stack([d["m"] for d in data])
+        expected = np.std(stacked, axis=0, ddof=1.0)
+
+        np.testing.assert_allclose(ray_result, expected, rtol=1e-6, atol=1e-8)

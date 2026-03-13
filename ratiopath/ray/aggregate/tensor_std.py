@@ -95,52 +95,49 @@ class TensorStd(AggregateFnV2[dict, np.ndarray | float]):
 
     @staticmethod
     def zero_factory() -> dict:
-        return {"k": 0, "mean": 0, "ssd": 0, "shape": None, "count": 0}
+        return {"mean": 0, "ssd": 0, "shape": None, "count": 0}
 
     def aggregate_block(self, block: Block) -> dict:
         block_acc = BlockAccessor.for_block(block)
 
-        if block_acc.count(self._target_col_name, self._ignore_nulls) == 0:  # type: ignore [arg-type]
+        # Get exact counts before any NumPy conversion obscures the nulls
+        valid_count = cast(
+            "int",
+            block_acc.count(self._target_col_name, ignore_nulls=True),  # type: ignore [arg-type]
+        )
+        total_count = cast(
+            "int",
+            block_acc.count(self._target_col_name, ignore_nulls=False),  # type: ignore [arg-type]
+        )
+
+        # Catch nulls immediately if strict mode is on
+        if valid_count < total_count and not self._ignore_nulls:
+            raise ValueError(
+                f"Column '{self._target_col_name}' contains null values, but "
+                "ignore_nulls is False."
+            )
+
+        if valid_count == 0:
             return self.zero_factory()
 
         col_np = cast("np.ndarray", block_acc.to_numpy(self._target_col_name))
 
-        # Handle object dtype (triggered by nulls or ragged tensor shapes)
-        if col_np.dtype == object:
+        # Filter out nulls if necessary
+        if valid_count < total_count:
             valid_tensors = [x for x in col_np if x is not None]
-
-            # If lengths differ, we dropped at least one None.
-            if len(valid_tensors) != col_np.size and not self._ignore_nulls:
-                raise ValueError(
-                    f"Column '{self._target_col_name}' contains null values, but "
-                    "ignore_nulls is False."
-                )
-
-            # Handle the all-null block case
-            if not valid_tensors:
-                return self.zero_factory()
-
-            # Reconstruct the contiguous numeric tensor
             col_np = np.stack(valid_tensors)
 
         # Partial sum and element count
         block_sum = np.sum(col_np, axis=self._aggregate_axis, keepdims=True)
         block_count = col_np.size // block_sum.size
 
-        # Compute the reference point K for stable variance calculation#
-        k = block_sum / block_count
-
-        # Shift the data by K to improve numerical stability when calculating SSD
-        shifted = col_np - k
-        mean = np.sum(shifted, axis=self._aggregate_axis) / block_count
-
-        block_ssd = np.sum((shifted - mean) ** 2, axis=self._aggregate_axis)
+        mean = block_sum / block_count
+        block_ssd = np.sum((col_np - mean) ** 2, axis=self._aggregate_axis)
 
         return {
-            "k": k.flatten(),
-            "mean": mean.flatten(),
-            "ssd": block_ssd.flatten(),
-            "shape": mean.shape,
+            "mean": mean.ravel(),
+            "ssd": block_ssd.ravel(),
+            "shape": block_ssd.shape,
             "count": block_count,
         }
 
@@ -155,19 +152,13 @@ class TensorStd(AggregateFnV2[dict, np.ndarray | float]):
         n_new = new["count"]
         combined_count = n_current + n_new
 
-        k_current = np.asarray(current_accumulator["k"])
-        k_new = np.asarray(new["k"])
-
         mean_current = np.asarray(current_accumulator["mean"])
         mean_new = np.asarray(new["mean"])
 
-        # Calculate delta stably using the reference points.
-        # This is algebraically identical to (mean_b - mean_a), but Sterbenz Lemma
-        # ensures (K2 - K1) is computed without catastrophic precision loss.
-        delta = (k_new - k_current) + mean_new - mean_current
+        delta = mean_new - mean_current
 
         # Chan's formula for the combined true mean
-        combined_true_mean = (k_current + mean_current) + delta * n_new / combined_count
+        combined_mean = (mean_current * n_current + mean_new * n_new) / combined_count
 
         combined_ssd = (
             np.asarray(current_accumulator["ssd"])
@@ -176,8 +167,7 @@ class TensorStd(AggregateFnV2[dict, np.ndarray | float]):
         )
 
         return {
-            "k": combined_true_mean,
-            "mean": np.zeros_like(combined_true_mean),
+            "mean": combined_mean,
             "ssd": combined_ssd,
             "shape": new["shape"],
             "count": combined_count,
