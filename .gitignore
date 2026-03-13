@@ -20,3 +20,6 @@ wheels/
 
 # VS Code
 .vscode/
+
+# MkDocs
+site/

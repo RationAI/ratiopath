@@ -1,4 +1,1 @@
-from typing import TypeAlias
-
-
-Res: TypeAlias = tuple[float, float]
+type Res = tuple[float, float]
