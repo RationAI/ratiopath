@@ -104,13 +104,28 @@ class TensorStd(AggregateFnV2[dict, np.ndarray | float]):
             return self.zero_factory()
 
         col_np = cast("np.ndarray", block_acc.to_numpy(self._target_col_name))
-        if self._ignore_nulls and col_np.dtype == object:
-            # Filter out Nones)
-            col_np = np.stack([x for x in col_np if x is not None])
+
+        # Handle object dtype (triggered by nulls or ragged tensor shapes)
+        if col_np.dtype == object:
+            valid_tensors = [x for x in col_np if x is not None]
+
+            # If lengths differ, we dropped at least one None.
+            if len(valid_tensors) != col_np.size and not self._ignore_nulls:
+                raise ValueError(
+                    f"Column '{self._target_col_name}' contains null values, but "
+                    "ignore_nulls is False."
+                )
+
+            # Handle the all-null block case
+            if not valid_tensors:
+                return self.zero_factory()
+
+            # Reconstruct the contiguous numeric tensor
+            col_np = np.stack(valid_tensors)
 
         # Partial sum and element count
         block_sum = np.sum(col_np, axis=self._aggregate_axis, keepdims=True)
-        block_count = np.prod(col_np.shape) // np.prod(block_sum.shape)
+        block_count = col_np.size // block_sum.size
 
         # Compute the reference point K for stable variance calculation#
         k = block_sum / block_count
