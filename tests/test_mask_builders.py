@@ -341,7 +341,7 @@ def test_numpy_memmap_tempfile_management(monkeypatch):
     temp_filepaths = captured_files.copy()
     tile = np.ones((1, 1, 8, 8), dtype=np.float32)
     assembler.update_batch(tile, coords_batch=np.asarray([[0], [0]]))
-    del assembler
+    assembler.cleanup()
     for temp_filepath in temp_filepaths:
         assert not temp_filepath.exists(), (
             f"Temporary file {temp_filepath} should be deleted"
