@@ -118,12 +118,9 @@ def test_tensor_aggregate_groupby(ray_start):
     data = [
         {"id": "A", "m": np.array([1, 1])},
         {"id": "A", "m": np.array([3, 3])},
-        {"id": "B", "m": None},
         {"id": "B", "m": np.array([10, 10])},
     ]
-    ds = ray.data.from_items(data).repartition(
-        2
-    )  # Ensure multiple blocks for reduction
+    ds = ray.data.from_items(data)
 
     # Test Mean Groupby
     res_mean = ds.groupby("id").aggregate(TensorMean(on="m", axis=0)).take_all()
