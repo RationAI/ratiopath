@@ -24,6 +24,7 @@ nav:
       - Parsers:
           - ASAPParser: reference/parsers/asap.md
           - GeoJSONParser: reference/parsers/geojson.md
+          - Darwin7JSONParser: reference/parsers/darwin.md
       - Augmentations:
           - estimate_stain_vectors: reference/augmentations/estimate_stain_vectors.md
           - StainAugmentor: reference/augmentations/stain_augmentor.md

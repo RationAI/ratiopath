@@ -122,6 +122,8 @@ class MeanAggregator[DType: np.generic](Aggregator[DType]):
 
     def cleanup(self) -> None:
         if hasattr(self, "overlap_counter"):
+            if hasattr(self.overlap_counter, "close"):
+                self.overlap_counter.close()
             del self.overlap_counter
 
 

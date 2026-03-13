@@ -5,23 +5,23 @@ from ratiopath.masks.mask_builders.aggregation import (
 )
 from ratiopath.masks.mask_builders.mask_builder import MaskBuilder
 from ratiopath.masks.mask_builders.receptive_field_manipulation import (
-    AutoScalingPreprocessor,
-    EdgeClippingPreprocessor,
-    Preprocessor,
-    ScalarUniformExpansionPreprocessor,
+    AutoScalingTransform,
+    EdgeClippingTransform,
+    ScalarUniformExpansionTransform,
+    TileTransform,
 )
-from ratiopath.masks.mask_builders.storage import inmemory, memmap
+from ratiopath.masks.mask_builders.storage import InMemory, MemMap
 
 
 __all__ = [
     "Aggregator",
-    "AutoScalingPreprocessor",
-    "EdgeClippingPreprocessor",
+    "AutoScalingTransform",
+    "EdgeClippingTransform",
+    "InMemory",
     "MaskBuilder",
     "MaxAggregator",
     "MeanAggregator",
-    "Preprocessor",
-    "ScalarUniformExpansionPreprocessor",
-    "inmemory",
-    "memmap",
+    "MemMap",
+    "ScalarUniformExpansionTransform",
+    "TileTransform",
 ]

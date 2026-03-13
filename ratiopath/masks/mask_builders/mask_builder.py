@@ -5,7 +5,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from ratiopath.masks.mask_builders.aggregation import Aggregator
-from ratiopath.masks.mask_builders.receptive_field_manipulation import Preprocessor
+from ratiopath.masks.mask_builders.receptive_field_manipulation import TileTransform
 from ratiopath.misc import safely_instantiate
 
 
@@ -15,12 +15,12 @@ class MaskBuilder[DType: np.generic]:
     This class takes pluggable components:
     - storage: Determines how the accumulator memory is allocated (e.g. RAM vs disk).
     - aggregator: Determines how overlapping tiles are merged (e.g. max, mean).
-    - preprocessors: A list of transformations applied to tiles/coords before accumulation.
+    - transforms: A list of transformations applied to tiles/coords before accumulation.
     """
 
     storage: NDArray[DType]
     aggregator: Aggregator[DType]
-    preprocessors: Sequence[Preprocessor]
+    transforms: Sequence[TileTransform]
 
     def __init__(
         self,
@@ -31,7 +31,7 @@ class MaskBuilder[DType: np.generic]:
         aggregation: Literal["mean", "max"]
         | type[Aggregator[DType]]
         | Aggregator[DType] = "mean",
-        preprocessors: Sequence[Preprocessor] = (),
+        transforms: Sequence[TileTransform] = (),
         dtype: type[DType] = np.float32,  # type: ignore[assignment]
         **kwargs: Any,
     ) -> None:
@@ -41,24 +41,24 @@ class MaskBuilder[DType: np.generic]:
             shape: Spatial dimensions of the mask to build.
             storage: Strategy for allocating memory ("inmemory", "memmap", a class, or an instance).
             aggregation: Strategy for combining tiles ("mean", "max", a class, or an instance).
-            preprocessors: Optional sequence of preprocessing steps.
+            transforms: Optional sequence of transform steps.
             dtype: Data type for the accumulator.
             **kwargs: Extra arguments passed to storage and aggregator initialization.
         """
-        for preprocessor in preprocessors:
-            shape = preprocessor.setup(shape)
+        for transform in transforms:
+            shape = transform.setup(shape)
 
         # Resolve Storage
         if isinstance(storage, str):
             if storage == "inmemory":
-                from ratiopath.masks.mask_builders.storage import inmemory
+                from ratiopath.masks.mask_builders.storage import InMemory
 
-                self.storage = inmemory(shape=shape, dtype=dtype)
+                self.storage = InMemory(shape=shape, dtype=dtype)
             elif storage == "memmap":
-                from ratiopath.masks.mask_builders.storage import memmap
+                from ratiopath.masks.mask_builders.storage import MemMap
 
                 self.storage = safely_instantiate(
-                    memmap,  # type: ignore[arg-type]
+                    MemMap,  # type: ignore[arg-type]
                     shape=shape,
                     dtype=dtype,
                     **kwargs,
@@ -96,7 +96,7 @@ class MaskBuilder[DType: np.generic]:
         else:
             self.aggregator = aggregation
 
-        self.preprocessors = preprocessors
+        self.transforms = transforms
 
     def update_batch(self, data_batch: np.ndarray, coords_batch: np.ndarray) -> None:
         """Update the accumulator with a batch of tiles.
@@ -105,8 +105,8 @@ class MaskBuilder[DType: np.generic]:
             data_batch: Array of shape (B, C, *SpatialDims) or (B, C) containing B tiles.
             coords_batch: Array of shape (N, B) containing top-left coordinates.
         """
-        for preprocessor in self.preprocessors:
-            data_batch, coords_batch = preprocessor.process(data_batch, coords_batch)
+        for transform in self.transforms:
+            data_batch, coords_batch = transform.transform(data_batch, coords_batch)
 
         self.aggregator.update(self.storage, data_batch, coords_batch)
 
@@ -116,6 +116,8 @@ class MaskBuilder[DType: np.generic]:
 
     def cleanup(self) -> None:
         if hasattr(self, "storage"):
+            if hasattr(self.storage, "close"):
+                self.storage.close()
             del self.storage
 
         self.aggregator.cleanup()

@@ -5,10 +5,10 @@ import numpy as np
 import pytest
 
 from ratiopath.masks.mask_builders import (
-    AutoScalingPreprocessor,
-    EdgeClippingPreprocessor,
+    AutoScalingTransform,
+    EdgeClippingTransform,
     MaskBuilder,
-    ScalarUniformExpansionPreprocessor,
+    ScalarUniformExpansionTransform,
 )
 
 
@@ -27,7 +27,7 @@ def test_scalar_uniform_averaging_2d(shape, mask_tile_extents, mask_tile_strides
     gcds = np.gcd(mask_tile_extents, mask_tile_strides)
     adjusted_tile_extents = mask_tile_extents // gcds
 
-    preprocessor = ScalarUniformExpansionPreprocessor(
+    transform = ScalarUniformExpansionTransform(
         mask_tile_extents=mask_tile_extents, mask_tile_strides=mask_tile_strides
     )
 
@@ -35,7 +35,7 @@ def test_scalar_uniform_averaging_2d(shape, mask_tile_extents, mask_tile_strides
         shape=shape,
         storage="inmemory",
         aggregation="mean",
-        preprocessors=[preprocessor],
+        transforms=[transform],
         dtype=np.float32,
     )
 
@@ -101,7 +101,7 @@ def test_scalar_uniform_max_2d(shape, mask_tile_extents, mask_tile_strides):
     adjusted_tile_extents = mask_tile_extents // gcds
     min_batch_increment = np.prod(adjusted_tile_extents) * channels
 
-    preprocessor = ScalarUniformExpansionPreprocessor(
+    transform = ScalarUniformExpansionTransform(
         mask_tile_extents=mask_tile_extents, mask_tile_strides=mask_tile_strides
     )
 
@@ -109,7 +109,7 @@ def test_scalar_uniform_max_2d(shape, mask_tile_extents, mask_tile_strides):
         shape=shape,
         storage="inmemory",
         aggregation="max",
-        preprocessors=[preprocessor],
+        transforms=[transform],
         dtype=np.float32,
     )
 
@@ -185,8 +185,8 @@ def test_edge_clipping_heatmap_assembler(
             (tmp_path / overlap_counter_filename).as_posix()
         )
 
-    edge_clip_prep = EdgeClippingPreprocessor(px_to_clip=clip)
-    auto_scale_prep = AutoScalingPreprocessor(
+    edge_clip_prep = EdgeClippingTransform(px_to_clip=clip)
+    auto_scale_prep = AutoScalingTransform(
         source_extents=mask_extents,
         source_tile_extents=tile_extents,
         source_tile_strides=tile_strides,
@@ -197,7 +197,7 @@ def test_edge_clipping_heatmap_assembler(
         shape=(channels, *auto_scale_prep.mask_extents),
         storage="memmap",
         aggregation="mean",
-        preprocessors=[edge_clip_prep, auto_scale_prep],
+        transforms=[edge_clip_prep, auto_scale_prep],
         dtype=np.float32,
         filename=filename,
         overlap_counter_filename=overlap_counter_filename,
@@ -272,8 +272,8 @@ def test_edge_clipping_clips_edges():
     mask_extents = np.asarray((16, 16))
     mask_tile_extents = np.asarray((8, 8))
 
-    edge_clip_prep = EdgeClippingPreprocessor(px_to_clip=clip)
-    auto_scale_prep = AutoScalingPreprocessor(
+    edge_clip_prep = EdgeClippingTransform(px_to_clip=clip)
+    auto_scale_prep = AutoScalingTransform(
         source_extents=mask_extents,
         source_tile_extents=mask_tile_extents,
         source_tile_strides=np.asarray((4, 4)),
@@ -284,7 +284,7 @@ def test_edge_clipping_clips_edges():
         shape=(channels, *auto_scale_prep.mask_extents),
         storage="memmap",
         aggregation="mean",
-        preprocessors=[edge_clip_prep, auto_scale_prep],
+        transforms=[edge_clip_prep, auto_scale_prep],
         dtype=np.float32,
     )
 
@@ -319,8 +319,8 @@ def test_numpy_memmap_tempfile_management(monkeypatch):
     mask_extents = np.asarray([16, 16], dtype=np.int64)
     tile_strides = np.asarray([4, 4], dtype=np.int64)
 
-    edge_clip_prep = EdgeClippingPreprocessor(px_to_clip=(1, 1, 1, 1))
-    auto_scale_prep = AutoScalingPreprocessor(
+    edge_clip_prep = EdgeClippingTransform(px_to_clip=(1, 1, 1, 1))
+    auto_scale_prep = AutoScalingTransform(
         source_extents=mask_extents,
         source_tile_extents=mask_tile_extents,
         source_tile_strides=tile_strides,
@@ -331,7 +331,7 @@ def test_numpy_memmap_tempfile_management(monkeypatch):
         shape=(1, *auto_scale_prep.mask_extents),
         storage="memmap",
         aggregation="mean",
-        preprocessors=[edge_clip_prep, auto_scale_prep],
+        transforms=[edge_clip_prep, auto_scale_prep],
         dtype=np.float32,
     )
 
@@ -356,8 +356,8 @@ def test_numpy_memmap_persistent_file(tmp_path):
     mask_extents = np.asarray([16, 16], dtype=np.int64)
     tile_strides = np.asarray([4, 4], dtype=np.int64)
 
-    edge_clip_prep = EdgeClippingPreprocessor(px_to_clip=(1, 1, 1, 1))
-    auto_scale_prep = AutoScalingPreprocessor(
+    edge_clip_prep = EdgeClippingTransform(px_to_clip=(1, 1, 1, 1))
+    auto_scale_prep = AutoScalingTransform(
         source_extents=mask_extents,
         source_tile_extents=mask_tile_extents,
         source_tile_strides=tile_strides,
@@ -368,7 +368,7 @@ def test_numpy_memmap_persistent_file(tmp_path):
         shape=(1, *auto_scale_prep.mask_extents),
         storage="memmap",
         aggregation="mean",
-        preprocessors=[edge_clip_prep, auto_scale_prep],
+        transforms=[edge_clip_prep, auto_scale_prep],
         dtype=np.float32,
         filename=filename,
     )
@@ -376,7 +376,7 @@ def test_numpy_memmap_persistent_file(tmp_path):
     tile_batch = np.ones((1, 1, *mask_tile_extents), dtype=np.float32)
     assembler.update_batch(tile_batch, coords_batch=np.asarray([[0], [0]]))
 
-    del assembler
+    assembler.cleanup()
 
     assert filename.exists(), (
         f"Persistent file {filename} should exist after finalization"
@@ -406,7 +406,7 @@ def test_autoscaling_scalar_uniform_value_constant_stride(
     source_tile_strides = source_tile_extents // 2  # 50% overlap
     mask_tile_extents = np.asarray(mask_tile_extents)
 
-    auto_scale_prep = AutoScalingPreprocessor(
+    auto_scale_prep = AutoScalingTransform(
         source_extents=source_extents,
         source_tile_extents=source_tile_extents,
         source_tile_strides=source_tile_strides,
@@ -415,19 +415,19 @@ def test_autoscaling_scalar_uniform_value_constant_stride(
 
     mask_tile_strides = (source_tile_strides * mask_tile_extents) // source_tile_extents
 
-    scalar_prep = ScalarUniformExpansionPreprocessor(
+    scalar_prep = ScalarUniformExpansionTransform(
         mask_tile_extents=mask_tile_extents,
         mask_tile_strides=mask_tile_strides,  # strides in mask space
     )
 
-    # Note the order of preprocessors!
-    # 1. Scale coords (AutoScalingPreprocessor)
-    # 2. Expand scalars and compress coords (ScalarUniformExpansionPreprocessor)
+    # Note the order of transforms!
+    # 1. Scale coords (AutoScalingTransform)
+    # 2. Expand scalars and compress coords (ScalarUniformExpansionTransform)
     builder = MaskBuilder(
         shape=(channels, *auto_scale_prep.mask_extents),
         storage="inmemory",
         aggregation="mean",
-        preprocessors=[auto_scale_prep, scalar_prep],
+        transforms=[auto_scale_prep, scalar_prep],
         dtype=np.float32,
     )
 

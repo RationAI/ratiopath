@@ -1,6 +1,12 @@
-from pathlib import Path
+from __future__ import annotations
 
-import pyvips
+from typing import TYPE_CHECKING
+
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    import pyvips
 
 
 def write_big_tiff(
@@ -35,6 +41,8 @@ def write_big_tiff(
         tile_height: The height of each tile in pixels. Default is 512.
             Must match with other masks used in xOpat.
     """
+    import pyvips
+
     xres = 1000 / mpp_x
     yres = 1000 / mpp_y
 

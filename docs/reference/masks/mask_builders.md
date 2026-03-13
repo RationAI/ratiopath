@@ -25,25 +25,26 @@ The `MaskBuilder` is the central orchestrator. It uses **composition** rather th
 
 - `storage`: Where the mask is stored (RAM or disk).
 - `aggregation`: How overlapping tiles are merged (mean or max).
-- `preprocessors`: A list of optional transformations applied to data and coordinates.
+- `transforms`: A list of optional transforms applied to data and coordinates.
 
 ## Components
 
 ### Storage Strategies
 
-::: ratiopath.masks.mask_builders.inmemory
-::: ratiopath.masks.mask_builders.memmap
+::: ratiopath.masks.mask_builders.InMemory
+::: ratiopath.masks.mask_builders.MemMap
 
 ### Aggregation Strategies
 
 ::: ratiopath.masks.mask_builders.MeanAggregator
 ::: ratiopath.masks.mask_builders.MaxAggregator
 
-### Preprocessors
+### Tile Transforms
 
-::: ratiopath.masks.mask_builders.AutoScalingPreprocessor
-::: ratiopath.masks.mask_builders.EdgeClippingPreprocessor
-::: ratiopath.masks.mask_builders.ScalarUniformExpansionPreprocessor
+::: ratiopath.masks.mask_builders.TileTransform
+::: ratiopath.masks.mask_builders.AutoScalingTransform
+::: ratiopath.masks.mask_builders.EdgeClippingTransform
+::: ratiopath.masks.mask_builders.ScalarUniformExpansionTransform
 
 ## Examples
 
@@ -56,7 +57,7 @@ import numpy as np
 import openslide
 from ratiopath.masks.mask_builders import (
     MaskBuilder, 
-    ScalarUniformExpansionPreprocessor
+    ScalarUniformExpansionTransform
 )
 import matplotlib.pyplot as plt
 
@@ -67,8 +68,8 @@ tile_strides = (256, 256)
 slide = openslide.OpenSlide("path/to/slide.mrxs")
 slide_w, slide_h = slide.level_dimensions[LEVEL]
 
-# Each scalar expands to the tile footprint. GCD compression is handled by the preprocessor.
-scalar_prep = ScalarUniformExpansionPreprocessor(
+# Each scalar expands to the tile footprint. GCD compression is handled by the transform.
+scalar_prep = ScalarUniformExpansionTransform(
     mask_tile_extents=np.array(tile_extents),
     mask_tile_strides=np.array(tile_strides)
 )
@@ -77,7 +78,7 @@ mask_builder = MaskBuilder(
     shape=(1, slide_h, slide_w),
     storage="inmemory",
     aggregation="mean",
-    preprocessors=[scalar_prep],
+    transforms=[scalar_prep],
     dtype=np.float32,
 )
 
@@ -106,17 +107,17 @@ plt.show()
 import numpy as np
 from ratiopath.masks.mask_builders import (
     MaskBuilder,
-    EdgeClippingPreprocessor
+    EdgeClippingTransform
 )
 
-# Configure preprocessors
-clip_prep = EdgeClippingPreprocessor(px_to_clip=4)
+# Configure transforms
+clip_prep = EdgeClippingTransform(px_to_clip=4)
 
 mask_builder = MaskBuilder(
     shape=(3, 10000, 10000),
     storage="memmap",
     aggregation="max",
-    preprocessors=[clip_prep],
+    transforms=[clip_prep],
     filename="large_mask.npy"
 )
 
@@ -134,9 +135,9 @@ assembled_mask = mask_builder.finalize()
 
 ```python
 import numpy as np
-from ratiopath.masks.mask_builders import MaskBuilder, AutoScalingPreprocessor
+from ratiopath.masks.mask_builders import MaskBuilder, AutoScalingTransform
 
-auto_scale = AutoScalingPreprocessor(
+auto_scale = AutoScalingTransform(
     source_extents=np.array([2000, 2000]),
     source_tile_extents=np.array([512, 512]),
     source_tile_strides=np.array([256, 256]),
@@ -147,7 +148,7 @@ mask_builder = MaskBuilder(
     shape=(1, *auto_scale.mask_extents),
     storage="inmemory",
     aggregation="mean",
-    preprocessors=[auto_scale]
+    transforms=[auto_scale]
 )
 ```
 

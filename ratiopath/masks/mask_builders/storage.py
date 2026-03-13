@@ -10,26 +10,26 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
-class inmemory[DType: np.generic](np.ndarray):
+class InMemory[DType: np.generic](np.ndarray):
     """Storage allocator that uses in-memory NumPy arrays."""
 
     def __new__(cls, shape: tuple[int, ...], dtype: type[DType]) -> Self:
         return np.zeros(shape=shape, dtype=dtype).view(cls)
 
 
-class memmap[DType: np.generic](np.memmap):
+class MemMap[DType: np.generic](np.memmap):
     """Storage allocator that uses numpy memory-mapped files (memmaps).
 
     This class provides disk-backed storage for large masks that exceed available RAM.
     Memory mapping allows the OS to manage paging between disk and memory transparently,
     enabling processing of masks that would otherwise cause out-of-memory errors.
 
-    **Temporary Files (default behavior when `filepath=None`):**
+    **Temporary Files (default behavior when `filename=None`):**
     A temporary file is created and used as backing storage. The file is deleted when
     the memmap is closed or garbage collected. Disk space is consumed during processing
     but automatically reclaimed afterward.
 
-    **Explicit Files (when `filepath` is provided):**
+    **Explicit Files (when `filename` is provided):**
     The memmap is backed by the specified file path, which persists after processing.
     This is useful for caching results or processing masks too large for temporary storage.
     If the file already exists, a FileExistsError is raised to prevent accidental data loss.
@@ -68,7 +68,7 @@ class memmap[DType: np.generic](np.memmap):
         # delete the file during garbage collection.
         self._tempfile = None
 
-    def cleanup(self) -> None:
+    def close(self) -> None:
         if hasattr(self, "_mmap") and self._mmap is not None:
             try:
                 self._mmap.close()
@@ -83,4 +83,4 @@ class memmap[DType: np.generic](np.memmap):
             self._tempfile = None
 
     def __del__(self) -> None:
-        self.cleanup()
+        self.close()
