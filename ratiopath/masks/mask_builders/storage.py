@@ -1,115 +1,89 @@
-import contextlib
 import logging
 import tempfile
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-import numpy.typing as npt
-from jaxtyping import Int64
-
-from ratiopath.masks.mask_builders.mask_builder import AccumulatorType, MaskBuilderABC
+from numpy.typing import NDArray
 
 
 logger = logging.getLogger(__name__)
 
 
-class NumpyMemMapMaskBuilderAllocatorMixin(MaskBuilderABC):
-    """Mixin class to allocate accumulators as numpy memory-mapped files (memmaps).
+class StorageAllocator[DType: np.generic](ABC):
+    """Abstract base class for storage allocation strategies.
 
-    This mixin provides disk-backed storage for large masks that exceed available RAM.
-    Memory mapping allows the OS to manage paging between disk and memory transparently,
-    enabling processing of masks that would otherwise cause out-of-memory errors.
-
-    **Temporary Files (default behavior when `filepath=None`):**
-    A temporary file is created and used as backing storage. The file is deleted when
-    the memmap is closed or garbage collected. Disk space is consumed during processing
-    but automatically reclaimed afterward.
-
-    **Explicit Files (when `filepath` is provided):**
-    The memmap is backed by the specified file path, which persists after processing.
-    This is useful for caching results or processing masks too large for temporary storage.
-    If the file already exists, a FileExistsError is raised to prevent accidental data loss.
-
-    This mixin uses NumPy's NPY format version 3.0 for compatibility with large arrays (>4GB).
+    The allocator is responsible for creating and managing the lifecycle of the
+    main accumulator array.
     """
 
-    _memmap_files_to_be_deleted: list[Path]
-    _memmap_accumulators_to_be_closed: list[np.memmap]
+    accumulator: NDArray[DType]
+
+    @abstractmethod
+    def __init__(
+        self, shape: tuple[int, ...], dtype: type[DType], **kwargs: Any
+    ) -> None:
+        """Initialize and allocate the accumulator.
+
+        Args:
+            shape: The shape of the accumulator array.
+            dtype: Data type of the array.
+            **kwargs: Additional allocation arguments (e.g. filepath).
+        """
+
+    def cleanup(self) -> None:
+        """Perform any necessary cleanup (e.g. closing files, deleting temporary memmaps)."""
+        return
+
+
+class MemMapStorage[DType: np.generic](StorageAllocator[DType]):
+    """Storage allocator that uses numpy memory-mapped files (memmaps).
+
+    This storage provides disk-backed allocation for large masks that exceed available RAM.
+    """
 
     def __init__(
         self,
-        *args: Any,
+        shape: tuple[int, ...],
+        dtype: type[DType],
+        filename: Path | str | None = None,
         **kwargs: Any,
     ) -> None:
-        self._memmap_files_to_be_deleted = []
-        self._memmap_accumulators_to_be_closed = []
-        super().__init__(*args, **kwargs)
+        if filename is None:
+            with tempfile.NamedTemporaryFile(delete=False) as file:
+                self.tempfile = file.name
+                filename = file.name
+        elif Path(filename).exists():
+            raise FileExistsError(f"Memmap {filename} already exists.")
+
+        self.accumulator = np.memmap(filename, mode="w+", shape=shape, dtype=dtype)
 
     def __del__(self) -> None:
-        with contextlib.suppress(Exception):
-            self._cleanup_memmaps()
+        self.cleanup()
 
-    def _cleanup_memmaps(self) -> None:
-        """Ensure that any temporary memmap files are deleted when the builder is garbage collected."""
-        for filepath, mmap in zip(
-            self._memmap_files_to_be_deleted,
-            self._memmap_accumulators_to_be_closed,
-            strict=True,
-        ):
+    def cleanup(self) -> None:
+        if hasattr(self, "accumulator"):
             try:
-                # Close the memmap to release file handles
-                mmap._mmap.close()  # type: ignore[attr-defined]
-                # del mmap  # Ensure the memmap object is deleted
-                filepath.unlink(missing_ok=True)
+                self.accumulator._mmap.close()  # type: ignore[attr-defined]
             except Exception as e:
-                logger.warning(f"Failed to delete memmap file {filepath}: {e}")
+                logger.warning(f"Failed to close memmap: {e}")
+            finally:
+                del self.accumulator
 
-    def allocate_accumulator(
-        self,
-        mask_extents: Int64[AccumulatorType, " N"],
-        channels: int,
-        dtype: npt.DTypeLike = np.float32,
-        filepath: Path | None = None,
-        **kwargs: Any,
-    ) -> np.memmap:
-        if filepath is None:
-            with tempfile.NamedTemporaryFile(delete=True) as temp_file:
-                temp_filename = temp_file.name
-                self._memmap_files_to_be_deleted.append(Path(temp_filename))
-            mmap = np.lib.format.open_memmap(
-                temp_filename,
-                mode="w+",
-                shape=(channels, *mask_extents),
-                dtype=dtype,
-                version=(3, 0),
-            )
-            self._memmap_accumulators_to_be_closed.append(mmap)
-            return mmap
-        else:
-            if filepath.exists():
-                raise FileExistsError(f"Memmap filepath {filepath} already exists.")
-            return np.lib.format.open_memmap(
-                filepath,
-                mode="w+",
-                shape=(channels, *mask_extents),
-                dtype=dtype,
-                version=(3, 0),
-            )
+        if hasattr(self, "tempfile"):
+            try:
+                Path(self.tempfile).unlink(missing_ok=True)
+            except Exception as e:
+                logger.warning(f"Failed to delete memmap file {self.tempfile}: {e}")
+            finally:
+                del self.tempfile
 
 
-class NumpyArrayMaskBuilderAllocatorMixin(MaskBuilderABC):
-    """Mixin class to allocate accumulators as numpy arrays.
+class NumpyStorage[DType: np.generic](StorageAllocator[DType]):
+    """Storage allocator that uses in-memory numpy arrays."""
 
-    This mixin implements the `allocate_accumulator` method to create
-    numpy arrays for the accumulator.
-    """
-
-    def allocate_accumulator(
-        self,
-        mask_extents: Int64[AccumulatorType, " N"],
-        channels: int,
-        dtype: npt.DTypeLike = np.float32,
-        **kwargs: Any,
-    ) -> np.ndarray:
-        return np.zeros((channels, *mask_extents), dtype=dtype)
+    def __init__(
+        self, shape: tuple[int, ...], dtype: type[DType], **kwargs: Any
+    ) -> None:
+        self.accumulator = np.zeros(shape, dtype=dtype)

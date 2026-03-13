@@ -1,16 +1,13 @@
 import itertools
 import warnings
 from collections.abc import Iterator
-from typing import Literal, TypeVarTuple
+from typing import Literal
 
 import numpy as np
 from numpy.typing import NDArray
 
 
-Dims = TypeVarTuple("Dims")
-
-
-def grid_tiles(
+def grid_tiles[*Dims](
     slide_extent: tuple[int, *Dims],
     tile_extent: tuple[int, *Dims],
     stride: tuple[int, *Dims],

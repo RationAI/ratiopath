@@ -1,182 +1,135 @@
-import logging
-from abc import ABC, abstractmethod
-from typing import Any, TypeVar
+from collections.abc import Sequence
+from typing import Any, Literal, overload
 
 import numpy as np
-import numpy.typing as npt
-from jaxtyping import Int64, Shaped
+from numpy.typing import NDArray
+
+from ratiopath.masks.mask_builders.aggregation import Aggregator
+from ratiopath.masks.mask_builders.receptive_field_manipulation import Preprocessor
+from ratiopath.masks.mask_builders.storage import StorageAllocator
 
 
-logger = logging.getLogger(__name__)
+class MaskBuilder[DType: np.generic]:
+    """Builder for assembling large masks from tiled data using a composed strategy pattern.
 
-
-AccumulatorType = np.ndarray
-
-SpatialDims = TypeVar("SpatialDims", bound=tuple[int, ...])
-
-
-def compute_acc_slices(
-    coords_batch: Int64[AccumulatorType, "N B"],
-    mask_tile_extents: Int64[AccumulatorType, " N"],
-) -> list[list[slice]]:
-    """Compute slice objects for accumulator indexing.
-
-    Args:
-        coords_batch: Array of shape (N, B) with top-left coordinates for B tiles in N dimensions.
-        mask_tile_extents: Array of shape (N,) with tile size in mask space for each dimension.
-
-    Returns:
-        List of N lists, each containing B slice objects for indexing into accumulator.
-    """
-    tile_end_coords = coords_batch + mask_tile_extents[:, np.newaxis]  # shape (N, B)
-
-    acc_slices_batch_per_dim = []
-    for dimension in range(coords_batch.shape[0]):
-        acc_slices_batch_per_dim.append(
-            [
-                slice(start, end)
-                for start, end in zip(
-                    coords_batch[dimension], tile_end_coords[dimension], strict=True
-                )
-            ]
-        )
-    return acc_slices_batch_per_dim
-
-
-class MaskBuilderABC(ABC):
-    """Abstract base class for building masks from tiled data.
-
-    This base class establishes the interface for mask builders that assemble large masks
-    from batches of tiles. It uses a cooperative multiple inheritance pattern where:
-    - `update_batch()` is concrete and can be wrapped by mixins
-    - `update_batch_impl()` is abstract and must be implemented by concrete builders
-    - `allocate_accumulator()` is abstract and defines storage strategy (numpy array, memmap, etc.)
-    - `finalize()` is abstract and defines how to produce the final mask
-
-    Subclasses can be composed using mixins to add features like edge clipping,
-    averaging, max aggregation, etc. Mixins should override `update_batch()` and call
-    `super().update_batch()` to maintain the cooperative chain.
+    Instead of relying on mixins, this class takes pluggable components:
+    - storage: Determines how the accumulator memory is allocated (e.g. RAM vs disk).
+    - aggregator: Determines how overlapping tiles are merged (e.g. max, mean).
+    - preprocessors: A list of transformations applied to tiles/coords before accumulation.
     """
 
-    accumulator: AccumulatorType
+    @overload
+    def __init__(
+        self,
+        shape: tuple[int, ...],
+        storage: Literal["numpy", "memmap"] | type[StorageAllocator[DType]],
+        aggregation: Literal["mean", "max"]
+        | type[Aggregator[DType]]
+        | Aggregator[DType] = "mean",
+        preprocessors: Sequence[Preprocessor] = (),
+        *,
+        dtype: type[DType] = np.float32,  # type: ignore[assignment]
+        **kwargs: Any,
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self,
+        shape: tuple[int, ...],
+        storage: StorageAllocator[DType],
+        aggregation: Literal["mean", "max"]
+        | type[Aggregator[DType]]
+        | Aggregator[DType] = "mean",
+        preprocessors: Sequence[Preprocessor] = (),
+        **kwargs: Any,
+    ) -> None: ...
 
     def __init__(
         self,
-        mask_extents: Int64[AccumulatorType, " N"],
-        channels: int,
-        dtype: npt.DTypeLike,
+        shape: tuple[int, ...],
+        storage: Literal["numpy", "memmap"]
+        | type[StorageAllocator[DType]]
+        | StorageAllocator[DType] = "numpy",
+        aggregation: Literal["mean", "max"]
+        | type[Aggregator[DType]]
+        | Aggregator[DType] = "mean",
+        preprocessors: Sequence[Preprocessor] = (),
+        *,
+        dtype: type[DType] = np.float32,  # type: ignore[assignment]
         **kwargs: Any,
     ) -> None:
-        """Initialize the mask builder and allocate the accumulator.
+        """Initialize the mask builder.
 
         Args:
-            mask_extents: Array of shape (N,) specifying the spatial dimensions of the mask to build.
-            channels: Number of channels in the mask (e.g., 1 for grayscale, 3 for RGB).
-            dtype: Data type for the accumulator (e.g., np.float32).
-            **kwargs: Additional keyword arguments passed to `allocate_accumulator()`.
+            shape: Spatial dimensions of the mask to build.
+            storage: Strategy for allocating memory ("numpy", "memmap", a class, or an instance).
+            aggregation: Strategy for combining tiles ("mean", "max", a class, or an instance).
+            preprocessors: Optional sequence of preprocessing steps.
+            dtype: Data type for the accumulator.
+            **kwargs: Extra arguments passed to storage and aggregator initialization.
         """
-        super().__init__()
-        self.setup_memory(mask_extents, channels, dtype=dtype, **kwargs)
+        for preprocessor in preprocessors:
+            shape = preprocessor.reshape_storage(shape)
 
-    @abstractmethod
-    def allocate_accumulator(
-        self,
-        mask_extents: Int64[AccumulatorType, " N"],
-        channels: int,
-        dtype: npt.DTypeLike,
-        **kwargs: Any,
-    ) -> AccumulatorType:
-        """Allocates the necessary accumulators for assembling the mask.
+        # Resolve Storage
+        if isinstance(storage, str):
+            if storage == "numpy":
+                from ratiopath.masks.mask_builders.storage import NumpyStorage
 
-        This abstract method must be implemented by mixins or concrete builders to define
-        how the accumulator(s) are allocated and stored (e.g., in-memory numpy arrays,
-        memory-mapped files, etc.).
+                storage_cls: type[StorageAllocator[DType]] = NumpyStorage
+            elif storage == "memmap":
+                from ratiopath.masks.mask_builders.storage import MemMapStorage
 
-        Args:
-            mask_extents: Array of shape (N,) specifying the spatial dimensions of the mask to build.
-            channels: Number of channels in the mask (e.g., 1 for grayscale, 3 for RGB).
-            dtype: Data type for the accumulator (e.g., np.float32).
-            **kwargs: Additional keyword arguments for allocation.
-        """
+                storage_cls = MemMapStorage
+            else:
+                raise ValueError(f"Unknown storage type: {storage}")
 
-    def setup_memory(
-        self,
-        mask_extents: Int64[AccumulatorType, " N"],
-        channels: int,
-        dtype: npt.DTypeLike,
-        **kwargs: Any,
-    ) -> None:
-        """This method sets up memory structures needed for mask building.
+            self.storage = storage_cls(shape=shape, dtype=dtype, **kwargs)
+        elif isinstance(storage, type) and issubclass(storage, StorageAllocator):
+            self.storage = storage(shape=shape, dtype=dtype, **kwargs)
+        else:
+            self.storage = storage
 
-        This methods can be overridden by mixins or concrete builders to set up any necessary memory structures.
+        # Resolve Aggregator
+        if isinstance(aggregation, str):
+            if aggregation == "mean":
+                from ratiopath.masks.mask_builders.aggregation import MeanAggregator
 
-        Some builders may require additional accumulators or data structures beyond the main accumulator.
-        Some mixins may require temporary files for memory-mapped storage.
-        All such setup should be defined in an overridden version of this method, which will be called by the base constructor
-        after the initialisation parameters are set by all classes/mixins in the MRO chain.
-        """
-        self.accumulator = self.allocate_accumulator(
-            mask_extents, channels, dtype=dtype, **kwargs
-        )
+                aggregator_cls: type[Aggregator[DType]] = MeanAggregator
+            elif aggregation == "max":
+                from ratiopath.masks.mask_builders.aggregation import MaxAggregator
 
-    def update_batch(
-        self,
-        data_batch: Shaped[AccumulatorType, "B C *SpatialDims"],
-        coords_batch: Shaped[AccumulatorType, " N B"],
-    ) -> None:
+                aggregator_cls = MaxAggregator
+            else:
+                raise ValueError(f"Unknown aggregation type: {aggregation}")
+
+            self.aggregator = aggregator_cls(
+                storage=self.storage, shape=shape, dtype=dtype, **kwargs
+            )
+        elif isinstance(aggregation, type) and issubclass(aggregation, Aggregator):
+            self.aggregator = aggregation(
+                storage=self.storage,
+                shape=shape,
+                dtype=dtype,
+                **kwargs,
+            )
+        else:
+            self.aggregator = aggregation
+
+        self.preprocessors = preprocessors
+
+    def update_batch(self, data_batch: np.ndarray, coords_batch: np.ndarray) -> None:
         """Update the accumulator with a batch of tiles.
 
-        This concrete method provides a stable entry point for mixins to wrap and extend
-        functionality. It delegates to `update_batch_impl()` which must be implemented by
-        concrete builders. Mixins can override this method and call `super().update_batch(...)`
-        to form a cooperative chain of processing steps (e.g., edge clipping, coordinate adjustment)
-        before the tiles reach the final implementation.
-
-        This design allows unlimited stacking of mixins while avoiding issues with abstract methods
-        in the MRO chain.
-
         Args:
-            data_batch: Array of shape (B, C, *SpatialDims) containing B tiles with C channels.
-            coords_batch: Array of shape (N, B) containing the top-left corner coordinates
-                for each of the B tiles in N spatial dimensions.
+            data_batch: Array of shape (B, C, *SpatialDims) or (B, C) containing B tiles.
+            coords_batch: Array of shape (N, B) containing top-left coordinates.
         """
-        return self.update_batch_impl(data_batch=data_batch, coords_batch=coords_batch)
+        for preprocessor in self.preprocessors:
+            data_batch, coords_batch = preprocessor.process(data_batch, coords_batch)
 
-    @abstractmethod
-    def update_batch_impl(
-        self,
-        data_batch: Shaped[AccumulatorType, "B C *SpatialDims"],
-        coords_batch: Shaped[AccumulatorType, " N B"],
-    ) -> None:
-        """Core implementation for updating the accumulator with a batch of tiles.
+        self.aggregator.update(self.storage.accumulator, data_batch, coords_batch)
 
-        Concrete builders must implement this method with the actual logic for accumulating
-        tiles into the mask. Common strategies include:
-        - Addition (for averaging later)
-        - Maximum (for max pooling)
-        - Other aggregation operations
-
-        This method is called by `update_batch()` after any mixin preprocessing has occurred.
-        For example, one mixin may clip tile edges and another may adjust coordinates before
-        passing the data here.
-
-        Args:
-            data_batch: Array of shape (B, C, *SpatialDims) containing B tiles with C channels.
-            coords_batch: Array of shape (N, B) containing the top-left corner coordinates
-                for each of the B tiles in N spatial dimensions.
-        """
-
-    @abstractmethod
-    def finalize(self) -> tuple[AccumulatorType, ...] | AccumulatorType:
-        """Finalize the mask assembly and return the result.
-
-        This method performs any necessary post-processing on the accumulator(s) and returns
-        the final mask. Common operations include:
-        - Averaging by overlap counts (for averaging builders)
-        - No-op (for max builders where the accumulator is already final)
-        - Other normalization or scaling operations
-
-        Returns:
-            Tuple of arrays where the first element is always the finalized mask.
-            Additional elements may include auxiliary data like overlap counters.
-        """
+    def finalize(self) -> dict[str, NDArray[DType]] | NDArray[DType]:
+        """Finalize the mask and perform any necessary final computations (like averaging)."""
+        return self.aggregator.finalize(self.storage.accumulator)

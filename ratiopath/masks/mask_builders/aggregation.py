@@ -1,68 +1,89 @@
-from typing import Any
+from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Any, cast
 
 import numpy as np
-import numpy.typing as npt
-from jaxtyping import Int64, Shaped
+from numpy.typing import NDArray
 
-from ratiopath.masks.mask_builders.mask_builder import (
-    AccumulatorType,
-    MaskBuilderABC,
-    compute_acc_slices,
-)
+from ratiopath.masks.mask_builders.storage import StorageAllocator
 
 
-class AveragingMaskBuilderMixin(MaskBuilderABC):
-    """Mixin that implements averaging aggregation for overlapping tiles.
+def compute_acc_slices(
+    coords_batch: np.ndarray, mask_tile_extents: np.ndarray
+) -> list[list[slice]]:
+    """Compute slice objects for accumulator indexing."""
+    tile_end_coords = coords_batch + mask_tile_extents[:, np.newaxis]  # shape (N, B)
 
-    This mixin accumulates tiles by addition and tracks the overlap count at each pixel.
-    During finalization, the accumulated values are divided by the overlap count to compute
-    the average value at each position. This is useful for:
-    - Smoothly blending overlapping tile predictions
-    - Reducing edge artifacts in sliding window processing
-    - Computing ensemble averages from multiple passes
+    acc_slices_batch_per_dim = []
+    for dimension in range(coords_batch.shape[0]):
+        acc_slices_batch_per_dim.append(
+            [
+                slice(start, end)
+                for start, end in zip(
+                    coords_batch[dimension], tile_end_coords[dimension], strict=True
+                )
+            ]
+        )
+    return acc_slices_batch_per_dim
 
-    The mixin allocates an additional `overlap_counter` accumulator with shape (1, *SpatialDims)
-    to track how many tiles contributed to each pixel position.
-    """
 
-    overlap_counter: AccumulatorType
+class Aggregator[DType: np.generic](ABC):
+    """Abstract base class for aggregation strategies."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        return
+
+    @abstractmethod
+    def update(
+        self,
+        accumulator: NDArray[DType],
+        data_batch: np.ndarray,
+        coords_batch: np.ndarray,
+    ) -> None:
+        """Update the accumulator with a batch of tiles."""
+
+    @abstractmethod
+    def finalize(
+        self, accumulator: NDArray[DType]
+    ) -> dict[str, NDArray[Any]] | NDArray[DType]:
+        """Finalize the mask assembly and return the result."""
+
+
+class MeanAggregator[DType: np.generic](Aggregator[DType]):
+    """Aggregator that implements averaging aggregation for overlapping tiles."""
 
     def __init__(
         self,
-        mask_extents: Int64[AccumulatorType, " N"],
-        channels: int,
-        dtype: npt.DTypeLike,
+        storage: StorageAllocator[DType],
+        shape: tuple[int, ...],
+        filename: Path | str | None = None,
+        overlap_counter_filename: Path | str | None = None,
         **kwargs: Any,
     ) -> None:
-        super().__init__(mask_extents, channels, dtype=dtype, **kwargs)
+        overlap_filename = overlap_counter_filename
+        if overlap_filename is None and filename is not None:
+            path = Path(filename)
+            overlap_filename = path.with_suffix(f".overlaps{path.suffix}")
 
-    def setup_memory(
-        self,
-        mask_extents: Int64[AccumulatorType, " N"],
-        channels: int,
-        dtype: npt.DTypeLike,
-        **kwargs: Any,
-    ) -> None:
-        """Set up memory for both the main accumulator and the overlap counter.
+        # Instantiate the storage class again for the overlap counter
+        kwargs_copy = kwargs.copy()
+        kwargs_copy.pop("dtype", None)
 
-        Args:
-            mask_extents: Array of shape (N,) specifying the spatial dimensions of the mask to build.
-            channels: Number of channels in the mask (e.g., 1 for grayscale, 3 for RGB).
-            dtype: Data type for the accumulators (e.g., np.float32).
-            **kwargs: Additional keyword arguments passed to `allocate_accumulator()`.
-        """
-        # Perform base allocation then allocate the overlap counter.
-        super().setup_memory(mask_extents, channels, dtype=dtype, **kwargs)
-        self.overlap_counter = self.allocate_accumulator(
-            mask_extents=mask_extents, channels=1, dtype=np.uint16, **kwargs
+        storage_cls = cast("type[StorageAllocator[np.uint16]]", type(storage))
+        self.overlap_storage = storage_cls(
+            filename=overlap_filename,
+            shape=(1, *shape[1:]),
+            dtype=np.uint16,
+            **kwargs_copy,
         )
 
-    def update_batch_impl(
+    def update(
         self,
-        data_batch: Shaped[AccumulatorType, "B C *SpatialDims"],
-        coords_batch: Shaped[AccumulatorType, "N B"],
+        accumulator: NDArray[DType],
+        data_batch: np.ndarray,
+        coords_batch: np.ndarray,
     ) -> None:
-        mask_tile_extents = np.asarray(data_batch.shape[2:])  # H, W, ...
+        mask_tile_extents = np.asarray(data_batch.shape[2:], dtype=np.int64)
         acc_slices_all_dims = compute_acc_slices(
             coords_batch=coords_batch,
             mask_tile_extents=mask_tile_extents,
@@ -72,59 +93,33 @@ class AveragingMaskBuilderMixin(MaskBuilderABC):
             data_batch,
             strict=True,
         ):
-            self.accumulator[
-                :,
-                *acc_slices,
-            ] += data
-            self.overlap_counter[
-                :,
-                *acc_slices,
-            ] += 1
+            accumulator[:, *acc_slices] += data  # type: ignore[misc]
+            self.overlap_storage.accumulator[:, *acc_slices] += 1
 
-    def finalize(self) -> tuple[AccumulatorType, ...]:
-        # Average the accumulated mask by the overlap counts
-        self.accumulator /= self.overlap_counter.clip(min=1)
-        return self.accumulator, self.overlap_counter
+    def finalize(self, accumulator: NDArray[DType]) -> dict[str, NDArray[Any]]:
+        accumulator /= self.overlap_storage.accumulator.clip(min=1)  # type: ignore[misc]
+        return {
+            "mask": accumulator,
+            "overlap_counter": self.overlap_storage.accumulator,
+        }
 
 
-class MaxMaskBuilderMixin(MaskBuilderABC):
-    """Mixin that implements maximum aggregation for overlapping tiles.
+class MaxAggregator[DType: np.generic](Aggregator[DType]):
+    """Aggregator that implements maximum aggregation for overlapping tiles."""
 
-    This mixin keeps only the maximum value at each pixel position when tiles overlap.
-    No additional storage is required, and finalization is a no-op since the accumulator
-    already contains the final max values. This is useful for:
-    - Maximum intensity projection
-    - Keeping the highest confidence prediction across overlapping tiles
-    - Peak detection across multiple scales
-    """
-
-    def update_batch_impl(
+    def update(
         self,
-        data_batch: Shaped[AccumulatorType, "B C *SpatialDims"],
-        coords_batch: Shaped[AccumulatorType, "N B"],
+        accumulator: NDArray[DType],
+        data_batch: np.ndarray,
+        coords_batch: np.ndarray,
     ) -> None:
-        mask_tile_extents = np.asarray(
-            data_batch.shape[2:], dtype=np.int64
-        )  # H, W, ...
-        acc_slices_all_dims = compute_acc_slices(
-            coords_batch=coords_batch,
-            mask_tile_extents=mask_tile_extents,  # H, W, ...
-        )
-        for acc_slices, data in zip(
-            zip(*acc_slices_all_dims, strict=True),
-            data_batch,
-            strict=True,
-        ):
-            self.accumulator[
-                :,
-                *acc_slices,
-            ] = np.maximum(
-                self.accumulator[
-                    :,
-                    *acc_slices,
-                ],
-                data,
-            )
+        mask_tile_extents = np.asarray(data_batch.shape[2:], dtype=np.int64)
+        acc_slices_all_dims = compute_acc_slices(coords_batch, mask_tile_extents)
 
-    def finalize(self) -> tuple[AccumulatorType]:
-        return (self.accumulator,)
+        for acc_slices, data in zip(
+            zip(*acc_slices_all_dims, strict=True), data_batch, strict=True
+        ):
+            accumulator[:, *acc_slices] = np.maximum(accumulator[:, *acc_slices], data)
+
+    def finalize(self, accumulator: NDArray[DType]) -> NDArray[DType]:
+        return accumulator

@@ -1,7 +1,7 @@
 import numbers
 from collections.abc import Iterator
 from itertools import chain
-from typing import Any, TypeAlias
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -20,10 +20,10 @@ from sklearn.utils._param_validation import Interval, RealNotInt, validate_param
 from sklearn.utils.validation import _num_samples, check_random_state, indexable
 
 
-ArrayLike: TypeAlias = np.typing.ArrayLike
-MatrixLike: TypeAlias = np.ndarray | pd.DataFrame | spmatrix
-Int: TypeAlias = int | np.int8 | np.int16 | np.int32 | np.int64
-Float: TypeAlias = float | np.float16 | np.float32 | np.float64
+type ArrayLike = np.typing.ArrayLike
+type MatrixLike = np.ndarray | pd.DataFrame | spmatrix
+type Int = int | np.int8 | np.int16 | np.int32 | np.int64
+type Float = float | np.float16 | np.float32 | np.float64
 
 
 class StratifiedGroupShuffleSplit(GroupsConsumerMixin, BaseShuffleSplit):
