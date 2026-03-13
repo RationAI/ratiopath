@@ -24,7 +24,7 @@ def tissue_mask(
     ),
 ) -> pyvips.Image:
     """Generates a tissue mask from a whole-slide image (WSI) using saturation channel extraction and morphological operations, and saves the mask as a TIFF image.
-    
+
     The function extracts the saturation channel from the WSI, applies Otsu thresholding to
     identify tissue regions, and performs morphological operations (closing and opening)
     to refine the mask.
