@@ -218,9 +218,7 @@ def test_edge_clipping_heatmap_assembler(
     # add the tiles randomly to cover the heatmap
     for i in range(num_batches):
         coords_batch = np.random.rand(len(mask_extents), batch_size)
-        coords_batch *= (mask_extents - (tile_extents - clip))[
-            :, np.newaxis
-        ]
+        coords_batch *= (mask_extents - (tile_extents - clip))[:, np.newaxis]
         coords_batch = coords_batch.astype(np.int64)
         assembler.update_batch(example_tile_batch, coords_batch)
 
@@ -333,7 +331,9 @@ def test_numpy_memmap_tempfile_management(monkeypatch):
         dtype=np.float32,
     )
 
-    assert len(captured_files) >= 1, "Expected at least one temporary file to be created"
+    assert len(captured_files) >= 1, (
+        "Expected at least one temporary file to be created"
+    )
     temp_filepath = captured_files[0]
 
     tile = np.ones((1, 1, 8, 8), dtype=np.float32)
@@ -341,7 +341,9 @@ def test_numpy_memmap_tempfile_management(monkeypatch):
 
     del assembler
 
-    assert not temp_filepath.exists(), f"Temporary file {temp_filepath} should be deleted"
+    assert not temp_filepath.exists(), (
+        f"Temporary file {temp_filepath} should be deleted"
+    )
 
 
 def test_numpy_memmap_persistent_file(tmp_path):
@@ -374,7 +376,9 @@ def test_numpy_memmap_persistent_file(tmp_path):
 
     del assembler
 
-    assert filename.exists(), f"Persistent file {filename} should exist after finalization"
+    assert filename.exists(), (
+        f"Persistent file {filename} should exist after finalization"
+    )
     assert filename.with_suffix(".overlaps" + filename.suffix).exists(), (
         f"Persistent overlap file {filename.with_suffix('.overlaps' + filename.suffix)} should exist after finalization"
     )
