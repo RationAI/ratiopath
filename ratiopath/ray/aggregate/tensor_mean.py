@@ -92,28 +92,31 @@ class TensorMean(AggregateFnV2[dict, np.ndarray | float]):
     def aggregate_block(self, block: Block) -> dict:
         block_acc = BlockAccessor.for_block(block)
 
-        # If there are no valid (non-null) entries, return the zero value
-        if block_acc.count(self._target_col_name, self._ignore_nulls) == 0:  # type: ignore [arg-type]
+        # Get exact counts before any NumPy conversion obscures the nulls
+        valid_count = cast(
+            "int",
+            block_acc.count(self._target_col_name, ignore_nulls=True),  # type: ignore [arg-type]
+        )
+        total_count = cast(
+            "int",
+            block_acc.count(self._target_col_name, ignore_nulls=False),  # type: ignore [arg-type]
+        )
+
+        # Catch nulls immediately if strict mode is on
+        if valid_count < total_count and not self._ignore_nulls:
+            raise ValueError(
+                f"Column '{self._target_col_name}' contains null values, but "
+                "ignore_nulls is False."
+            )
+
+        if valid_count == 0:
             return self.zero_factory()
 
         col_np = cast("np.ndarray", block_acc.to_numpy(self._target_col_name))
 
-        # Handle object dtype (triggered by nulls or ragged tensor shapes)
-        if col_np.dtype == object:
+        # Filter out nulls if necessary
+        if valid_count < total_count:
             valid_tensors = [x for x in col_np if x is not None]
-
-            # If lengths differ, we dropped at least one None.
-            if len(valid_tensors) != col_np.size and not self._ignore_nulls:
-                raise ValueError(
-                    f"Column '{self._target_col_name}' contains null values, but "
-                    "ignore_nulls is False."
-                )
-
-            # Handle the all-null block case
-            if not valid_tensors:
-                return self.zero_factory()
-
-            # Reconstruct the contiguous numeric tensor
             col_np = np.stack(valid_tensors)
 
         # Perform the partial sum and calculate how many elements contributed
