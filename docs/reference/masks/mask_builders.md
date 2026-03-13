@@ -110,7 +110,7 @@ from ratiopath.masks.mask_builders import (
 )
 
 # Configure preprocessors
-clip_prep = EdgeClippingPreprocessor(px_to_clip=4, num_dims=2)
+clip_prep = EdgeClippingPreprocessor(px_to_clip=4)
 
 mask_builder = MaskBuilder(
     shape=(3, 10000, 10000),
