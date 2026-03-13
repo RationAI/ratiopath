@@ -97,13 +97,28 @@ class TensorMean(AggregateFnV2[dict, np.ndarray | float]):
             return self.zero_factory()
 
         col_np = cast("np.ndarray", block_acc.to_numpy(self._target_col_name))
-        if self._ignore_nulls and col_np.dtype == object:
-            # Filter out Nones)
-            col_np = np.stack([x for x in col_np if x is not None])
+
+        # Handle object dtype (triggered by nulls or ragged tensor shapes)
+        if col_np.dtype == object:
+            valid_tensors = [x for x in col_np if x is not None]
+
+            # If lengths differ, we dropped at least one None.
+            if len(valid_tensors) != col_np.size and not self._ignore_nulls:
+                raise ValueError(
+                    f"Column '{self._target_col_name}' contains null values, but "
+                    "ignore_nulls is False."
+                )
+
+            # Handle the all-null block case
+            if not valid_tensors:
+                return self.zero_factory()
+
+            # Reconstruct the contiguous numeric tensor
+            col_np = np.stack(valid_tensors)
 
         # Perform the partial sum and calculate how many elements contributed
         block_sum = np.sum(col_np, axis=self._aggregate_axis)
-        block_count = np.prod(col_np.shape) // np.prod(block_sum.shape)
+        block_count = col_np.size // block_sum.size
 
         return {
             "sum": block_sum.flatten(),
@@ -112,15 +127,9 @@ class TensorMean(AggregateFnV2[dict, np.ndarray | float]):
         }
 
     def combine(self, current_accumulator: dict, new: dict) -> dict:
-        if new["count"] == 0:
-            return current_accumulator
-
-        if current_accumulator["count"] == 0:
-            return new
-
         return {
             "sum": np.asarray(current_accumulator["sum"]) + np.asarray(new["sum"]),
-            "shape": new["shape"],
+            "shape": current_accumulator["shape"] or new["shape"],
             "count": current_accumulator["count"] + new["count"],
         }
 
