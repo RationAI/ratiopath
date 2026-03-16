@@ -1,5 +1,3 @@
-import re
-
 import numpy as np
 import pytest
 import ray
@@ -33,7 +31,7 @@ class TestTensorAggregatorInit:
 
     @pytest.mark.parametrize("AggClass", [TensorMean, TensorStd])
     def test_invalid_axis_raises_value_error(self, AggClass):  # noqa: N803
-        with pytest.raises(ValueError, match=re.escape("Axis 0 .* must be included")):
+        with pytest.raises(ValueError, match=r"Axis 0 .* must be included"):
             AggClass(on="m", axis=(1, 2))
 
     @pytest.mark.parametrize("AggClass", [TensorMean, TensorStd])
