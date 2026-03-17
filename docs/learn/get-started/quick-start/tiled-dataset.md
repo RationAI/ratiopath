@@ -5,7 +5,7 @@ In the [tiling tutorial](./tiling.md), we discussed how to create a tiled datase
 Before writing the data loaders, we must consider the structure and approximate size of our dataset. A tiled dataset typically consists of two highly interrelated components:
 
 1. **The Parent Dataset:** Contains high-level metadata about the source files (e.g., Whole Slide Image file paths, original dimensions, patient IDs, or slide-level labels).
-2. **The Tile Dataset:** Contains metadata about the individual chunks derived from those parents (e.g., $x$ and $y$ coordinates, the parent `slide_id`, and sometimes precomputed tile embeddings).
+2. **The Tile Dataset:** Contains metadata about the individual chunks derived from those parents (e.g., `x` and `y` coordinates, the parent `slide_id`, and sometimes precomputed tile embeddings).
 
 If your Parquet files are small enough, you can safely load the entire dataset into RAM using Pandas. However, in digital pathology and large-scale computer vision, a tile dataset can easily span hundreds of gigabytes across multiple Parquet partitions. Loading this entirely into memory will crash your system. Instead, we rely on **lazy loading** techniques to fetch only the necessary data points exactly when the model needs them.
 
@@ -23,7 +23,7 @@ When you load a Parquet file using Hugging Face `datasets`, the library translat
 **Why it is efficient:**
 
 * **Zero RAM Overhead:** You can interact with a 200GB dataset while consuming mere megabytes of actual RAM.
-* **$O(1)$ Random Access:** Reading a specific row is virtually instantaneous.
+* *x`O(1)` Random Access:** Reading a specific row is virtually instantaneous.
 * **Smart Caching:** When you filter the dataset to find tiles belonging to a specific slide, Hugging Face streams the data, finds the matches, and caches the result on disk.
 
 ---
@@ -32,7 +32,7 @@ When you load a Parquet file using Hugging Face `datasets`, the library translat
 
 At the lowest level, we need a standard PyTorch `Dataset` that takes a subset of our tiled data eg. fetches the actual pixel data, or the precomputed embeddings.
 
-In our WSI use case, we use the `openslide` library to dynamically read pixel patches from the WSIs based on the $x$ and $y$ coordinates stored in our Arrow-mapped tile dataset.
+In our WSI use case, we use the `openslide` library to dynamically read pixel patches from the WSIs based on the `x` and `y` coordinates stored in our Arrow-mapped tile dataset.
 
 ```python
 from pathlib import Path
@@ -98,8 +98,10 @@ class SlideDataset(ConcatDataset[TileDataset]):
         slides_parquet_path: str,
         tiles_parquet_path: str,
     ) -> None:
-        slides_dataset = load_dataset("parquet", data_files=slides_parquet_path, split="train") # Train is default split name for Hugging Face datasets, even if we don't have multiple splits
-        tiles_dataset = load_dataset("parquet", data_files=tiles_parquet_path, split="train")
+        self.slides_dataset = load_dataset("parquet", data_files=slides_parquet_path, split="train") # Train is default split name for Hugging Face datasets, even if we don't have multiple splits
+        self.tiles_dataset = load_dataset("parquet", data_files=tiles_parquet_path, split="train").sort("slide_id") # Sort by slide_id for faster filtering
+
+        self._slide_id_to_indices = self._build_tile_index(self.tiles_dataset)
 
         datasets = [
             TileDataset(
@@ -107,15 +109,72 @@ class SlideDataset(ConcatDataset[TileDataset]):
                 level=slide["level"],
                 extent_x=slide["extent_x"],
                 extent_y=slide["extent_y"],
-                tiles=tiles_dataset.filter(
-                    lambda row: row["slide_id"] == slide["slide_id"],
-                    keep_in_memory=False,
-                ),
+                tiles=self.filter_tiles_by_slide(slide.id),
             )
-            for slide in slides_dataset
+            for slide in self.slides_dataset
         ]
 
         super().__init__(datasets)
+
+    
+    @staticmethod
+    def _build_tile_index(tiles: HFDataset) -> dict[str, range]:
+        """Creates a fast lookup table for slide indices.
+
+        This function builds a mapping from `slide_id` to the range of indices in the
+        `tiles` dataset that correspond to that slide. It assumes that the `tiles` dataset
+        is sorted by `slide_id`, which allows for efficient retrieval of tile indices
+        for each slide without needing to scan the entire dataset for each slide.
+
+        Args:
+            tiles: A dataset containing a `slide_id` column, sorted by `slide_id`.
+
+        Returns:
+            A dictionary mapping each `slide_id` to a range of indices in the `tiles` dataset.
+        """
+        if len(tiles) == 0:
+            return {}
+
+        # Get the underlying Arrow table (zero-copy)
+        table = tiles.data.table
+
+        # Since it's sorted, we only care about where 'slide_id' changes.
+        slide_ids = table.column("slide_id")
+
+        # Find unique values and their counts
+        counts = pc.value_counts(slide_ids)  # pyright: ignore[reportAttributeAccessIssue]
+
+        index_map = {}
+        current_offset = 0
+
+        # counts is a StructArray of {values: T, counts: int64}
+        for count in counts:
+            pair = count.as_py()
+            sid = pair["values"]
+            offset = pair["counts"]
+
+            index_map[sid] = range(current_offset, current_offset + offset)
+            current_offset += offset
+
+        return index_map
+
+    def filter_tiles_by_slide(self, slide_id: str) -> HFDataset:
+        """Returns a view of the dataset using a slice or indices.
+
+        This function creates a view of the `self.tiles` dataset that contains only
+        the tiles belonging to the specified slide. It uses the precomputed
+        `_slide_id_to_indices` mapping to efficiently retrieve the relevant tiles
+        without copying data.
+
+        Args:
+            slide_id: The ID of the slide to filter tiles.
+
+        Returns:
+            A view of the tiles dataset containing only the tiles for the specified slide.
+        """
+        tile_range = self._slide_id_to_indices.get(slide_id, range(0))
+        return self.tiles_dataset.select(tile_range)
+
 ```
 
 ### Using the Dataset
