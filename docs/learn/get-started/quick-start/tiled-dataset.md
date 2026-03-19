@@ -102,9 +102,9 @@ class SlideDataset(ConcatDataset[TileDataset]):
         tiles_parquet_path: str,
     ) -> None:
         # 'train' is the default split name for Hugging Face datasets.
-        self.slides_dataset = load_dataset("parquet", data_files=slides_parquet_path, split="train") 
+        self.slides_dataset = load_dataset("parquet", data_files=slides_parquet_path, split="train")
         # Sort by slide_id for much faster filtering
-        self.tiles_dataset = load_dataset("parquet", data_files=tiles_parquet_path, split="train").sort("slide_id") 
+        self.tiles_dataset = load_dataset("parquet", data_files=tiles_parquet_path, split="train").sort("slide_id")
 
         self._slide_id_to_indices = self._build_tile_index(self.tiles_dataset)
 
@@ -142,19 +142,19 @@ class SlideDataset(ConcatDataset[TileDataset]):
         table = tiles.data.table
         slide_ids = table.column("slide_id")
 
-        # Find unique values and their counts
-        counts = pc.value_counts(slide_ids)
+        # Since the dataset is sorted by 'slide_id', we can use
+        # run-end encoding to find group boundaries efficiently.
+        run_ends = pc.run_end_encode(slide_ids)
+
+        values = run_ends.field("values")
+        counts = run_ends.field("run_lengths")
 
         index_map = {}
         current_offset = 0
 
-        for count in counts:
-            pair = count.as_py()
-            sid = pair["values"]
-            offset = pair["counts"]
-
-            index_map[sid] = range(current_offset, current_offset + offset)
-            current_offset += offset
+        for sid, count in zip(values.to_pylist(), counts.to_pylist()):
+            index_map[sid] = range(current_offset, current_offset + count)
+            current_offset += count
 
         return index_map
 
