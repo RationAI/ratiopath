@@ -305,3 +305,29 @@ class TestDarwin7JSONParser:
         assert (
             Darwin7JSONParser.extract_nested(data, ["a", "b", "0", "something"]) is None
         )
+
+
+def test_safe_to_dict():
+    """Test the safe_to_dict utility function."""
+    from ratiopath.parsers.geojson_parser import safe_to_dict
+
+    # Valid JSON string -> dict
+    assert safe_to_dict('{"a": 1}') == {"a": 1}
+
+    # Invalid JSON string -> original string
+    assert safe_to_dict('{"a": 1') == '{"a": 1'
+
+    # Already a dict -> original dict
+    assert safe_to_dict({"a": 1}) == {"a": 1}
+
+    # None -> None
+    assert safe_to_dict(None) is None
+
+    # Integer -> original value
+    assert safe_to_dict(123) == 123
+
+    # "null" JSON string -> None
+    assert safe_to_dict("null") is None
+
+    # Empty string (invalid JSON) -> empty string
+    assert safe_to_dict("") == ""
