@@ -20,3 +20,5 @@ wheels/
 
 # VS Code
 .vscode/
+.gemini/
+gha-creds-*.json
