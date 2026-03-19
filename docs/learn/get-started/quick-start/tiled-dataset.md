@@ -147,7 +147,7 @@ class SlideDataset(ConcatDataset[TileDataset]):
         run_ends = pc.run_end_encode(slide_ids)
 
         values = run_ends.field("values")
-        counts = run_ends.field("run_lengths")
+        counts = run_ends.field("run_ends")
 
         index_map = {}
         current_offset = 0
