@@ -146,15 +146,16 @@ class SlideDataset(ConcatDataset[TileDataset]):
         # run-end encoding to find group boundaries efficiently.
         run_ends = pc.run_end_encode(slide_ids)
 
-        values = run_ends.field("values")
-        ends = run_ends.field("run_ends")
+        values = run_ends.values
+        ends = run_ends.run_ends
 
         index_map = {}
         current_offset = 0
 
-        for sid, end in zip(values.to_pylist(), ends.to_pylist()):
-            index_map[sid] = range(current_offset, end)
-            current_offset = end
+        for sid, end in zip(values, ends):
+            end_py = end.as_py()
+            index_map[sid.as_py()] = range(current_offset, end_py)
+            current_offset = end_py
 
         return index_map
 
