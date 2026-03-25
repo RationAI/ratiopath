@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw
 
 class JSONMultiClassMask:
     """Parses JSON annotations and renders them into a multi-class mask array.
-    
+
     Expects class to value mapping on input.
     """
 
