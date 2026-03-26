@@ -48,10 +48,8 @@ class TensorMean(AggregateFnV2[dict, np.ndarray | float]):
         ... )
         >>> # 1. Global Mean (axis=None) -> Result: 2.0
         >>> ds.aggregate(TensorMean(on="m", axis=None))
-        >>>
         >>> # 2. Batch Mean (axis=0) -> Result: np.array([[2, 2], [2, 2]])
         >>> ds.aggregate(TensorMean(on="m", axis=0))
-        >>>
         >>> # 3. Mean across Batch and Rows (axis=(0, 1)) -> Result: np.array([2, 2])
         >>> ds.aggregate(TensorMean(on="m", axis=(0, 1)))
     """
