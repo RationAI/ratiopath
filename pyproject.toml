@@ -7,8 +7,6 @@ authors = [
     { name = "Jakub Pekár", email = "jakubpekar@mail.muni.cz" },
     { name = "Adam Kukučka", email = "adamkukucka@mail.muni.cz" },
     { name = "Vít Musil", email = "musil@fi.muni.cz" },
-    { name = "Adam Bajger", email = "adambajger@mail.muni.cz" },
-    { name = "Vojtěch Cífka", email = "550433@mail.muni.cz" },
 ]
 readme = "README.md"
 license = "MIT"

@@ -1,5 +1,3 @@
-"""EMPAIA format annotation parser."""
-
 import json
 import re
 from collections.abc import Iterable
@@ -60,7 +58,7 @@ class EMPAIAParser:
         for annotation in self._get_filtered_annotations(name, "polygon"):
             yield Polygon(
                 [
-                    Point(float(coordinate[0]), float(coordinate[1]))
+                    (float(coordinate[0]), float(coordinate[1]))
                     for coordinate in annotation["coordinates"]
                 ]
             )

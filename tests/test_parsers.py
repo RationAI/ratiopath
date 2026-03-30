@@ -340,9 +340,12 @@ class TestEMPAIAParser:
         # Check that we have a polygon-like object
         polygon = polygons[0]
         assert hasattr(polygon, "exterior")
-        assert polygon.exterior.coords[0] == (100.0, 200.0)
-        assert polygon.exterior.coords[1] == (150.0, 200.0)
-        assert polygon.exterior.coords[2] == (125.0, 250.0)
+        assert list(polygon.exterior.coords) == [
+            (100.0, 200.0),
+            (150.0, 200.0),
+            (125.0, 250.0),
+            (100.0, 200.0),
+        ]
 
     def test_get_points(self, empaia_json_content):
         """Test parsing points from EMPAIA JSON."""
