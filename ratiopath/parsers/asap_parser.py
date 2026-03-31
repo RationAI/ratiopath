@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import TextIO
 
-from shapely.geometry import Point, Polygon
+from shapely import Point, Polygon
 
 
 class ASAPParser:
@@ -16,7 +16,7 @@ class ASAPParser:
     This parser supports both polygon and point annotations.
     """
 
-    def __init__(self, file_path: Path | str | TextIO):
+    def __init__(self, file_path: Path | str | TextIO) -> None:
         self.tree = ET.parse(file_path)
         self.root = self.tree.getroot()
 
