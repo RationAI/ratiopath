@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class InMemory[DType: np.generic](np.ndarray):
     """Storage allocator that uses in-memory NumPy arrays."""
 
-    def __new__(cls, shape: tuple[int, ...], dtype: type[DType]) -> Self:
+    def __new__(cls, shape: tuple[int, ...], dtype: type[DType], **kwargs) -> Self:
         return np.zeros(shape=shape, dtype=dtype).view(cls)
 
 
@@ -42,6 +42,7 @@ class MemMap[DType: np.generic](np.memmap):
         shape: tuple[int, ...],
         dtype: type[DType],
         filename: str | PathLike[Any] | None = None,
+        **kawargs,
     ) -> Self:
         temp_path = None
         if filename is None:
