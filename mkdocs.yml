@@ -29,6 +29,9 @@ nav:
           - estimate_stain_vectors: reference/augmentations/estimate_stain_vectors.md
           - StainAugmentor: reference/augmentations/stain_augmentor.md
       - Ray:
+          - Aggregations:
+              - tensor_mean: reference/ray/aggregations/tensor_mean.md
+              - tensor_std: reference/ray/aggregations/tensor_std.md
           - read_slides: reference/ray/read_slides.md
           - VipsTiffDatasink: reference/ray/vips_tiff_datasink.md
       - OpenSlide: reference/openslide.md

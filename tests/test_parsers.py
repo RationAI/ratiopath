@@ -6,7 +6,7 @@ import json
 import pandas as pd
 import pytest
 
-from ratiopath.parsers import ASAPParser, Darwin7JSONParser, GeoJSONParser
+from ratiopath.parsers import ASAPParser, Darwin7JSONParser, EMPAIAParser, GeoJSONParser
 
 
 class TestASAPParser:
@@ -305,3 +305,106 @@ class TestDarwin7JSONParser:
         assert (
             Darwin7JSONParser.extract_nested(data, ["a", "b", "0", "something"]) is None
         )
+
+
+class TestEMPAIAParser:
+    """Test the EMPAIA parser."""
+
+    @pytest.fixture
+    def empaia_json_content(self):
+        """Sample EMPAIA JSON content."""
+        return {
+            "items_count": 2,
+            "items": [
+                {
+                    "name": "Annotation 1",
+                    "type": "polygon",
+                    "coordinates": [[100.0, 200.0], [150.0, 200.0], [125.0, 250.0]],
+                },
+                {
+                    "name": "Annotation 2",
+                    "type": "point",
+                    "coordinates": [300.0, 400.0],
+                },
+            ],
+        }
+
+    def test_get_polygons(self, empaia_json_content):
+        """Test parsing polygons from EMPAIA JSON."""
+        f = io.StringIO(json.dumps(empaia_json_content))
+
+        parser = EMPAIAParser(f)
+        polygons = list(parser.get_polygons())
+
+        assert len(polygons) == 1
+        # Check that we have a polygon-like object
+        polygon = polygons[0]
+        assert hasattr(polygon, "exterior")
+        assert list(polygon.exterior.coords) == [
+            (100.0, 200.0),
+            (150.0, 200.0),
+            (125.0, 250.0),
+            (100.0, 200.0),
+        ]
+
+    def test_get_points(self, empaia_json_content):
+        """Test parsing points from EMPAIA JSON."""
+        f = io.StringIO(json.dumps(empaia_json_content))
+
+        parser = EMPAIAParser(f)
+        points = list(parser.get_points())
+
+        assert len(points) == 1
+        # Check that we have a point-like object
+        point = points[0]
+        assert hasattr(point, "x") and hasattr(point, "y")
+        assert point.x == 300.0
+        assert point.y == 400.0
+
+    def test_get_polygons_with_filters(self, empaia_json_content):
+        """Test parsing polygons with filters."""
+        f = io.StringIO(json.dumps(empaia_json_content))
+        parser = EMPAIAParser(f)
+
+        polygons = list(parser.get_polygons(name="Annotation 1"))
+        assert len(polygons) == 1
+
+        polygons = list(parser.get_polygons(name="Nonexistent"))
+        assert len(polygons) == 0
+
+    def test_get_points_with_filters(self, empaia_json_content):
+        """Test parsing points with filters."""
+        f = io.StringIO(json.dumps(empaia_json_content))
+        parser = EMPAIAParser(f)
+
+        points = list(parser.get_points(name="Annotation 2"))
+        assert len(points) == 1
+
+        points = list(parser.get_points(name="Nonexistent"))
+        assert len(points) == 0
+
+
+def test_safe_to_dict():
+    """Test the safe_to_dict utility function."""
+    from ratiopath.parsers.geojson_parser import safe_to_dict
+
+    # Valid JSON string -> dict
+    assert safe_to_dict('{"a": 1}') == {"a": 1}
+
+    # Invalid JSON string -> original string
+    assert safe_to_dict('{"a": 1') == '{"a": 1'
+
+    # Already a dict -> original dict
+    assert safe_to_dict({"a": 1}) == {"a": 1}
+
+    # None -> None
+    assert safe_to_dict(None) is None
+
+    # Integer -> original value
+    assert safe_to_dict(123) == 123
+
+    # "null" JSON string -> None
+    assert safe_to_dict("null") is None
+
+    # Empty string (invalid JSON) -> empty string
+    assert safe_to_dict("") == ""
