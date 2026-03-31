@@ -91,9 +91,9 @@ class MaskBuilder[DType: np.generic, AggregatorR]:
             storage: Strategy for allocating memory ("inmemory", "memmap", or a class).
             aggregation: Strategy for combining tiles ("mean", "max", or a class).
             dtype: Data type for the accumulator.
-            kwargs: Extra arguments passed to storage initialization.
+            kwargs: Extra arguments passed to storage and aggregation initialization.
         """
-        # 1. Normalize spatial dimensions to arrays
+        # Normalize spatial dimensions to arrays
         self.source_extents = np.asarray(source_extents, dtype=np.int64)
         self.source_tile_extent = np.broadcast_to(
             source_tile_extent, len(source_extents)
@@ -103,7 +103,7 @@ class MaskBuilder[DType: np.generic, AggregatorR]:
         )
         self.stride = np.broadcast_to(stride, len(source_extents))
 
-        # 1. Calculate how many tiles are required to fully cover the WSI (implicitly padding the edges)
+        # Calculate how many tiles are required to fully cover the WSI (implicitly padding the edges)
         # Using np.ceil to ensure the right/bottom edges are fully covered.
         num_tiles = (
             np.ceil(
@@ -113,18 +113,18 @@ class MaskBuilder[DType: np.generic, AggregatorR]:
             + 1
         )
 
-        # 2. Calculate the actual spatial span these tiles cover in the original WSI space
+        # Calculate the actual spatial span these tiles cover in the original WSI space
         self.span = (num_tiles - 1) * self.stride + self.source_tile_extent
 
-        # 3. Find the Greatest Common Divisor for the alignment math
+        # Find the Greatest Common Divisor for the alignment math
         gcd = np.gcd(self.source_tile_extent, self.stride * self.output_tile_extent)
 
-        # 4. Calculate the required MaskBuilder properties
+        # Calculate the required MaskBuilder properties
         self.mask_extents = (self.span * self.output_tile_extent) // gcd
         self.upscale_factor = self.source_tile_extent // gcd
         self.mask_stride = (self.stride * self.output_tile_extent) // gcd
 
-        # 4. Initialize Storage
+        # Initialize Storage
         if isinstance(storage, str):
             if storage == "inmemory":
                 from ratiopath.masks.mask_builders.storage import InMemory
@@ -141,7 +141,7 @@ class MaskBuilder[DType: np.generic, AggregatorR]:
             shape=(n_channels, *self.mask_extents), dtype=dtype, **kwargs
         )
 
-        # 5. Initialize Aggregator
+        # Initialize Aggregator
         self.aggregator = aggregation(storage=self.storage, **kwargs)
 
     def update_batch(
@@ -157,12 +157,12 @@ class MaskBuilder[DType: np.generic, AggregatorR]:
             coords: Array of shape (B, N) containing top-left coordinates in source resolution.
             edge_clipping: Pixels to clip from the edges of model output tiles.
         """
-        # 1. Scale coordinates from source to mask resolution
+        # Scale coordinates from source to mask resolution
         # Find which tile index this corresponds to and multiply by the mask stride
         # to get the starting pixel in the mask array
         coords = (coords // self.stride) * self.mask_stride
 
-        # 2. Handle scalar data expansion
+        # Handle scalar data expansion
         # Broadcast scalar (B, C) to (B, C, *output_tile_extent)
         # If already dense, this is a fast view operation
         num_missing_dims = len(self.mask_extents) + 2 - batch.ndim
@@ -171,14 +171,14 @@ class MaskBuilder[DType: np.generic, AggregatorR]:
             (*batch.shape[:2], *self.output_tile_extent),
         )
 
-        # 3. Apply Edge Clipping
+        # Apply Edge Clipping
         slices, shift = _prepare_clipping(
             len(self.mask_extents), tuple(self.output_tile_extent), edge_clipping
         )
         batch = batch[slices]
         coords += shift * self.upscale_factor
 
-        # 4. Upscale the batch to match the mask resolution if needed
+        # Upscale the batch to match the mask resolution if needed
         for axis_idx, factor in enumerate(self.upscale_factor, start=2):
             if factor > 1:
                 batch = np.repeat(batch, factor, axis=axis_idx)
