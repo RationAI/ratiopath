@@ -42,7 +42,7 @@ class MemMap[DType: np.generic](np.memmap):
         shape: tuple[int, ...],
         dtype: type[DType],
         filename: str | PathLike[Any] | None = None,
-        **kawargs,
+        **kwargs,
     ) -> Self:
         temp_path = None
         if filename is None:

@@ -176,15 +176,12 @@ class MaskBuilder[DType: np.generic, AggregatorR]:
             len(self.mask_extents), tuple(self.output_tile_extent), edge_clipping
         )
         batch = batch[slices]
+        coords += shift * self.upscale_factor
 
         # 4. Upscale the batch to match the mask resolution if needed
         for axis_idx, factor in enumerate(self.upscale_factor, start=2):
             if factor > 1:
                 batch = np.repeat(batch, factor, axis=axis_idx)
-
-        # 5. Scale the clipping shift by the upscale factor and apply to coords
-        shift *= self.upscale_factor
-        coords += shift
 
         for sample, coord in zip(batch, coords, strict=True):
             self.aggregator.update(self.storage, sample, coord)
