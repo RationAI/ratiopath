@@ -46,6 +46,10 @@ def write_big_tiff(
     xres = 1000 / mpp_x
     yres = 1000 / mpp_y
 
+    # Strip any ICC profile before saving
+    if image.get_typeof("icc-profile-data") != 0:
+        image = image.copy().remove("icc-profile-data")
+
     image.tiffsave(
         path,
         bigtiff=True,
