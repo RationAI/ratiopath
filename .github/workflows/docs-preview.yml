@@ -1,0 +1,51 @@
+name: Docs Preview
+
+on:
+  push:
+    branches:
+      - "**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: docs-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.ref_type == 'branch'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Configure git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Deploy branch preview
+        env:
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          VERSION_NAME=$(printf '%s' "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g')
+
+          if [ "$BRANCH_NAME" = "main" ]; then
+            uv run --group docs mike deploy --push --update-aliases "$VERSION_NAME" latest
+            uv run --group docs mike set-default --push latest
+          else
+            uv run --group docs mike deploy --push --update-aliases "$VERSION_NAME"
+          fi
