@@ -12,6 +12,24 @@ nav:
               - learn/get-started/quick-start/overlays.md
               - learn/get-started/quick-start/tiled-dataset.md
           - learn/get-started/installation.md
+  - Examples:
+      - Overview: examples/index.md
+      - Basic Functionalities:
+          - Read Slides And Choose Resolution: examples/basic-functionalities/slide-metadata-and-resolution.md
+          - Inspect Slides And Preview Tiles: examples/basic-functionalities/inspect-slides-and-preview-tiles.md
+          - Generate Tile Coordinates: examples/basic-functionalities/tile-grid-generation.md
+          - Extract Tiles Locally Without Ray: examples/basic-functionalities/extract-tiles-locally-without-ray.md
+          - Add Annotation And Overlay Signals: examples/basic-functionalities/annotation-and-overlay-enrichment.md
+          - Split Data With Groups: examples/basic-functionalities/group-aware-splitting.md
+          - Generate A Tissue Mask Overlay: examples/basic-functionalities/tissue-mask-generation.md
+          - Aggregate Tensor Columns In Ray: examples/basic-functionalities/tensor-aggregations.md
+          - Apply Stain Augmentation: examples/basic-functionalities/stain-augmentation.md
+          - Write TIFF Outputs From Ray: examples/basic-functionalities/write-tiff-outputs-from-ray.md
+      - Pipelines:
+          - Build A Distributed Tiling Pipeline: examples/pipelines/distributed-tiling-pipeline.md
+          - Create An Annotation-Aware Tile Dataset: examples/pipelines/annotation-aware-dataset-pipeline.md
+          - Build A Mask-First Tile Filtering Pipeline: examples/pipelines/mask-first-tile-filtering-pipeline.md
+          - Prepare A Training Dataset With Leakage-Safe Splits: examples/pipelines/prepare-a-training-dataset-with-leakage-safe-splits.md
   - Reference:
       - Tiling:
           - annotations: reference/tiling/annotations.md
@@ -21,6 +39,7 @@ nav:
           - utils: reference/tiling/utils.md
       - Parsers:
           - ASAPParser: reference/parsers/asap.md
+          - Darwin7JSONParser: reference/parsers/darwin.md
           - GeoJSONParser: reference/parsers/geojson.md
       - Augmentations:
           - estimate_stain_vectors: reference/augmentations/estimate_stain_vectors.md
