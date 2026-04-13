@@ -37,7 +37,12 @@ dev = [
     "pyarrow-stubs>=20.0.0.20251107",
     "ruff",
 ]
-docs = ["mkdocs-material>=9.6.18", "mkdocstrings[python]>=0.30.0"]
+docs = [
+    "mike>=2.1.3",
+    "mkdocs-material>=9.6.18",
+    "mkdocstrings[python]>=0.30.0",
+    "pymdown-extensions>=10.16.1",
+]
 tests = ["openslide-bin>=4.0.0.8", "pytest>=8.4.1"]
 
 
