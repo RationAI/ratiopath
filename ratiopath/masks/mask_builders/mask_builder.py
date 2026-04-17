@@ -18,27 +18,40 @@ if TYPE_CHECKING:
     import pyvips
 
 
+type EdgeClipping = int | tuple[int, ...] | tuple[tuple[int, int], ...]
+
+
 @lru_cache(maxsize=32)
 def _prepare_clipping(
     num_spatial_dims: int,
     tile_spatial_shape: tuple[int, ...],
-    edge_clipping: int | tuple[int, ...],
+    edge_clipping: EdgeClipping,
 ) -> tuple[tuple[slice, ...], NDArray[np.int64]]:
     """Calculate full slice objects and coordinate shifts for edge clipping."""
     if isinstance(edge_clipping, int):
         clip_start = np.full(num_spatial_dims, edge_clipping, dtype=np.int64)
         clip_end = np.full(num_spatial_dims, edge_clipping, dtype=np.int64)
+    elif (
+        isinstance(edge_clipping, tuple)
+        and len(edge_clipping) == num_spatial_dims
+        and all(
+            isinstance(clip, tuple)
+            and len(clip) == 2
+            and all(isinstance(value, int) for value in clip)
+            for clip in edge_clipping
+        )
+    ):
+        clip_pairs = np.asarray(edge_clipping, dtype=np.int64)
+        clip_start = clip_pairs[:, 0]
+        clip_end = clip_pairs[:, 1]
     elif isinstance(edge_clipping, tuple) and len(edge_clipping) == num_spatial_dims:
         clip_start = np.asarray(edge_clipping, dtype=np.int64)
         clip_end = np.asarray(edge_clipping, dtype=np.int64)
-    elif (
-        isinstance(edge_clipping, tuple) and len(edge_clipping) == 2 * num_spatial_dims
-    ):
-        clip_start = np.asarray(edge_clipping[::2], dtype=np.int64)
-        clip_end = np.asarray(edge_clipping[1::2], dtype=np.int64)
     else:
         raise ValueError(
-            f"edge_clipping must be an int or a tuple of {num_spatial_dims} or {2 * num_spatial_dims} ints."
+            "edge_clipping must be an int, "
+            f"a tuple of {num_spatial_dims} ints, "
+            f"or a tuple of {num_spatial_dims} (start, end) pairs."
         )
 
     slices = (
@@ -148,14 +161,16 @@ class MaskBuilder[DType: np.generic, AggregatorR]:
         self,
         batch: NDArray[DType],
         coords: NDArray[np.int64],
-        edge_clipping: int | tuple[int, ...] = 0,
+        edge_clipping: EdgeClipping = 0,
     ) -> None:
         """Update the accumulator with a batch of tiles.
 
         Args:
             batch: Array of shape (B, C, *SpatialDims) or (B, C) containing B tiles.
             coords: Array of shape (B, N) containing top-left coordinates in source resolution.
-            edge_clipping: Pixels to clip from the edges of model output tiles.
+            edge_clipping: Pixels to clip from tile edges.
+                Supports an int (symmetric for all dims), a tuple of N ints
+                (symmetric per dim), or a tuple of N (start, end) pairs.
         """
         # Scale coordinates from source to mask resolution
         # Find which tile index this corresponds to and multiply by the mask stride
