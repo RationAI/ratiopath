@@ -14,6 +14,12 @@
 `OpenSlide` gives you direct access to slide pyramid metadata and patch reads.
 This is the simplest way to inspect a single slide before you commit to a distributed Ray pipeline.
 
+!!! tip "Bundled example input"
+    The figure below shows the intended inspection workflow: a slide thumbnail for context, one larger preview region, and one saved tile for close inspection.
+
+![Slide inspection preview from the bundled demo slide](../../assets/examples/ecdp-inspect-preview.png){ align=center }
+*The slide thumbnail marks one larger preview region in red and one saved tile in blue.*
+
 ## Example
 
 ```python
