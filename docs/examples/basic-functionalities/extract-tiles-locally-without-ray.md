@@ -14,6 +14,13 @@
 The core tiling primitives do not require Ray.
 You can combine `grid_tiles` with `OpenSlide.read_tile` to build a lightweight local extraction loop.
 
+!!! tip "Bundled example input"
+    The green outline on the left represents an annotation region.
+    The blue boxes show six example tile locations selected from that annotated region, and the right panel shows the corresponding locally saved crops.
+
+![Local extraction overview from the bundled demo slide](../../assets/examples/ecdp-exported-tiles.png){ align=center }
+*`grid_tiles` plans tile coordinates first, then a few representative crops are written to disk for inspection. In this demo figure, the annotation outline provides context for where those sample tiles were taken.*
+
 ## Example
 
 ```python

@@ -14,6 +14,9 @@
 `ratiopath.model_selection.train_test_split` extends the familiar scikit-learn interface with group-aware splitting.
 If you need repeated split generation instead of one split, use `StratifiedGroupShuffleSplit` directly.
 
+![Leakage-safe grouped split diagram](../../assets/examples/leakage-safe-splits.png){ align=center }
+*The important rule is simple: all slides and all tiles from one patient or case must stay on the same side of the split.*
+
 ## One-Shot Train/Test Split
 
 ```python

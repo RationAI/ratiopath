@@ -15,6 +15,9 @@
 It reads slide dimensions, tile parameters, chosen level, and physical resolution into a Ray `Dataset`.
 That lets you postpone expensive tile reads until you know which regions you actually need.
 
+![Pyramid level selection diagram](../../assets/examples/pyramid-level-selection.png){ align=center }
+*Selecting by `mpp` means each slide can land on a different pyramid level while still producing a consistent physical working scale.*
+
 ## Example
 
 ```python

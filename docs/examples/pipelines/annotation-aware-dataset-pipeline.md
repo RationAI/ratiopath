@@ -18,6 +18,23 @@
 5. Intersect annotations against each tile ROI with `tile_annotations`.
 6. Store coverage in the output rows.
 
+![Slide row expanded into tile rows](../../assets/examples/slide-row-to-tile-rows.png){ align=center }
+*This pipeline first explodes one slide row into many tile rows, then attaches an `annotation_coverage` value to each tile.*
+
+## Example Tile Rows
+
+The table below shows representative tile rows from one annotated slide with `tile_extent=1024` and `stride=1024`.
+These are the kinds of rows produced after the `flat_map(tiles_with_coverage)` step:
+
+| path | tile_x | tile_y | annotation_coverage |
+| --- | ---: | ---: | ---: |
+| `sample_slide.tiff` | 14336 | 12288 | 0.210 |
+| `sample_slide.tiff` | 8192 | 11264 | 0.408 |
+| `sample_slide.tiff` | 10240 | 15360 | 0.841 |
+| `sample_slide.tiff` | 10240 | 8192 | 1.000 |
+
+This is usually the key conceptual shift in the pipeline: one slide row turns into many tile rows, and each row carries a quantitative label rather than just raw coordinates.
+
 ## Example
 
 ```python

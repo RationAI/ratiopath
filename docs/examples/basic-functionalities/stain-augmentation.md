@@ -18,6 +18,13 @@ You can provide either:
 - a fixed stain-conversion matrix,
 - or a callable that estimates the matrix from each image.
 
+!!! tip "Bundled example input"
+    The figure below shows the two augmentation modes discussed on this page.
+    The middle panel follows the adaptive-matrix workflow, while the right panel follows the fixed-`HE` workflow shown later on this page.
+
+![Stain augmentation variants from the bundled demo slide](../../assets/examples/ecdp-stain-augmentation-triptych.png){ align=center }
+*Using one real crop for all three panels makes it easier to see how the adaptive and fixed-matrix variants differ in practice.*
+
 ## Example With An Adaptive Matrix
 
 ```python
@@ -25,8 +32,16 @@ import numpy as np
 
 from ratiopath.augmentations import StainAugmentor, estimate_stain_vectors
 from ratiopath.augmentations.estimate_stain_vectors import HE
+from ratiopath.openslide import OpenSlide
 
-tile = np.asarray(...)  # RGB tile of shape (H, W, 3), dtype uint8
+with OpenSlide("slide_a.tiff") as slide:
+    tile = slide.read_tile(
+        x=9216,
+        y=7168,
+        extent_x=2048,
+        extent_y=2048,
+        level=0,
+    )
 
 augmentor = StainAugmentor(
     conv_matrix=lambda image: estimate_stain_vectors(image, HE),
@@ -37,6 +52,14 @@ augmentor = StainAugmentor(
 
 augmented_tile = augmentor(image=tile)["image"]
 ```
+
+??? example "Expected outputs"
+    `augmented_tile` stays in the same image space as the input tile:
+
+    - shape: `(2048, 2048, 3)`
+    - dtype: `uint8`
+
+    The pixel values change, but the tile dimensions and layout do not.
 
 ??? info "Under the hood"
     `estimate_stain_vectors` applies an optical-density transform, discards unsuitable pixels, and estimates a stain basis from the remaining signal.
@@ -57,6 +80,10 @@ augmentor = StainAugmentor(
     p=1.0,
 )
 ```
+
+??? example "Expected outputs"
+    The fixed-matrix version produces the same kind of output array as the adaptive version.
+    The difference is only in how the stain basis is chosen, not in the output tensor shape or datatype.
 
 Use the fixed-matrix version when you want deterministic stain semantics across tiles and the adaptive version when slide-to-slide stain variation is large.
 
