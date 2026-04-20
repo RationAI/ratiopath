@@ -18,6 +18,9 @@
 5. Optionally attach annotation or overlay signals.
 6. Save the resulting train and test tile datasets separately.
 
+![Leakage-safe grouped split diagram](../../assets/examples/leakage-safe-splits.png){ align=center }
+*Split the slide table first, then build per-split tile datasets so every derived tile inherits a leak-safe parent assignment.*
+
 ## Example
 
 ```python

@@ -21,6 +21,13 @@ The default pipeline currently applies:
 
 That gives you a raster mask that can later be consumed by `tile_overlay` or `tile_overlay_overlap`.
 
+!!! tip "Bundled example input"
+    The figure below shows the intended result of this workflow:
+    an original slide view, the corresponding binary tissue mask, and an overlay blend that makes the alignment easy to verify.
+
+![Bundled tissue mask demo triptych](../../assets/examples/ecdp-tissue-mask-triptych.png){ align=center }
+*The included overlay file makes it easier to understand what `tissue_mask` is expected to produce before you generate your own mask outputs.*
+
 ## Example With The Default Filter
 
 ```python
@@ -90,6 +97,10 @@ mask, mask_mpp = tissue_mask(
     filter=custom_filter,
 )
 ```
+
+??? example "Expected outputs"
+    The custom-filter example returns an in-memory `mask` plus `mask_mpp`.
+    If you save it, the output should be another aligned binary-like overlay that can be consumed by `tile_overlay` or `tile_overlay_overlap`.
 
 ??? info "Why customize the filter"
     The default grayscale path is a reasonable general-purpose choice, but some stains or scanner profiles separate tissue from background more cleanly in saturation space.

@@ -14,6 +14,9 @@
 `grid_tiles` only generates coordinates.
 That makes it the right tool when you want to inspect or filter the sampling plan before any expensive image IO happens.
 
+![Tile boundary strategies diagram](../../assets/examples/tile-grid-boundary-strategies.png){ align=center }
+*`drop`, `keep`, and `shift` differ only at the slide boundary, but that difference controls whether you lose coverage or allow edge tiles.*
+
 ## Example
 
 ```python
@@ -85,6 +88,9 @@ edge_safe_coordinates = list(
     That typically improves throughput because the expensive image decode work happens on a smaller, better-balanced dataset.
 
 ## Turning Coordinates Into Rows
+
+![Slide row expanded into tile rows](../../assets/examples/slide-row-to-tile-rows.png){ align=center }
+*One slide row becomes many tile rows because downstream transforms need tile coordinates and slide context on every record.*
 
 In a Ray workflow, you usually expand one slide row into many tile rows:
 

@@ -18,6 +18,9 @@
 5. Read tile pixels with `read_slide_tiles`.
 6. Filter tiles and write the result.
 
+![Distributed tiling pipeline](../../assets/examples/distributed-tiling-pipeline.png){ align=center }
+*The pipeline stays metadata-only until tile pixels are actually needed, which is why it scales better than eager extraction.*
+
 ## Example
 
 ```python
