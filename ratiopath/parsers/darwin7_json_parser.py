@@ -15,6 +15,7 @@ class Darwin7JSONParser:
     Extracts geometries and metadata from Darwin JSON structures into a GeoDataFrame.
     Supports Polygon, Point, and bounding box geometries.
     Expected JSON schema:
+    ```bash
     Root
     └── annotations (list)
         ├── Feature (Polygon)
@@ -30,6 +31,7 @@ class Darwin7JSONParser:
         └── Feature (Point)
             ├── id: "uuid"
             └── point: {x, y}
+    ```
     """
 
     def __init__(self, file_path: Path | str | TextIO) -> None:

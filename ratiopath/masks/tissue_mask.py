@@ -1,29 +1,18 @@
-import pyvips
+from __future__ import annotations
 
-from ratiopath.masks.vips_filters import (
-    VipsClosing,
-    VipsCompose,
-    VipsFilter,
-    VipsGrayScaleFilter,
-    VipsOpening,
-    VipsOtsu,
-)
-from ratiopath.masks.vips_filters.typed import Res
+from typing import TYPE_CHECKING
 
 
-default_filter = VipsCompose(
-    [
-        VipsGrayScaleFilter(),
-        VipsOtsu(),
-        VipsOpening(),
-        VipsClosing(),
-    ]
-)
+if TYPE_CHECKING:
+    import pyvips
+
+    from ratiopath.masks.vips_filters import VipsFilter
+    from ratiopath.masks.vips_filters.typed import Res
 
 
 def tissue_mask(
-    slide: pyvips.Image, mpp: Res, filter: VipsFilter = default_filter
-) -> tuple[pyvips.Image, Res]:
+    slide: pyvips.Image, mpp: Res, filter: VipsFilter | None = None
+) -> pyvips.Image:
     """Generates a tissue mask from a whole-slide image (WSI) using saturation channel extraction and morphological operations, and saves the mask as a TIFF image.
 
     The function extracts the saturation channel from the WSI, applies Otsu thresholding to
@@ -40,4 +29,22 @@ def tissue_mask(
     Returns:
         The generated tissue mask as pyvips.Image.
     """
-    return filter(slide, mpp)
+    from ratiopath.masks.vips_filters import (
+        VipsClosing,
+        VipsCompose,
+        VipsGrayScaleFilter,
+        VipsOpening,
+        VipsOtsu,
+    )
+
+    if filter is None:
+        filter = VipsCompose(
+            [
+                VipsGrayScaleFilter(),
+                VipsOtsu(),
+                VipsClosing(),
+                VipsOpening(),
+            ]
+        )
+
+    return filter(slide, mpp)[0]
