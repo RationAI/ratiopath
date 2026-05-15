@@ -13,7 +13,6 @@ license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.12,<3.14"
 dependencies = [
-    "albumentations>=2.0.8",
     "imagecodecs>=2025.8.2",
     "numpy>=2.2.2",
     "openslide-python>=1.4.1",
@@ -29,6 +28,7 @@ dependencies = [
     "geopandas>=1.1.2",
     "rasterio>=1.4.3",
     "scikit-learn>=1.8.0",
+    "albumentationsx>=2.3.0",
 ]
 
 [dependency-groups]
