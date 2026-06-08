@@ -13,6 +13,7 @@ on:
 permissions:
   contents: write
   issues: write
+  pull-requests: write
 
 concurrency:
   group: docs-preview-gh-pages
@@ -120,29 +121,42 @@ jobs:
             const { owner, repo } = context.repo;
             const issue_number = context.issue.number;
 
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner,
-              repo,
-              issue_number,
-            });
-
-            const existingComment = comments.find(
-              (comment) => comment.user?.type === 'Bot' && comment.body?.includes(marker),
-            );
-
-            if (existingComment) {
-              await github.rest.issues.updateComment({
+            try {
+              const comments = await github.paginate(github.rest.issues.listComments, {
                 owner,
                 repo,
-                comment_id: existingComment.id,
+                issue_number,
+              });
+
+              const existingComment = comments.find(
+                (comment) =>
+                  comment.user?.login === 'github-actions[bot]' &&
+                  comment.body?.includes(marker),
+              );
+
+              if (existingComment) {
+                await github.rest.issues.updateComment({
+                  owner,
+                  repo,
+                  comment_id: existingComment.id,
+                  body,
+                });
+                return;
+              }
+
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
                 body,
               });
-              return;
-            }
+            } catch (error) {
+              if (error.status === 403) {
+                core.warning(
+                  `Could not add or update the PR comment. Preview URL: ${process.env.PREVIEW_URL}`,
+                );
+                return;
+              }
 
-            await github.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number,
-              body,
-            });
+              throw error;
+            }
