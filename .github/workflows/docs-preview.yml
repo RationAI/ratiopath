@@ -26,17 +26,18 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.13"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
 
       - name: Configure git author
         run: |
@@ -57,11 +58,15 @@ jobs:
 
       - name: Deploy documentation preview
         if: github.event.action != 'closed'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          for attempt in 1 2 3; do
-            git fetch origin gh-pages
+          DOCS_REMOTE="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
 
-            if uv run --group docs mike deploy --push --update-aliases "$PREVIEW_VERSION"; then
+          for attempt in 1 2 3; do
+            git fetch "$DOCS_REMOTE" gh-pages
+
+            if uv run --group docs mike deploy --remote "$DOCS_REMOTE" --push --update-aliases "$PREVIEW_VERSION"; then
               exit 0
             fi
 
@@ -75,10 +80,14 @@ jobs:
 
       - name: Remove documentation preview
         if: github.event.action == 'closed'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          git fetch origin gh-pages
+          DOCS_REMOTE="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
 
-          if ! uv run --group docs mike list "$PREVIEW_VERSION" >/tmp/mike-preview.txt 2>&1; then
+          git fetch "$DOCS_REMOTE" gh-pages
+
+          if ! uv run --group docs mike list --remote "$DOCS_REMOTE" "$PREVIEW_VERSION" >/tmp/mike-preview.txt 2>&1; then
             if grep -Fq "identifier '$PREVIEW_VERSION' does not exist" /tmp/mike-preview.txt; then
               echo "Preview $PREVIEW_VERSION does not exist; nothing to remove."
               exit 0
@@ -89,9 +98,9 @@ jobs:
           fi
 
           for attempt in 1 2 3; do
-            git fetch origin gh-pages
+            git fetch "$DOCS_REMOTE" gh-pages
 
-            if uv run --group docs mike delete --push "$PREVIEW_VERSION"; then
+            if uv run --group docs mike delete --remote "$DOCS_REMOTE" --push "$PREVIEW_VERSION"; then
               exit 0
             fi
 
@@ -105,7 +114,7 @@ jobs:
 
       - name: Add or update PR comment
         if: github.event.action != 'closed'
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           PREVIEW_URL: ${{ env.PREVIEW_URL }}
         with:
