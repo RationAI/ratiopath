@@ -14,26 +14,49 @@ class GeoJSONParser:
     GeoJSON is a format for encoding geographic data structures using JSON.
     This parser supports both polygon and point geometries.
 
-    Extended capabilities:
-    - Relational metadata integration: Maps properties from geometry-less definition
-      features to spatial annotation features via a shared join key (solve_relations).
+    Extended capabilities include relational metadata integration, which maps
+    properties from geometry-less definition features to spatial annotation
+    features via a shared join key (solve_relations).
 
     Expected relational schema for solve_relations:
-    FeatureCollection
-    ├── Feature (Definition)
-    │   ├── geometry: null
-    │   └── properties
-    │       ├── presetID: "a376..."  <──────┐ (join_key)
-    │       └── meta: { "category": { "name": "Category", "value": "Healthy Tissue" } }
-    └── Feature (Annotation)                │
-        ├── geometry: { "type": "Polygon" } │
-        └── properties                      │
-            └── presetID: "a376..."  <──────┘
+
+    <table>
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>Geometry</th>
+          <th>Join key</th>
+          <th>Metadata</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Definition</td>
+          <td><code>null</code></td>
+          <td><code>properties[join_key]</code>, for example <code>presetID</code></td>
+          <td><code>properties.meta</code> values merged into matching annotations</td>
+        </tr>
+        <tr>
+          <td>Annotation</td>
+          <td>Spatial GeoJSON geometry, for example <code>Polygon</code></td>
+          <td><code>properties[join_key]</code>, for example <code>presetID</code></td>
+          <td>Receives metadata from the matching definition feature</td>
+        </tr>
+      </tbody>
+    </table>
     """
 
     def __init__(
         self, file_path: Path | str | TextIO, join_key: str | None = "presetID"
     ) -> None:
+        """Read GeoJSON annotations from a file path or text stream.
+
+        Args:
+            file_path: GeoJSON file path or readable text stream.
+            join_key: Shared property key used to merge geometry-less definition
+                features into spatial annotation features. Set to `None` to skip
+                relational metadata merging.
+        """
         self.gdf = gpd.read_file(file_path)
 
         if not self.gdf.empty:
