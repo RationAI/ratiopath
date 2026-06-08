@@ -3,7 +3,7 @@ name: Documentation Preview
 on:
   pull_request:
     branches: ["main"]
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, closed]
     paths:
       - "docs/**"
       - "mkdocs.yml"
@@ -11,20 +11,23 @@ on:
       - "uv.lock"
 
 permissions:
-  contents: read
+  contents: write
+  issues: write
 
 concurrency:
   group: docs-preview-pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build preview
+  preview:
+    name: Deploy preview
     runs-on: ubuntu-latest
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -34,49 +37,44 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
 
+      - name: Configure git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Prepare preview variables
+        env:
+          BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+        run: |
+          VERSION_NAME=$(printf '%s' "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g')
+          echo "PREVIEW_VERSION=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "PREVIEW_URL=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/$VERSION_NAME/" >> "$GITHUB_ENV"
+
       - name: Build documentation site
+        if: github.event.action != 'closed'
         run: uv run --group docs mkdocs build --strict
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
+      - name: Deploy documentation preview
+        if: github.event.action != 'closed'
+        run: uv run --group docs mike deploy --push --update-aliases "$PREVIEW_VERSION"
 
-      - name: Upload documentation artifact
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: site
+      - name: Remove documentation preview
+        if: github.event.action == 'closed'
+        run: |
+          if uv run --group docs mike list "$PREVIEW_VERSION" >/tmp/mike-preview.txt 2>&1; then
+            uv run --group docs mike delete --push "$PREVIEW_VERSION"
+          elif grep -Fq "identifier '$PREVIEW_VERSION' does not exist" /tmp/mike-preview.txt; then
+            echo "Preview $PREVIEW_VERSION does not exist; nothing to remove."
+          else
+            cat /tmp/mike-preview.txt
+            exit 1
+          fi
 
-  deploy:
-    name: Deploy preview
-    runs-on: ubuntu-latest
-    needs: build
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    outputs:
-      page_url: ${{ steps.deployment.outputs.page_url }}
-
-    steps:
-      - name: Deploy GitHub Pages preview
-        id: deployment
-        uses: actions/deploy-pages@v4
-        with:
-          preview: true
-
-  comment:
-    name: Comment preview link
-    runs-on: ubuntu-latest
-    needs: deploy
-    permissions:
-      pull-requests: write
-
-    steps:
       - name: Add or update PR comment
+        if: github.event.action != 'closed'
         uses: actions/github-script@v8
         env:
-          PAGE_URL: ${{ needs.deploy.outputs.page_url }}
+          PREVIEW_URL: ${{ env.PREVIEW_URL }}
         with:
           script: |
             const marker = '<!-- docs-preview-comment -->';
@@ -84,7 +82,7 @@ jobs:
               marker,
               '## Documentation Preview',
               '',
-              `Preview URL: ${process.env.PAGE_URL}`,
+              `Preview URL: ${process.env.PREVIEW_URL}`,
             ].join('\n');
 
             const { owner, repo } = context.repo;
