@@ -15,8 +15,8 @@ permissions:
   issues: write
 
 concurrency:
-  group: docs-preview-pr-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  group: docs-preview-gh-pages
+  cancel-in-progress: false
 
 jobs:
   preview:
@@ -56,19 +56,51 @@ jobs:
 
       - name: Deploy documentation preview
         if: github.event.action != 'closed'
-        run: uv run --group docs mike deploy --push --update-aliases "$PREVIEW_VERSION"
+        run: |
+          for attempt in 1 2 3; do
+            git fetch origin gh-pages
+
+            if uv run --group docs mike deploy --push --update-aliases "$PREVIEW_VERSION"; then
+              exit 0
+            fi
+
+            if [ "$attempt" = "3" ]; then
+              exit 1
+            fi
+
+            echo "Mike deploy failed; refreshing gh-pages and retrying."
+            sleep 5
+          done
 
       - name: Remove documentation preview
         if: github.event.action == 'closed'
         run: |
-          if uv run --group docs mike list "$PREVIEW_VERSION" >/tmp/mike-preview.txt 2>&1; then
-            uv run --group docs mike delete --push "$PREVIEW_VERSION"
-          elif grep -Fq "identifier '$PREVIEW_VERSION' does not exist" /tmp/mike-preview.txt; then
-            echo "Preview $PREVIEW_VERSION does not exist; nothing to remove."
-          else
+          git fetch origin gh-pages
+
+          if ! uv run --group docs mike list "$PREVIEW_VERSION" >/tmp/mike-preview.txt 2>&1; then
+            if grep -Fq "identifier '$PREVIEW_VERSION' does not exist" /tmp/mike-preview.txt; then
+              echo "Preview $PREVIEW_VERSION does not exist; nothing to remove."
+              exit 0
+            fi
+
             cat /tmp/mike-preview.txt
             exit 1
           fi
+
+          for attempt in 1 2 3; do
+            git fetch origin gh-pages
+
+            if uv run --group docs mike delete --push "$PREVIEW_VERSION"; then
+              exit 0
+            fi
+
+            if [ "$attempt" = "3" ]; then
+              exit 1
+            fi
+
+            echo "Mike delete failed; refreshing gh-pages and retrying."
+            sleep 5
+          done
 
       - name: Add or update PR comment
         if: github.event.action != 'closed'
