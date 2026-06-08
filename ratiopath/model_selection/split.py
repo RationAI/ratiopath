@@ -174,7 +174,7 @@ class StratifiedGroupShuffleSplit(GroupsConsumerMixin, BaseShuffleSplit):
     prefer_skip_nested_validation=True,
 )
 def train_test_split(
-    *arrays,
+    *arrays: Any,
     test_size: None | Float = None,
     train_size: None | Float = None,
     random_state: np.random.RandomState | None | Int = None,
