@@ -6,6 +6,7 @@ on:
     types: [opened, synchronize, reopened, ready_for_review, closed]
     paths:
       - "docs/**"
+      - "ratiopath/**"
       - "mkdocs.yml"
       - "pyproject.toml"
       - "uv.lock"
