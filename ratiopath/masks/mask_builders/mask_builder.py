@@ -204,18 +204,21 @@ class MaskBuilder[DType: np.generic, AggregatorR]:
     def finalize(self) -> AggregatorR:
         return self.aggregator.finalize(self.storage)
 
-    def resize_to_source(self, image: NDArray[DType]) -> pyvips.Image:
+    def resize_to_source(self, image: NDArray[DType], **kwargs: Any) -> pyvips.Image:
         """Resize a mask array to the original source resolution using pyvips.
 
         Args:
             image: Array of shape (C, H_mask, W_mask) to be resized to (H_source, W_source, C).
+            kwargs: Additional arguments passed to pyvips resize (e.g., kernel="nearest").
         """
         import pyvips
 
         vips_image = pyvips.Image.new_from_array(image.transpose(1, 2, 0))
 
         scale_factors = self.source_extents / self.mask_extents
-        vips_image = vips_image.resize(scale_factors[1], vscale=scale_factors[0])
+        vips_image = vips_image.resize(
+            scale_factors[1], vscale=scale_factors[0], **kwargs
+        )
         vips_image = vips_image.crop(
             0, 0, self.source_extents[1], self.source_extents[0]
         )
