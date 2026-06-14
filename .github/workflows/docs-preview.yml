@@ -1,0 +1,170 @@
+name: Documentation Preview
+
+on:
+  pull_request:
+    branches: ["main"]
+    types: [opened, synchronize, reopened, ready_for_review, closed]
+    paths:
+      - "docs/**"
+      - "ratiopath/**"
+      - "mkdocs.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: docs-preview-gh-pages
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    name: Deploy preview
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/astral-sh/uv:0.11.20-python3.13-trixie
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Configure git author
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Prepare preview variables
+        env:
+          BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+        run: |
+          VERSION_NAME=$(printf '%s' "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g')
+          echo "PREVIEW_VERSION=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "PREVIEW_URL=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/$VERSION_NAME/" >> "$GITHUB_ENV"
+
+      - name: Build documentation site
+        if: github.event.action != 'closed'
+        run: uv run --group docs mkdocs build --strict
+
+      - name: Deploy documentation preview
+        if: github.event.action != 'closed'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          DOCS_REMOTE="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+
+          for attempt in 1 2 3; do
+            git fetch "$DOCS_REMOTE" gh-pages
+            git branch -f gh-pages FETCH_HEAD
+
+            if uv run --group docs mike deploy --remote "$DOCS_REMOTE" --push --update-aliases "$PREVIEW_VERSION"; then
+              exit 0
+            fi
+
+            if [ "$attempt" = "3" ]; then
+              exit 1
+            fi
+
+            echo "Mike deploy failed; refreshing gh-pages and retrying."
+            sleep 5
+          done
+
+      - name: Remove documentation preview
+        if: github.event.action == 'closed'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          DOCS_REMOTE="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+
+          git fetch "$DOCS_REMOTE" gh-pages
+          git branch -f gh-pages FETCH_HEAD
+
+          if ! uv run --group docs mike list --remote "$DOCS_REMOTE" "$PREVIEW_VERSION" >/tmp/mike-preview.txt 2>&1; then
+            if grep -Fq "identifier '$PREVIEW_VERSION' does not exist" /tmp/mike-preview.txt; then
+              echo "Preview $PREVIEW_VERSION does not exist; nothing to remove."
+              exit 0
+            fi
+
+            cat /tmp/mike-preview.txt
+            exit 1
+          fi
+
+          for attempt in 1 2 3; do
+            git fetch "$DOCS_REMOTE" gh-pages
+            git branch -f gh-pages FETCH_HEAD
+
+            if uv run --group docs mike delete --remote "$DOCS_REMOTE" --push "$PREVIEW_VERSION"; then
+              exit 0
+            fi
+
+            if [ "$attempt" = "3" ]; then
+              exit 1
+            fi
+
+            echo "Mike delete failed; refreshing gh-pages and retrying."
+            sleep 5
+          done
+
+      - name: Add or update PR comment
+        if: github.event.action != 'closed'
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          PREVIEW_URL: ${{ env.PREVIEW_URL }}
+        with:
+          script: |
+            const marker = '<!-- docs-preview-comment -->';
+            const body = [
+              marker,
+              '## Documentation Preview',
+              '',
+              `Preview URL: ${process.env.PREVIEW_URL}`,
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+
+            try {
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner,
+                repo,
+                issue_number,
+              });
+
+              const existingComment = comments.find(
+                (comment) =>
+                  comment.user?.login === 'github-actions[bot]' &&
+                  comment.body?.includes(marker),
+              );
+
+              if (existingComment) {
+                await github.rest.issues.updateComment({
+                  owner,
+                  repo,
+                  comment_id: existingComment.id,
+                  body,
+                });
+                return;
+              }
+
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body,
+              });
+            } catch (error) {
+              if (error.status === 403) {
+                core.warning(
+                  `Could not add or update the PR comment. Preview URL: ${process.env.PREVIEW_URL}`,
+                );
+                return;
+              }
+
+              throw error;
+            }
