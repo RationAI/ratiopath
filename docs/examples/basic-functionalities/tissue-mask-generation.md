@@ -11,13 +11,13 @@
 
 ## Why This Approach
 
-`tissue_mask` runs a `pyvips` filter pipeline over a whole-slide image and returns a mask image plus the physical resolution of that mask.
+`tissue_mask` runs a `pyvips` filter pipeline over a whole-slide image and returns the mask image.
 The default pipeline currently applies:
 
 - grayscale conversion,
 - Otsu thresholding,
-- morphological opening,
-- morphological closing.
+- morphological closing,
+- morphological opening.
 
 That gives you a raster mask that can later be consumed by `tile_overlay` or `tile_overlay_overlap`.
 
@@ -37,7 +37,7 @@ from ratiopath.masks import tissue_mask
 
 slide = pyvips.Image.new_from_file("slide.ome.tif", access="sequential")
 
-mask, mask_mpp = tissue_mask(
+mask = tissue_mask(
     slide=slide,
     mpp=(8.0, 8.0),
 )
@@ -49,14 +49,7 @@ mask.tiffsave(
     bigtiff=True,
     compression="lzw",
 )
-
-print(mask_mpp)
 ```
-
-??? example "Example output"
-    ```text
-    (8.0, 8.0)
-    ```
 
 ??? info "Under the hood"
     `tissue_mask` itself is thin.
@@ -91,7 +84,7 @@ custom_filter = VipsCompose(
     ]
 )
 
-mask, mask_mpp = tissue_mask(
+mask = tissue_mask(
     slide=slide,
     mpp=(8.0, 8.0),
     filter=custom_filter,
@@ -99,7 +92,7 @@ mask, mask_mpp = tissue_mask(
 ```
 
 ??? example "Expected outputs"
-    The custom-filter example returns an in-memory `mask` plus `mask_mpp`.
+    The custom-filter example returns an in-memory `pyvips.Image` mask.
     If you save it, the output should be another aligned binary-like overlay that can be consumed by `tile_overlay` or `tile_overlay_overlap`.
 
 ??? info "Why customize the filter"

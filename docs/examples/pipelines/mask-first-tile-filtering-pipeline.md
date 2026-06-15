@@ -44,7 +44,7 @@ slide_paths = [
 
 def generate_mask(slide_path: str) -> str:
     slide = pyvips.Image.new_from_file(slide_path, access="sequential")
-    mask, _ = tissue_mask(slide=slide, mpp=(8.0, 8.0))
+    mask = tissue_mask(slide=slide, mpp=(8.0, 8.0))
     mask_path = mask_dir / f"{Path(slide_path).stem}_tissue_mask.tiff"
     mask.tiffsave(
         str(mask_path),
