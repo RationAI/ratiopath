@@ -215,7 +215,7 @@ class MaskBuilder[DType: np.generic, AggregatorR]:
 
         vips_image = pyvips.Image.new_from_array(image.transpose(1, 2, 0))
 
-        scale_factors = self.source_extents / self.mask_extents
+        scale_factors = self.span / self.mask_extents
         vips_image = vips_image.resize(
             scale_factors[1], vscale=scale_factors[0], **kwargs
         )
