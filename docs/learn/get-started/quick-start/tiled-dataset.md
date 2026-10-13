@@ -59,7 +59,6 @@ class TileDataset(Dataset):
         # Read the region dynamically from the slide
         with OpenSlide(self.slide_path) as slide:
             return slide.read_tile(x, y, self.extent_x, self.extent_y, self.level)
-
 ```
 
 Notice that our `TileDataset` expects a `tiles` object containing the metadata. If we pass a standard Pandas DataFrame here, our RAM will quickly max out as we scale up to thousands of slides.
@@ -102,9 +101,13 @@ class SlideDataset(ConcatDataset[TileDataset]):
         tiles_parquet_path: str,
     ) -> None:
         # 'train' is the default split name for Hugging Face datasets.
-        self.slides_dataset = load_dataset("parquet", data_files=slides_parquet_path, split="train")
+        self.slides_dataset = load_dataset(
+            "parquet", data_files=slides_parquet_path, split="train"
+        )
         # Sort by slide_id for much faster filtering
-        self.tiles_dataset = load_dataset("parquet", data_files=tiles_parquet_path, split="train").sort("slide_id")
+        self.tiles_dataset = load_dataset(
+            "parquet", data_files=tiles_parquet_path, split="train"
+        ).sort("slide_id")
 
         self._slide_id_to_indices = self._build_tile_index(self.tiles_dataset)
 
@@ -121,14 +124,13 @@ class SlideDataset(ConcatDataset[TileDataset]):
 
         super().__init__(datasets)
 
-    
     @staticmethod
     def _build_tile_index(tiles: HFDataset) -> dict[str, range]:
         """Creates a fast lookup table for slide indices.
 
         This function builds a mapping from `slide_id` to the range of indices in the
         `tiles` dataset that correspond to that slide. It assumes the dataset is sorted.
-        
+
         Args:
             tiles: A dataset containing a `slide_id` column, sorted by `slide_id`.
 
@@ -162,12 +164,11 @@ class SlideDataset(ConcatDataset[TileDataset]):
     def filter_tiles_by_slide(self, slide_id: str) -> HFDataset:
         """Returns a view of the dataset using a slice or indices.
 
-        This uses the precomputed `_slide_id_to_indices` mapping to efficiently 
+        This uses the precomputed `_slide_id_to_indices` mapping to efficiently
         retrieve the relevant tiles without copying data.
         """
         tile_range = self._slide_id_to_indices.get(slide_id, range(0))
         return self.tiles_dataset.select(tile_range)
-
 ```
 
 ### Using the Dataset
@@ -184,10 +185,5 @@ full_dataset = SlideDataset(
 )
 
 # Load with multiprocessing for high throughput
-dataloader = DataLoader(
-    full_dataset, 
-    batch_size=64, 
-    shuffle=True, 
-    num_workers=8
-)
+dataloader = DataLoader(full_dataset, batch_size=64, shuffle=True, num_workers=8)
 ```

@@ -78,7 +78,9 @@ mask_builder = MaskBuilder(
 )
 
 # Process tiles
-for tiles, xs, ys in generate_tiles_from_slide(slide, LEVEL, tile_extents, tile_strides):
+for tiles, xs, ys in generate_tiles_from_slide(
+    slide, LEVEL, tile_extents, tile_strides
+):
     features = model.predict(tiles)  # features shape: (B, 1)
     coords_batch = np.stack([ys, xs], axis=1)  # shape: (B, 2)
     mask_builder.update_batch(features, coords_batch)

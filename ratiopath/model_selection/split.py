@@ -76,9 +76,9 @@ class StratifiedGroupShuffleSplit(GroupsConsumerMixin, BaseShuffleSplit):
         self,
         n_splits: Int = 5,
         *,
-        test_size: None | Float = None,
-        train_size: None | Float = None,
-        random_state: np.random.RandomState | None | Int = None,
+        test_size: Float | None = None,
+        train_size: Float | None = None,
+        random_state: np.random.RandomState | Int | None = None,
     ) -> None:
         super().__init__(
             n_splits=n_splits,
@@ -175,12 +175,12 @@ class StratifiedGroupShuffleSplit(GroupsConsumerMixin, BaseShuffleSplit):
 )
 def train_test_split(
     *arrays: Any,
-    test_size: None | Float = None,
-    train_size: None | Float = None,
-    random_state: np.random.RandomState | None | Int = None,
+    test_size: Float | None = None,
+    train_size: Float | None = None,
+    random_state: np.random.RandomState | Int | None = None,
     shuffle: bool = True,
-    stratify: None | ArrayLike = None,
-    groups: None | ArrayLike = None,
+    stratify: ArrayLike | None = None,
+    groups: ArrayLike | None = None,
 ) -> list:
     """Split arrays or matrices into random train and test subsets.
 

@@ -64,7 +64,9 @@ def expand_tiles(row: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def build_tiles(split_slides):
-    tiles = split_slides.flat_map(expand_tiles).repartition(target_num_rows_per_block=128)
+    tiles = split_slides.flat_map(expand_tiles).repartition(
+        target_num_rows_per_block=128
+    )
     tiles = tiles.with_column(
         "tile",
         read_slide_tiles(

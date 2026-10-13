@@ -26,7 +26,9 @@ from ratiopath.model_selection import train_test_split
 
 X = np.array(["tile_1", "tile_2", "tile_3", "tile_4", "tile_5", "tile_6"])
 y = np.array([0, 0, 1, 1, 0, 1])
-groups = np.array(["patient_a", "patient_a", "patient_b", "patient_b", "patient_c", "patient_c"])
+groups = np.array(
+    ["patient_a", "patient_a", "patient_b", "patient_b", "patient_c", "patient_c"]
+)
 
 X_train, X_test, y_train, y_test = train_test_split(
     X,
