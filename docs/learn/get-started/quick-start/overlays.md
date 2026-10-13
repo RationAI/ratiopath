@@ -36,11 +36,13 @@ You must augment the tile dataset to include a column with the file path to the 
 slides = ...
 tiles = ...
 
+
 def add_overlay_path(batch: dict) -> dict:
     """Adds the overlay path for each tile in the batch."""
     # Example: Replace the WSI extension with the mask file extension
     batch["tissue_mask_path"] = batch["path"].str.replace(".mrxs", "_tissue_mask.tiff")
     return batch
+
 
 tiles = tiles.map_batches(add_overlay_path)
 ```
@@ -54,7 +56,7 @@ from shapely.geometry import box
 
 
 # Assuming the tile size is 512x512 pixels
-roi = box(128, 128, 384, 384) # A box from (128,128) to (384,384)
+roi = box(128, 128, 384, 384)  # A box from (128,128) to (384,384)
 ```
 
 ### 2.3 Extracting Overlay Patches
@@ -117,8 +119,9 @@ You can easily post-process this to extract coverage of a specific class (e.g., 
 def extract_foreground_coverage(tile: dict) -> dict:
     """Extracts the foreground coverage (value 255) from the overlap dictionary."""
     # Use .get(255, 0.0) to safely retrieve the value, defaulting to 0.0 if not present
-    tile["tissue_coverage"] = tile["tissue_mask_overlap"].get('255', 0.0)
+    tile["tissue_coverage"] = tile["tissue_mask_overlap"].get("255", 0.0)
     return tile
+
 
 tiles_with_tissue_coverage = tiles_with_overlap.map(extract_foreground_coverage).filter(
     lambda tile: tile["tissue_coverage"] >= 0.5  # Keep tiles with at least 50% tissue
