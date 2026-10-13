@@ -39,6 +39,7 @@ nav:
           - utils: reference/tiling/utils.md
       - Masks:
           - mask_builders: reference/masks/mask_builders.md
+          - tile_mask: reference/masks/tile_mask.md
           - tissue_mask: reference/masks/tissue_mask.md
       - Model Selection:
           - split: reference/model_selection/split.md
