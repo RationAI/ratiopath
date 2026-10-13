@@ -17,7 +17,7 @@ class OpenSlideTileReader:
         path: str | Path,
         level: int | str | None = None,
         resolution: float | tuple[float, float] | None = None,
-        background: None | tuple[int, int, int] = (255, 255, 255),
+        background: tuple[int, int, int] | None = (255, 255, 255),
     ) -> None:
         assert (level is None) != (resolution is None), (
             "Either level or resolution must be provided"

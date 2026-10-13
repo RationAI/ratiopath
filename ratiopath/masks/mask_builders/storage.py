@@ -73,13 +73,13 @@ class MemMap[DType: np.generic](np.memmap):
         if hasattr(self, "_mmap") and self._mmap is not None:
             try:
                 self._mmap.close()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - best-effort cleanup, also runs from __del__
                 logger.warning(f"Failed to close memmap: {e}")
 
         if self._tempfile is not None:
             try:
                 Path(self._tempfile).unlink(missing_ok=True)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - best-effort cleanup, also runs from __del__
                 logger.warning(f"Failed to delete memmap file {self._tempfile}: {e}")
             self._tempfile = None
 

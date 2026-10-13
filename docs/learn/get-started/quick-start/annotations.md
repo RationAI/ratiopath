@@ -37,12 +37,14 @@ For each tile, define its region of interest (ROI) as a polygon. Then, calculate
 ```python
 from shapely import Polygon
 
-roi = Polygon([
-    (0, 0),
-    (row["tile_extent_x"], 0),
-    (row["tile_extent_x"], row["tile_extent_y"]),
-    (0, row["tile_extent_y"]),
-])
+roi = Polygon(
+    [
+        (0, 0),
+        (row["tile_extent_x"], 0),
+        (row["tile_extent_x"], row["tile_extent_y"]),
+        (0, row["tile_extent_y"]),
+    ]
+)
 ```
 
 ---
@@ -54,26 +56,31 @@ Use the `tile_annotations` function to compute which annotation polygons overlap
 ```python
 from ratiopath.tiling import tile_annotations
 
+
 def tiling_with_annotations(row: dict[str, Any]) -> list[dict[str, Any]]:
     annotation_path = row["path"].replace(".mrxs", ".xml")
     parser = ASAPParser(annotation_path)
     annotations = list(parser.get_polygons(name="...", part_of_group="..."))
 
-    roi = Polygon([
-        (0, 0),
-        (row["tile_extent_x"], 0),
-        (row["tile_extent_x"], row["tile_extent_y"]),
-        (0, row["tile_extent_y"]),
-    ])
+    roi = Polygon(
+        [
+            (0, 0),
+            (row["tile_extent_x"], 0),
+            (row["tile_extent_x"], row["tile_extent_y"]),
+            (0, row["tile_extent_y"]),
+        ]
+    )
 
-    coordinates = np.array(list(
-        grid_tiles(
-            slide_extent=(row["extent_x"], row["extent_y"]),
-            tile_extent=(row["tile_extent_x"], row["tile_extent_y"]),
-            stride=(row["stride_x"], row["stride_y"]),
-            last="keep",
+    coordinates = np.array(
+        list(
+            grid_tiles(
+                slide_extent=(row["extent_x"], row["extent_y"]),
+                tile_extent=(row["tile_extent_x"], row["tile_extent_y"]),
+                stride=(row["stride_x"], row["stride_y"]),
+                last="keep",
+            )
         )
-    ))
+    )
     return [
         {
             "tile_x": coordinates[i, 0],

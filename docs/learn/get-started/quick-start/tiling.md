@@ -185,6 +185,7 @@ First, define a `tiling` function. This function takes a slide row (which contai
 from typing import Any
 from ratiopath.tiling import grid_tiles
 
+
 def tiling(row: dict[str, Any]) -> list[dict[str, Any]]:
     return [
         {
@@ -203,6 +204,7 @@ def tiling(row: dict[str, Any]) -> list[dict[str, Any]]:
             last="keep",
         )
     ]
+
 
 tiles = slides.flat_map(tiling, num_cpus=0.2, memory=128 * 1024**2)
 ```
