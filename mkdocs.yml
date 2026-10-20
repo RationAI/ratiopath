@@ -57,6 +57,8 @@ nav:
           - read_slides: reference/ray/read_slides.md
           - VipsTiffDatasink: reference/ray/vips_tiff_datasink.md
       - OpenSlide: reference/openslide.md
+      - Lightning:
+          - MultiloaderLifecycle: reference/lightning/multiloader_lifecycle.md
 
 theme:
   name: material

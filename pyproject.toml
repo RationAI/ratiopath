@@ -31,6 +31,9 @@ dependencies = [
     "albumentationsx>=2.3.0",
 ]
 
+[project.optional-dependencies]
+lightning = ["lightning>=2.4.0"]
+
 [dependency-groups]
 dev = [
     "mypy",
@@ -43,7 +46,7 @@ docs = [
     "mkdocs-material>=9.6.18",
     "mkdocstrings[python]>=0.30.0",
 ]
-tests = ["openslide-bin>=4.0.0.8", "pytest>=8.4.1"]
+tests = ["lightning>=2.4.0", "openslide-bin>=4.0.0.8", "pytest>=8.4.1"]
 
 
 [project.urls]
